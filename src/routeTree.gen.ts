@@ -9,11 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MaquinaRouteImport } from './routes/maquina'
+import { Route as FerramentasRouteImport } from './routes/ferramentas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PecasIndexRouteImport } from './routes/pecas.index'
 import { Route as PecasIdRouteImport } from './routes/pecas.$id'
 import { Route as PecasIdCncRouteImport } from './routes/pecas.$id.cnc'
 
+const MaquinaRoute = MaquinaRouteImport.update({
+  id: '/maquina',
+  path: '/maquina',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FerramentasRoute = FerramentasRouteImport.update({
+  id: '/ferramentas',
+  path: '/ferramentas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +49,16 @@ const PecasIdCncRoute = PecasIdCncRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas/': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
@@ -50,26 +66,63 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas/': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pecas/$id' | '/pecas/' | '/pecas/$id/cnc'
+  fullPaths:
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas/'
+    | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pecas/$id' | '/pecas' | '/pecas/$id/cnc'
-  id: '__root__' | '/' | '/pecas/$id' | '/pecas/' | '/pecas/$id/cnc'
+  to:
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas'
+    | '/pecas/$id/cnc'
+  id:
+    | '__root__'
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas/'
+    | '/pecas/$id/cnc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FerramentasRoute: typeof FerramentasRoute
+  MaquinaRoute: typeof MaquinaRoute
   PecasIdRoute: typeof PecasIdRouteWithChildren
   PecasIndexRoute: typeof PecasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/maquina': {
+      id: '/maquina'
+      path: '/maquina'
+      fullPath: '/maquina'
+      preLoaderRoute: typeof MaquinaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ferramentas': {
+      id: '/ferramentas'
+      path: '/ferramentas'
+      fullPath: '/ferramentas'
+      preLoaderRoute: typeof FerramentasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -114,6 +167,8 @@ const PecasIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FerramentasRoute: FerramentasRoute,
+  MaquinaRoute: MaquinaRoute,
   PecasIdRoute: PecasIdRouteWithChildren,
   PecasIndexRoute: PecasIndexRoute,
 }
