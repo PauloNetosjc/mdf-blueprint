@@ -17,6 +17,7 @@ import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authenticated/pecas.index'
 import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authenticated/pecas.importar'
 import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
+import { Route as AuthenticatedPecasIdCompararRouteImport } from './routes/_authenticated/pecas.$id.comparar'
 import { Route as AuthenticatedPecasIdCncRouteImport } from './routes/_authenticated/pecas.$id.cnc'
 
 const AuthRoute = AuthRouteImport.update({
@@ -60,6 +61,12 @@ const AuthenticatedPecasIdRoute = AuthenticatedPecasIdRouteImport.update({
   path: '/pecas/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPecasIdCompararRoute =
+  AuthenticatedPecasIdCompararRouteImport.update({
+    id: '/comparar',
+    path: '/comparar',
+    getParentRoute: () => AuthenticatedPecasIdRoute,
+  } as any)
 const AuthenticatedPecasIdCncRoute = AuthenticatedPecasIdCncRouteImport.update({
   id: '/cnc',
   path: '/cnc',
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/pecas/': typeof AuthenticatedPecasIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
+  '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -85,6 +93,7 @@ export interface FileRoutesByTo {
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/pecas': typeof AuthenticatedPecasIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
+  '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,6 +106,7 @@ export interface FileRoutesById {
   '/_authenticated/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/_authenticated/pecas/': typeof AuthenticatedPecasIndexRoute
   '/_authenticated/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
+  '/_authenticated/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/pecas/importar'
     | '/pecas/'
     | '/pecas/$id/cnc'
+    | '/pecas/$id/comparar'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/pecas/importar'
     | '/pecas'
     | '/pecas/$id/cnc'
+    | '/pecas/$id/comparar'
   id:
     | '__root__'
     | '/_authenticated'
@@ -130,6 +142,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pecas/importar'
     | '/_authenticated/pecas/'
     | '/_authenticated/pecas/$id/cnc'
+    | '/_authenticated/pecas/$id/comparar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -195,6 +208,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPecasIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pecas/$id/comparar': {
+      id: '/_authenticated/pecas/$id/comparar'
+      path: '/comparar'
+      fullPath: '/pecas/$id/comparar'
+      preLoaderRoute: typeof AuthenticatedPecasIdCompararRouteImport
+      parentRoute: typeof AuthenticatedPecasIdRoute
+    }
     '/_authenticated/pecas/$id/cnc': {
       id: '/_authenticated/pecas/$id/cnc'
       path: '/cnc'
@@ -207,10 +227,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedPecasIdRouteChildren {
   AuthenticatedPecasIdCncRoute: typeof AuthenticatedPecasIdCncRoute
+  AuthenticatedPecasIdCompararRoute: typeof AuthenticatedPecasIdCompararRoute
 }
 
 const AuthenticatedPecasIdRouteChildren: AuthenticatedPecasIdRouteChildren = {
   AuthenticatedPecasIdCncRoute: AuthenticatedPecasIdCncRoute,
+  AuthenticatedPecasIdCompararRoute: AuthenticatedPecasIdCompararRoute,
 }
 
 const AuthenticatedPecasIdRouteWithChildren =
@@ -244,3 +266,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
