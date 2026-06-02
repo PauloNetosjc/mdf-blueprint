@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SafetyBanner } from "@/components/safety-banner";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -118,8 +121,22 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AppLayout />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
+  );
+}
+
+function AppLayout() {
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+      <AppSidebar />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <SafetyBanner />
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

@@ -9,38 +9,133 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MaquinaRouteImport } from './routes/maquina'
+import { Route as FerramentasRouteImport } from './routes/ferramentas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PecasIndexRouteImport } from './routes/pecas.index'
+import { Route as PecasImportarRouteImport } from './routes/pecas.importar'
+import { Route as PecasIdRouteImport } from './routes/pecas.$id'
+import { Route as PecasIdCncRouteImport } from './routes/pecas.$id.cnc'
 
+const MaquinaRoute = MaquinaRouteImport.update({
+  id: '/maquina',
+  path: '/maquina',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FerramentasRoute = FerramentasRouteImport.update({
+  id: '/ferramentas',
+  path: '/ferramentas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PecasIndexRoute = PecasIndexRouteImport.update({
+  id: '/pecas/',
+  path: '/pecas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PecasImportarRoute = PecasImportarRouteImport.update({
+  id: '/pecas/importar',
+  path: '/pecas/importar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PecasIdRoute = PecasIdRouteImport.update({
+  id: '/pecas/$id',
+  path: '/pecas/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PecasIdCncRoute = PecasIdCncRouteImport.update({
+  id: '/cnc',
+  path: '/cnc',
+  getParentRoute: () => PecasIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
+  '/pecas/': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
+  '/pecas': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ferramentas': typeof FerramentasRoute
+  '/maquina': typeof MaquinaRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
+  '/pecas/': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas/importar'
+    | '/pecas/'
+    | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas/importar'
+    | '/pecas'
+    | '/pecas/$id/cnc'
+  id:
+    | '__root__'
+    | '/'
+    | '/ferramentas'
+    | '/maquina'
+    | '/pecas/$id'
+    | '/pecas/importar'
+    | '/pecas/'
+    | '/pecas/$id/cnc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FerramentasRoute: typeof FerramentasRoute
+  MaquinaRoute: typeof MaquinaRoute
+  PecasIdRoute: typeof PecasIdRouteWithChildren
+  PecasImportarRoute: typeof PecasImportarRoute
+  PecasIndexRoute: typeof PecasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/maquina': {
+      id: '/maquina'
+      path: '/maquina'
+      fullPath: '/maquina'
+      preLoaderRoute: typeof MaquinaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ferramentas': {
+      id: '/ferramentas'
+      path: '/ferramentas'
+      fullPath: '/ferramentas'
+      preLoaderRoute: typeof FerramentasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +143,56 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pecas/': {
+      id: '/pecas/'
+      path: '/pecas'
+      fullPath: '/pecas/'
+      preLoaderRoute: typeof PecasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pecas/importar': {
+      id: '/pecas/importar'
+      path: '/pecas/importar'
+      fullPath: '/pecas/importar'
+      preLoaderRoute: typeof PecasImportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pecas/$id': {
+      id: '/pecas/$id'
+      path: '/pecas/$id'
+      fullPath: '/pecas/$id'
+      preLoaderRoute: typeof PecasIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pecas/$id/cnc': {
+      id: '/pecas/$id/cnc'
+      path: '/cnc'
+      fullPath: '/pecas/$id/cnc'
+      preLoaderRoute: typeof PecasIdCncRouteImport
+      parentRoute: typeof PecasIdRoute
+    }
   }
 }
 
+interface PecasIdRouteChildren {
+  PecasIdCncRoute: typeof PecasIdCncRoute
+}
+
+const PecasIdRouteChildren: PecasIdRouteChildren = {
+  PecasIdCncRoute: PecasIdCncRoute,
+}
+
+const PecasIdRouteWithChildren =
+  PecasIdRoute._addFileChildren(PecasIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FerramentasRoute: FerramentasRoute,
+  MaquinaRoute: MaquinaRoute,
+  PecasIdRoute: PecasIdRouteWithChildren,
+  PecasImportarRoute: PecasImportarRoute,
+  PecasIndexRoute: PecasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
