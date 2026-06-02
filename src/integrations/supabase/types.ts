@@ -24,6 +24,7 @@ export type Database = {
           status_leitura: string | null
           tipo: string
           url_arquivo: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -34,6 +35,7 @@ export type Database = {
           status_leitura?: string | null
           tipo: string
           url_arquivo?: string | null
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           status_leitura?: string | null
           tipo?: string
           url_arquivo?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -65,6 +68,7 @@ export type Database = {
           numero_face: number
           orientacao: string | null
           peca_id: string
+          user_id: string
         }
         Insert: {
           eixo_x_mapeado?: string | null
@@ -75,6 +79,7 @@ export type Database = {
           numero_face: number
           orientacao?: string | null
           peca_id: string
+          user_id?: string
         }
         Update: {
           eixo_x_mapeado?: string | null
@@ -85,6 +90,7 @@ export type Database = {
           numero_face?: number
           orientacao?: string | null
           peca_id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -115,6 +121,7 @@ export type Database = {
           profundidade_maxima: number
           rotacao_padrao: number
           tipo: string
+          user_id: string
         }
         Insert: {
           altura_segura?: number
@@ -134,6 +141,7 @@ export type Database = {
           profundidade_maxima?: number
           rotacao_padrao?: number
           tipo: string
+          user_id?: string
         }
         Update: {
           altura_segura?: number
@@ -153,6 +161,7 @@ export type Database = {
           profundidade_maxima?: number
           rotacao_padrao?: number
           tipo?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -185,6 +194,7 @@ export type Database = {
           template_troca_ferramenta: string
           unidade: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           altura_segura_z?: number
@@ -206,6 +216,7 @@ export type Database = {
           template_troca_ferramenta?: string
           unidade?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           altura_segura_z?: number
@@ -227,6 +238,7 @@ export type Database = {
           template_troca_ferramenta?: string
           unidade?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -245,6 +257,7 @@ export type Database = {
           peca_id: string
           profundidade: number
           tipo: string
+          user_id: string
           x: number
           y: number
           z: number | null
@@ -263,6 +276,7 @@ export type Database = {
           peca_id: string
           profundidade: number
           tipo: string
+          user_id?: string
           x: number
           y: number
           z?: number | null
@@ -281,6 +295,7 @@ export type Database = {
           peca_id?: string
           profundidade?: number
           tipo?: string
+          user_id?: string
           x?: number
           y?: number
           z?: number | null
@@ -326,6 +341,7 @@ export type Database = {
           nome: string
           status: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           altura: number
@@ -343,6 +359,7 @@ export type Database = {
           nome: string
           status?: string
           updated_at?: string
+          user_id?: string
         }
         Update: {
           altura?: number
@@ -360,6 +377,7 @@ export type Database = {
           nome?: string
           status?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -372,6 +390,7 @@ export type Database = {
           maquina_id: string
           nome_arquivo: string
           peca_id: string
+          user_id: string
           validado: boolean
           versao: number
         }
@@ -383,6 +402,7 @@ export type Database = {
           maquina_id: string
           nome_arquivo: string
           peca_id: string
+          user_id?: string
           validado?: boolean
           versao?: number
         }
@@ -394,6 +414,7 @@ export type Database = {
           maquina_id?: string
           nome_arquivo?: string
           peca_id?: string
+          user_id?: string
           validado?: boolean
           versao?: number
         }
