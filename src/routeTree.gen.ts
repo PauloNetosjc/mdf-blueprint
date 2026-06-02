@@ -11,11 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as MaquinaRouteImport } from './routes/maquina'
 import { Route as FerramentasRouteImport } from './routes/ferramentas'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as PecasIndexRouteImport } from './routes/pecas.index'
-import { Route as PecasImportarRouteImport } from './routes/pecas.importar'
-import { Route as PecasIdRouteImport } from './routes/pecas.$id'
-import { Route as PecasIdCncRouteImport } from './routes/pecas.$id.cnc'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authenticated/pecas.index'
+import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authenticated/pecas.importar'
+import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
+import { Route as AuthenticatedPecasIdCncRouteImport } from './routes/_authenticated/pecas.$id.cnc'
 
 const MaquinaRoute = MaquinaRouteImport.update({
   id: '/maquina',
@@ -27,97 +27,98 @@ const FerramentasRoute = FerramentasRouteImport.update({
   path: '/ferramentas',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PecasIndexRoute = PecasIndexRouteImport.update({
-  id: '/pecas/',
+const AuthenticatedPecasIndexRoute = AuthenticatedPecasIndexRouteImport.update({
+  id: '/_authenticated/pecas/',
   path: '/pecas/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PecasImportarRoute = PecasImportarRouteImport.update({
-  id: '/pecas/importar',
-  path: '/pecas/importar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PecasIdRoute = PecasIdRouteImport.update({
-  id: '/pecas/$id',
+const AuthenticatedPecasImportarRoute =
+  AuthenticatedPecasImportarRouteImport.update({
+    id: '/_authenticated/pecas/importar',
+    path: '/pecas/importar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedPecasIdRoute = AuthenticatedPecasIdRouteImport.update({
+  id: '/_authenticated/pecas/$id',
   path: '/pecas/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PecasIdCncRoute = PecasIdCncRouteImport.update({
+const AuthenticatedPecasIdCncRoute = AuthenticatedPecasIdCncRouteImport.update({
   id: '/cnc',
   path: '/cnc',
-  getParentRoute: () => PecasIdRoute,
+  getParentRoute: () => AuthenticatedPecasIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
-  '/pecas/$id': typeof PecasIdRouteWithChildren
-  '/pecas/importar': typeof PecasImportarRoute
-  '/pecas/': typeof PecasIndexRoute
-  '/pecas/$id/cnc': typeof PecasIdCncRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
+  '/pecas/importar': typeof AuthenticatedPecasImportarRoute
+  '/pecas/': typeof AuthenticatedPecasIndexRoute
+  '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
-  '/pecas/$id': typeof PecasIdRouteWithChildren
-  '/pecas/importar': typeof PecasImportarRoute
-  '/pecas': typeof PecasIndexRoute
-  '/pecas/$id/cnc': typeof PecasIdCncRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
+  '/pecas/importar': typeof AuthenticatedPecasImportarRoute
+  '/pecas': typeof AuthenticatedPecasIndexRoute
+  '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
-  '/pecas/$id': typeof PecasIdRouteWithChildren
-  '/pecas/importar': typeof PecasImportarRoute
-  '/pecas/': typeof PecasIndexRoute
-  '/pecas/$id/cnc': typeof PecasIdCncRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
+  '/_authenticated/pecas/importar': typeof AuthenticatedPecasImportarRoute
+  '/_authenticated/pecas/': typeof AuthenticatedPecasIndexRoute
+  '/_authenticated/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/ferramentas'
     | '/maquina'
+    | '/'
     | '/pecas/$id'
     | '/pecas/importar'
     | '/pecas/'
     | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/ferramentas'
     | '/maquina'
+    | '/'
     | '/pecas/$id'
     | '/pecas/importar'
     | '/pecas'
     | '/pecas/$id/cnc'
   id:
     | '__root__'
-    | '/'
     | '/ferramentas'
     | '/maquina'
-    | '/pecas/$id'
-    | '/pecas/importar'
-    | '/pecas/'
-    | '/pecas/$id/cnc'
+    | '/_authenticated/'
+    | '/_authenticated/pecas/$id'
+    | '/_authenticated/pecas/importar'
+    | '/_authenticated/pecas/'
+    | '/_authenticated/pecas/$id/cnc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   FerramentasRoute: typeof FerramentasRoute
   MaquinaRoute: typeof MaquinaRoute
-  PecasIdRoute: typeof PecasIdRouteWithChildren
-  PecasImportarRoute: typeof PecasImportarRoute
-  PecasIndexRoute: typeof PecasIndexRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedPecasIdRoute: typeof AuthenticatedPecasIdRouteWithChildren
+  AuthenticatedPecasImportarRoute: typeof AuthenticatedPecasImportarRoute
+  AuthenticatedPecasIndexRoute: typeof AuthenticatedPecasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -136,62 +137,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FerramentasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pecas/': {
-      id: '/pecas/'
+    '/_authenticated/pecas/': {
+      id: '/_authenticated/pecas/'
       path: '/pecas'
       fullPath: '/pecas/'
-      preLoaderRoute: typeof PecasIndexRouteImport
+      preLoaderRoute: typeof AuthenticatedPecasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pecas/importar': {
-      id: '/pecas/importar'
+    '/_authenticated/pecas/importar': {
+      id: '/_authenticated/pecas/importar'
       path: '/pecas/importar'
       fullPath: '/pecas/importar'
-      preLoaderRoute: typeof PecasImportarRouteImport
+      preLoaderRoute: typeof AuthenticatedPecasImportarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pecas/$id': {
-      id: '/pecas/$id'
+    '/_authenticated/pecas/$id': {
+      id: '/_authenticated/pecas/$id'
       path: '/pecas/$id'
       fullPath: '/pecas/$id'
-      preLoaderRoute: typeof PecasIdRouteImport
+      preLoaderRoute: typeof AuthenticatedPecasIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pecas/$id/cnc': {
-      id: '/pecas/$id/cnc'
+    '/_authenticated/pecas/$id/cnc': {
+      id: '/_authenticated/pecas/$id/cnc'
       path: '/cnc'
       fullPath: '/pecas/$id/cnc'
-      preLoaderRoute: typeof PecasIdCncRouteImport
-      parentRoute: typeof PecasIdRoute
+      preLoaderRoute: typeof AuthenticatedPecasIdCncRouteImport
+      parentRoute: typeof AuthenticatedPecasIdRoute
     }
   }
 }
 
-interface PecasIdRouteChildren {
-  PecasIdCncRoute: typeof PecasIdCncRoute
+interface AuthenticatedPecasIdRouteChildren {
+  AuthenticatedPecasIdCncRoute: typeof AuthenticatedPecasIdCncRoute
 }
 
-const PecasIdRouteChildren: PecasIdRouteChildren = {
-  PecasIdCncRoute: PecasIdCncRoute,
+const AuthenticatedPecasIdRouteChildren: AuthenticatedPecasIdRouteChildren = {
+  AuthenticatedPecasIdCncRoute: AuthenticatedPecasIdCncRoute,
 }
 
-const PecasIdRouteWithChildren =
-  PecasIdRoute._addFileChildren(PecasIdRouteChildren)
+const AuthenticatedPecasIdRouteWithChildren =
+  AuthenticatedPecasIdRoute._addFileChildren(AuthenticatedPecasIdRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   FerramentasRoute: FerramentasRoute,
   MaquinaRoute: MaquinaRoute,
-  PecasIdRoute: PecasIdRouteWithChildren,
-  PecasImportarRoute: PecasImportarRoute,
-  PecasIndexRoute: PecasIndexRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedPecasIdRoute: AuthenticatedPecasIdRouteWithChildren,
+  AuthenticatedPecasImportarRoute: AuthenticatedPecasImportarRoute,
+  AuthenticatedPecasIndexRoute: AuthenticatedPecasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
