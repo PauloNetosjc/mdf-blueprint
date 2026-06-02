@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { gerarGCode } from "@/lib/gcode";
 import { validarOperacoes, validarPecaMaquina } from "@/lib/validacoes";
 import type { Ferramenta, Maquina, Operacao, Peca, PreviewCnc } from "@/lib/db";
-import { ArrowLeft, Copy, Download, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Download, AlertTriangle, CheckCircle2, RefreshCw, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pecas/$id/cnc")({
@@ -131,6 +131,9 @@ function PreviaCnc() {
           </div>
         </div>
         <Button variant="outline" onClick={copiar}><Copy className="mr-2 h-4 w-4" />Copiar</Button>
+        <Button variant="outline" asChild>
+          <Link to="/pecas/$id/comparar" params={{ id }}><GitCompare className="mr-2 h-4 w-4" />Comparar com .nc original</Link>
+        </Button>
         <Button variant="outline" onClick={() => salvarVersao.mutate()}>
           <RefreshCw className="mr-2 h-4 w-4" />Gerar nova versão
         </Button>
