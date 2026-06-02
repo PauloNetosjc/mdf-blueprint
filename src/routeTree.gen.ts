@@ -13,6 +13,7 @@ import { Route as MaquinaRouteImport } from './routes/maquina'
 import { Route as FerramentasRouteImport } from './routes/ferramentas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PecasIndexRouteImport } from './routes/pecas.index'
+import { Route as PecasImportarRouteImport } from './routes/pecas.importar'
 import { Route as PecasIdRouteImport } from './routes/pecas.$id'
 import { Route as PecasIdCncRouteImport } from './routes/pecas.$id.cnc'
 
@@ -36,6 +37,11 @@ const PecasIndexRoute = PecasIndexRouteImport.update({
   path: '/pecas/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PecasImportarRoute = PecasImportarRouteImport.update({
+  id: '/pecas/importar',
+  path: '/pecas/importar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PecasIdRoute = PecasIdRouteImport.update({
   id: '/pecas/$id',
   path: '/pecas/$id',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
   '/pecas/': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
   '/pecas': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/ferramentas': typeof FerramentasRoute
   '/maquina': typeof MaquinaRoute
   '/pecas/$id': typeof PecasIdRouteWithChildren
+  '/pecas/importar': typeof PecasImportarRoute
   '/pecas/': typeof PecasIndexRoute
   '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/ferramentas'
     | '/maquina'
     | '/pecas/$id'
+    | '/pecas/importar'
     | '/pecas/'
     | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/ferramentas'
     | '/maquina'
     | '/pecas/$id'
+    | '/pecas/importar'
     | '/pecas'
     | '/pecas/$id/cnc'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/ferramentas'
     | '/maquina'
     | '/pecas/$id'
+    | '/pecas/importar'
     | '/pecas/'
     | '/pecas/$id/cnc'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   FerramentasRoute: typeof FerramentasRoute
   MaquinaRoute: typeof MaquinaRoute
   PecasIdRoute: typeof PecasIdRouteWithChildren
+  PecasImportarRoute: typeof PecasImportarRoute
   PecasIndexRoute: typeof PecasIndexRoute
 }
 
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/pecas'
       fullPath: '/pecas/'
       preLoaderRoute: typeof PecasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pecas/importar': {
+      id: '/pecas/importar'
+      path: '/pecas/importar'
+      fullPath: '/pecas/importar'
+      preLoaderRoute: typeof PecasImportarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pecas/$id': {
@@ -170,6 +190,7 @@ const rootRouteChildren: RootRouteChildren = {
   FerramentasRoute: FerramentasRoute,
   MaquinaRoute: MaquinaRoute,
   PecasIdRoute: PecasIdRouteWithChildren,
+  PecasImportarRoute: PecasImportarRoute,
   PecasIndexRoute: PecasIndexRoute,
 }
 export const routeTree = rootRouteImport
