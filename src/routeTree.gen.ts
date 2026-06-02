@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PecasIndexRouteImport } from './routes/pecas.index'
+import { Route as PecasIdRouteImport } from './routes/pecas.$id'
+import { Route as PecasIdCncRouteImport } from './routes/pecas.$id.cnc'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +24,47 @@ const PecasIndexRoute = PecasIndexRouteImport.update({
   path: '/pecas/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PecasIdRoute = PecasIdRouteImport.update({
+  id: '/pecas/$id',
+  path: '/pecas/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PecasIdCncRoute = PecasIdCncRouteImport.update({
+  id: '/cnc',
+  path: '/cnc',
+  getParentRoute: () => PecasIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas/': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/pecas/$id': typeof PecasIdRouteWithChildren
   '/pecas/': typeof PecasIndexRoute
+  '/pecas/$id/cnc': typeof PecasIdCncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pecas/'
+  fullPaths: '/' | '/pecas/$id' | '/pecas/' | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pecas'
-  id: '__root__' | '/' | '/pecas/'
+  to: '/' | '/pecas/$id' | '/pecas' | '/pecas/$id/cnc'
+  id: '__root__' | '/' | '/pecas/$id' | '/pecas/' | '/pecas/$id/cnc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PecasIdRoute: typeof PecasIdRouteWithChildren
   PecasIndexRoute: typeof PecasIndexRoute
 }
 
@@ -65,13 +84,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PecasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pecas/$id': {
+      id: '/pecas/$id'
+      path: '/pecas/$id'
+      fullPath: '/pecas/$id'
+      preLoaderRoute: typeof PecasIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pecas/$id/cnc': {
+      id: '/pecas/$id/cnc'
+      path: '/cnc'
+      fullPath: '/pecas/$id/cnc'
+      preLoaderRoute: typeof PecasIdCncRouteImport
+      parentRoute: typeof PecasIdRoute
+    }
   }
 }
 
+interface PecasIdRouteChildren {
+  PecasIdCncRoute: typeof PecasIdCncRoute
+}
+
+const PecasIdRouteChildren: PecasIdRouteChildren = {
+  PecasIdCncRoute: PecasIdCncRoute,
+}
+
+const PecasIdRouteWithChildren =
+  PecasIdRoute._addFileChildren(PecasIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PecasIdRoute: PecasIdRouteWithChildren,
   PecasIndexRoute: PecasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
