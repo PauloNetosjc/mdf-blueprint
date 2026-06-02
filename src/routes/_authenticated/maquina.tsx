@@ -10,7 +10,7 @@ import type { Maquina } from "@/lib/db";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 
-export const Route = createFileRoute("/maquina")({
+export const Route = createFileRoute("/_authenticated/maquina")({
   head: () => ({ meta: [{ title: "Máquina — Visualizador CNC" }] }),
   component: MaquinaPage,
 });

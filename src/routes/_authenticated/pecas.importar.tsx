@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/pecas/importar")({
+export const Route = createFileRoute("/_authenticated/pecas/importar")({
   head: () => ({ meta: [{ title: "Importar PDF/Imagem — Visualizador CNC" }] }),
   component: ImportarPage,
 });

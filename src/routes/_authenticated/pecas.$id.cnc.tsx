@@ -12,7 +12,7 @@ import type { Ferramenta, Maquina, Operacao, Peca, PreviewCnc } from "@/lib/db";
 import { ArrowLeft, Copy, Download, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/pecas/$id/cnc")({
+export const Route = createFileRoute("/_authenticated/pecas/$id/cnc")({
   head: () => ({ meta: [{ title: "Prévia CNC — Visualizador CNC" }] }),
   component: PreviaCnc,
 });

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/pecas/")({
+export const Route = createFileRoute("/_authenticated/pecas/")({
   head: () => ({ meta: [{ title: "Peças — Visualizador CNC" }] }),
   component: PecasList,
 });

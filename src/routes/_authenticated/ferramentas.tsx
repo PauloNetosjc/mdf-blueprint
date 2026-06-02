@@ -12,7 +12,7 @@ import { FACES_PERMITIDAS, TIPOS_FERRAMENTA, type Ferramenta } from "@/lib/db";
 import { Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/ferramentas")({
+export const Route = createFileRoute("/_authenticated/ferramentas")({
   head: () => ({ meta: [{ title: "Ferramentas — Visualizador CNC" }] }),
   component: FerramentasPage,
 });
