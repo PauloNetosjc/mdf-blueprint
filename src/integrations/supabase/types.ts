@@ -14,7 +14,406 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      arquivos_importados: {
+        Row: {
+          created_at: string
+          dados_extraidos_json: Json | null
+          id: string
+          nome_arquivo: string
+          peca_id: string | null
+          status_leitura: string | null
+          tipo: string
+          url_arquivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          dados_extraidos_json?: Json | null
+          id?: string
+          nome_arquivo: string
+          peca_id?: string | null
+          status_leitura?: string | null
+          tipo: string
+          url_arquivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          dados_extraidos_json?: Json | null
+          id?: string
+          nome_arquivo?: string
+          peca_id?: string | null
+          status_leitura?: string | null
+          tipo?: string
+          url_arquivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arquivos_importados_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faces: {
+        Row: {
+          eixo_x_mapeado: string | null
+          eixo_y_mapeado: string | null
+          eixo_z_mapeado: string | null
+          id: string
+          nome_face: string | null
+          numero_face: number
+          orientacao: string | null
+          peca_id: string
+        }
+        Insert: {
+          eixo_x_mapeado?: string | null
+          eixo_y_mapeado?: string | null
+          eixo_z_mapeado?: string | null
+          id?: string
+          nome_face?: string | null
+          numero_face: number
+          orientacao?: string | null
+          peca_id: string
+        }
+        Update: {
+          eixo_x_mapeado?: string | null
+          eixo_y_mapeado?: string | null
+          eixo_z_mapeado?: string | null
+          id?: string
+          nome_face?: string | null
+          numero_face?: number
+          orientacao?: string | null
+          peca_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faces_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ferramentas: {
+        Row: {
+          altura_segura: number
+          area_util: number | null
+          ativa: boolean
+          avanco_padrao: number
+          codigo: string
+          created_at: string
+          descida_antes_entrada_lateral: number | null
+          diametro: number
+          entrada_lateral: boolean
+          entrada_por_cima: boolean
+          face_permitida: string
+          id: string
+          maquina_id: string | null
+          nome: string
+          profundidade_maxima: number
+          rotacao_padrao: number
+          tipo: string
+        }
+        Insert: {
+          altura_segura?: number
+          area_util?: number | null
+          ativa?: boolean
+          avanco_padrao?: number
+          codigo: string
+          created_at?: string
+          descida_antes_entrada_lateral?: number | null
+          diametro: number
+          entrada_lateral?: boolean
+          entrada_por_cima?: boolean
+          face_permitida?: string
+          id?: string
+          maquina_id?: string | null
+          nome: string
+          profundidade_maxima?: number
+          rotacao_padrao?: number
+          tipo: string
+        }
+        Update: {
+          altura_segura?: number
+          area_util?: number | null
+          ativa?: boolean
+          avanco_padrao?: number
+          codigo?: string
+          created_at?: string
+          descida_antes_entrada_lateral?: number | null
+          diametro?: number
+          entrada_lateral?: boolean
+          entrada_por_cima?: boolean
+          face_permitida?: string
+          id?: string
+          maquina_id?: string | null
+          nome?: string
+          profundidade_maxima?: number
+          rotacao_padrao?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ferramentas_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maquinas: {
+        Row: {
+          altura_segura_z: number
+          area_x: number
+          area_y: number
+          area_z: number
+          ativa: boolean
+          created_at: string
+          id: string
+          mapeamento_faces: Json
+          nome: string
+          origem_padrao: string
+          template_fim: string
+          template_furacao_face: string
+          template_furacao_lateral: string
+          template_inicio: string
+          template_spindle_off: string
+          template_spindle_on: string
+          template_troca_ferramenta: string
+          unidade: string
+          updated_at: string
+        }
+        Insert: {
+          altura_segura_z?: number
+          area_x?: number
+          area_y?: number
+          area_z?: number
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          mapeamento_faces?: Json
+          nome: string
+          origem_padrao?: string
+          template_fim?: string
+          template_furacao_face?: string
+          template_furacao_lateral?: string
+          template_inicio?: string
+          template_spindle_off?: string
+          template_spindle_on?: string
+          template_troca_ferramenta?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Update: {
+          altura_segura_z?: number
+          area_x?: number
+          area_y?: number
+          area_z?: number
+          ativa?: boolean
+          created_at?: string
+          id?: string
+          mapeamento_faces?: Json
+          nome?: string
+          origem_padrao?: string
+          template_fim?: string
+          template_furacao_face?: string
+          template_furacao_lateral?: string
+          template_inicio?: string
+          template_spindle_off?: string
+          template_spindle_on?: string
+          template_troca_ferramenta?: string
+          unidade?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      operacoes: {
+        Row: {
+          comprimento: number | null
+          created_at: string
+          diametro: number | null
+          face_id: string | null
+          ferramenta_id: string | null
+          id: string
+          largura: number | null
+          numero_face: number
+          observacao: string | null
+          ordem: number
+          peca_id: string
+          profundidade: number
+          tipo: string
+          x: number
+          y: number
+          z: number | null
+        }
+        Insert: {
+          comprimento?: number | null
+          created_at?: string
+          diametro?: number | null
+          face_id?: string | null
+          ferramenta_id?: string | null
+          id?: string
+          largura?: number | null
+          numero_face?: number
+          observacao?: string | null
+          ordem?: number
+          peca_id: string
+          profundidade: number
+          tipo: string
+          x: number
+          y: number
+          z?: number | null
+        }
+        Update: {
+          comprimento?: number | null
+          created_at?: string
+          diametro?: number | null
+          face_id?: string | null
+          ferramenta_id?: string | null
+          id?: string
+          largura?: number | null
+          numero_face?: number
+          observacao?: string | null
+          ordem?: number
+          peca_id?: string
+          profundidade?: number
+          tipo?: string
+          x?: number
+          y?: number
+          z?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacoes_face_id_fkey"
+            columns: ["face_id"]
+            isOneToOne: false
+            referencedRelation: "faces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacoes_ferramenta_id_fkey"
+            columns: ["ferramenta_id"]
+            isOneToOne: false
+            referencedRelation: "ferramentas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacoes_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pecas: {
+        Row: {
+          altura: number
+          ambiente: string | null
+          arquivo_origem: string | null
+          cliente: string | null
+          codigo: string
+          created_at: string
+          data_ficha: string | null
+          espessura: number
+          face_alinhamento: string
+          id: string
+          largura: number
+          material: string | null
+          nome: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          altura: number
+          ambiente?: string | null
+          arquivo_origem?: string | null
+          cliente?: string | null
+          codigo: string
+          created_at?: string
+          data_ficha?: string | null
+          espessura: number
+          face_alinhamento?: string
+          id?: string
+          largura: number
+          material?: string | null
+          nome: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          altura?: number
+          ambiente?: string | null
+          arquivo_origem?: string | null
+          cliente?: string | null
+          codigo?: string
+          created_at?: string
+          data_ficha?: string | null
+          espessura?: number
+          face_alinhamento?: string
+          id?: string
+          largura?: number
+          material?: string | null
+          nome?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      previews_cnc: {
+        Row: {
+          aprovado_por: string | null
+          conteudo: string
+          created_at: string
+          id: string
+          maquina_id: string
+          nome_arquivo: string
+          peca_id: string
+          validado: boolean
+          versao: number
+        }
+        Insert: {
+          aprovado_por?: string | null
+          conteudo: string
+          created_at?: string
+          id?: string
+          maquina_id: string
+          nome_arquivo: string
+          peca_id: string
+          validado?: boolean
+          versao?: number
+        }
+        Update: {
+          aprovado_por?: string | null
+          conteudo?: string
+          created_at?: string
+          id?: string
+          maquina_id?: string
+          nome_arquivo?: string
+          peca_id?: string
+          validado?: boolean
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "previews_cnc_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "previews_cnc_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
