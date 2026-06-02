@@ -118,8 +118,22 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AppLayout />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
+  );
+}
+
+function AppLayout() {
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+      <AppSidebar />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <SafetyBanner />
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }
