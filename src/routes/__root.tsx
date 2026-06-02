@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -11,9 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SafetyBanner } from "@/components/safety-banner";
+import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -121,22 +121,23 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout />
+      <AuthSync />
+      <Outlet />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }
 
-function AppLayout() {
-  return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-      <AppSidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <SafetyBanner />
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
+function AuthSync() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      router.invalidate();
+      queryClient.invalidateQueries();
+    });
+    return () => subscription.unsubscribe();
+  }, [router, queryClient]);
+  return null;
 }
+

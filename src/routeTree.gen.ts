@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedMaquinaRouteImport } from './routes/_authenticated/maquina'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
@@ -17,37 +19,46 @@ import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authen
 import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
 import { Route as AuthenticatedPecasIdCncRouteImport } from './routes/_authenticated/pecas.$id.cnc'
 
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/_authenticated/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedMaquinaRoute = AuthenticatedMaquinaRouteImport.update({
-  id: '/_authenticated/maquina',
-  path: '/maquina',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMaquinaRoute = AuthenticatedMaquinaRouteImport.update({
+  id: '/maquina',
+  path: '/maquina',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFerramentasRoute =
   AuthenticatedFerramentasRouteImport.update({
-    id: '/_authenticated/ferramentas',
+    id: '/ferramentas',
     path: '/ferramentas',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedPecasIndexRoute = AuthenticatedPecasIndexRouteImport.update({
-  id: '/_authenticated/pecas/',
+  id: '/pecas/',
   path: '/pecas/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPecasImportarRoute =
   AuthenticatedPecasImportarRouteImport.update({
-    id: '/_authenticated/pecas/importar',
+    id: '/pecas/importar',
     path: '/pecas/importar',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedPecasIdRoute = AuthenticatedPecasIdRouteImport.update({
-  id: '/_authenticated/pecas/$id',
+  id: '/pecas/$id',
   path: '/pecas/$id',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPecasIdCncRoute = AuthenticatedPecasIdCncRouteImport.update({
   id: '/cnc',
@@ -56,15 +67,17 @@ const AuthenticatedPecasIdCncRoute = AuthenticatedPecasIdCncRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
-  '/': typeof AuthenticatedIndexRoute
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/pecas/': typeof AuthenticatedPecasIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
 }
 export interface FileRoutesByTo {
+  '/auth': typeof AuthRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/': typeof AuthenticatedIndexRoute
@@ -75,6 +88,8 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/maquina': typeof AuthenticatedMaquinaRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -86,15 +101,17 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
+    | '/auth'
     | '/ferramentas'
     | '/maquina'
-    | '/'
     | '/pecas/$id'
     | '/pecas/importar'
     | '/pecas/'
     | '/pecas/$id/cnc'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auth'
     | '/ferramentas'
     | '/maquina'
     | '/'
@@ -104,6 +121,8 @@ export interface FileRouteTypes {
     | '/pecas/$id/cnc'
   id:
     | '__root__'
+    | '/_authenticated'
+    | '/auth'
     | '/_authenticated/ferramentas'
     | '/_authenticated/maquina'
     | '/_authenticated/'
@@ -114,57 +133,67 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
-  AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedPecasIdRoute: typeof AuthenticatedPecasIdRouteWithChildren
-  AuthenticatedPecasImportarRoute: typeof AuthenticatedPecasImportarRoute
-  AuthenticatedPecasIndexRoute: typeof AuthenticatedPecasIndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/': {
       id: '/_authenticated/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/maquina': {
       id: '/_authenticated/maquina'
       path: '/maquina'
       fullPath: '/maquina'
       preLoaderRoute: typeof AuthenticatedMaquinaRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ferramentas': {
       id: '/_authenticated/ferramentas'
       path: '/ferramentas'
       fullPath: '/ferramentas'
       preLoaderRoute: typeof AuthenticatedFerramentasRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pecas/': {
       id: '/_authenticated/pecas/'
       path: '/pecas'
       fullPath: '/pecas/'
       preLoaderRoute: typeof AuthenticatedPecasIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pecas/importar': {
       id: '/_authenticated/pecas/importar'
       path: '/pecas/importar'
       fullPath: '/pecas/importar'
       preLoaderRoute: typeof AuthenticatedPecasImportarRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pecas/$id': {
       id: '/_authenticated/pecas/$id'
       path: '/pecas/$id'
       fullPath: '/pecas/$id'
       preLoaderRoute: typeof AuthenticatedPecasIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pecas/$id/cnc': {
       id: '/_authenticated/pecas/$id/cnc'
@@ -187,13 +216,30 @@ const AuthenticatedPecasIdRouteChildren: AuthenticatedPecasIdRouteChildren = {
 const AuthenticatedPecasIdRouteWithChildren =
   AuthenticatedPecasIdRoute._addFileChildren(AuthenticatedPecasIdRouteChildren)
 
-const rootRouteChildren: RootRouteChildren = {
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
+  AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedPecasIdRoute: typeof AuthenticatedPecasIdRouteWithChildren
+  AuthenticatedPecasImportarRoute: typeof AuthenticatedPecasImportarRoute
+  AuthenticatedPecasIndexRoute: typeof AuthenticatedPecasIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedMaquinaRoute: AuthenticatedMaquinaRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedPecasIdRoute: AuthenticatedPecasIdRouteWithChildren,
   AuthenticatedPecasImportarRoute: AuthenticatedPecasImportarRoute,
   AuthenticatedPecasIndexRoute: AuthenticatedPecasIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
