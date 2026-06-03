@@ -1060,36 +1060,54 @@ export type Database = {
       }
       peca_cadastrada_bordas: {
         Row: {
+          codigo_borda: string | null
+          confianca_parser: string | null
+          cor: string | null
           criado_em: string
+          descricao_borda: string | null
           espessura: number | null
           fita_codigo: string | null
           fita_descricao: string | null
           id: string
+          indicador_desenho: string | null
           lado: string
+          largura: number | null
           observacao: string | null
           peca_cadastrada_id: string
           tem_fita: boolean
           user_id: string
         }
         Insert: {
+          codigo_borda?: string | null
+          confianca_parser?: string | null
+          cor?: string | null
           criado_em?: string
+          descricao_borda?: string | null
           espessura?: number | null
           fita_codigo?: string | null
           fita_descricao?: string | null
           id?: string
+          indicador_desenho?: string | null
           lado: string
+          largura?: number | null
           observacao?: string | null
           peca_cadastrada_id: string
           tem_fita?: boolean
           user_id?: string
         }
         Update: {
+          codigo_borda?: string | null
+          confianca_parser?: string | null
+          cor?: string | null
           criado_em?: string
+          descricao_borda?: string | null
           espessura?: number | null
           fita_codigo?: string | null
           fita_descricao?: string | null
           id?: string
+          indicador_desenho?: string | null
           lado?: string
+          largura?: number | null
           observacao?: string | null
           peca_cadastrada_id?: string
           tem_fita?: boolean
@@ -1111,8 +1129,10 @@ export type Database = {
           ancora_y: string | null
           comprimento: number | null
           confianca: string | null
+          confianca_parser: string | null
           criado_em: string
           dados_brutos: Json
+          dados_brutos_json: Json
           diametro: number | null
           face: number
           id: string
@@ -1124,9 +1144,14 @@ export type Database = {
           peca_cadastrada_id: string
           profundidade: number | null
           tipo: string
+          tipo_operacao: string | null
           user_id: string
           x: number | null
+          x1: number | null
+          x2: number | null
           y: number | null
+          y1: number | null
+          y2: number | null
           z: number | null
         }
         Insert: {
@@ -1134,8 +1159,10 @@ export type Database = {
           ancora_y?: string | null
           comprimento?: number | null
           confianca?: string | null
+          confianca_parser?: string | null
           criado_em?: string
           dados_brutos?: Json
+          dados_brutos_json?: Json
           diametro?: number | null
           face?: number
           id?: string
@@ -1147,9 +1174,14 @@ export type Database = {
           peca_cadastrada_id: string
           profundidade?: number | null
           tipo: string
+          tipo_operacao?: string | null
           user_id?: string
           x?: number | null
+          x1?: number | null
+          x2?: number | null
           y?: number | null
+          y1?: number | null
+          y2?: number | null
           z?: number | null
         }
         Update: {
@@ -1157,8 +1189,10 @@ export type Database = {
           ancora_y?: string | null
           comprimento?: number | null
           confianca?: string | null
+          confianca_parser?: string | null
           criado_em?: string
           dados_brutos?: Json
+          dados_brutos_json?: Json
           diametro?: number | null
           face?: number
           id?: string
@@ -1170,9 +1204,14 @@ export type Database = {
           peca_cadastrada_id?: string
           profundidade?: number | null
           tipo?: string
+          tipo_operacao?: string | null
           user_id?: string
           x?: number | null
+          x1?: number | null
+          x2?: number | null
           y?: number | null
+          y1?: number | null
+          y2?: number | null
           z?: number | null
         }
         Relationships: [
@@ -1325,16 +1364,25 @@ export type Database = {
           codigo_completo: string | null
           codigo_principal: string | null
           criado_em: string
+          dados_brutos_json: Json
+          erros_parser: Json
           espessura_ref: number | null
+          fita_ref: string | null
           id: string
           largura_ref: number | null
+          logs_parser: Json
+          material_ref: string | null
           metadados_json: Json
+          modulo_origem: string | null
           nome: string | null
+          nome_peca: string | null
           observacao: string | null
           origem: string | null
           pdf_nome: string | null
+          pdf_nome_arquivo: string | null
           pdf_url: string | null
           prefixo: string | null
+          status_parser: string
           sufixo: string | null
           tipo_peca: string | null
           user_id: string
@@ -1346,16 +1394,25 @@ export type Database = {
           codigo_completo?: string | null
           codigo_principal?: string | null
           criado_em?: string
+          dados_brutos_json?: Json
+          erros_parser?: Json
           espessura_ref?: number | null
+          fita_ref?: string | null
           id?: string
           largura_ref?: number | null
+          logs_parser?: Json
+          material_ref?: string | null
           metadados_json?: Json
+          modulo_origem?: string | null
           nome?: string | null
+          nome_peca?: string | null
           observacao?: string | null
           origem?: string | null
           pdf_nome?: string | null
+          pdf_nome_arquivo?: string | null
           pdf_url?: string | null
           prefixo?: string | null
+          status_parser?: string
           sufixo?: string | null
           tipo_peca?: string | null
           user_id?: string
@@ -1367,16 +1424,25 @@ export type Database = {
           codigo_completo?: string | null
           codigo_principal?: string | null
           criado_em?: string
+          dados_brutos_json?: Json
+          erros_parser?: Json
           espessura_ref?: number | null
+          fita_ref?: string | null
           id?: string
           largura_ref?: number | null
+          logs_parser?: Json
+          material_ref?: string | null
           metadados_json?: Json
+          modulo_origem?: string | null
           nome?: string | null
+          nome_peca?: string | null
           observacao?: string | null
           origem?: string | null
           pdf_nome?: string | null
+          pdf_nome_arquivo?: string | null
           pdf_url?: string | null
           prefixo?: string | null
+          status_parser?: string
           sufixo?: string | null
           tipo_peca?: string | null
           user_id?: string
