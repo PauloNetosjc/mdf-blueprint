@@ -605,11 +605,18 @@ function FaltasTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projeto_almoxarifado_itens")
-        .select("*, projetos(nome, cliente)")
+        .select("*")
         .eq("status", "falta_item")
         .order("criado_em", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as (ProjetoItem & { projetos: { nome: string; cliente: string | null } | null })[];
+      const itens = (data ?? []) as ProjetoItem[];
+      const ids = Array.from(new Set(itens.map((i) => i.projeto_id)));
+      const projMap = new Map<string, { nome: string; cliente: string | null }>();
+      if (ids.length) {
+        const { data: ps } = await supabase.from("projetos").select("id, nome, cliente").in("id", ids);
+        for (const p of ps ?? []) projMap.set(p.id, { nome: p.nome, cliente: p.cliente });
+      }
+      return itens.map((i) => ({ ...i, projeto: projMap.get(i.projeto_id) ?? null }));
     },
   });
 
