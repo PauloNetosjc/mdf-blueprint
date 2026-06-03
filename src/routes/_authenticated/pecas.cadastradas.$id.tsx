@@ -47,7 +47,7 @@ type Peca = {
 type Operacao = {
   id: string;
   tipo_operacao: string;
-  face: string | null;
+  face: string | number | null;
   x: number | null;
   y: number | null;
   diametro: number | null;
@@ -136,7 +136,7 @@ function PecaCadastradaDetalhe() {
   // Agrupar ops por face
   const opsPorFace = new Map<string, Operacao[]>();
   for (const o of ops.data ?? []) {
-    const k = o.face ?? "—";
+    const k = o.face == null ? "—" : String(o.face);
     if (!opsPorFace.has(k)) opsPorFace.set(k, []);
     opsPorFace.get(k)!.push(o);
   }
@@ -147,8 +147,9 @@ function PecaCadastradaDetalhe() {
       const { error } = await db
         .from("peca_cadastrada_operacoes")
         .update({
+          tipo: o.tipo_operacao,
           tipo_operacao: o.tipo_operacao,
-          face: o.face,
+          face: Number(o.face ?? 0),
           x: o.x,
           y: o.y,
           diametro: o.diametro,
@@ -180,8 +181,9 @@ function PecaCadastradaDetalhe() {
       const { error } = await db.from("peca_cadastrada_operacoes").insert({
         user_id: u.user!.id,
         peca_cadastrada_id: id,
+        tipo: "furo",
         tipo_operacao: "furo",
-        face: ehDiv ? "5" : "0",
+        face: ehDiv ? 5 : 0,
         x: 0,
         y: 0,
         diametro: 8,
