@@ -327,9 +327,9 @@ function NovaImportacao() {
           continue;
         }
         try {
-          const entry = zip.file(a.caminho);
+          const entry = entries.find((e) => e.relativePath === a.caminho);
           if (!entry) continue;
-          const blob = await entry.async("blob");
+          const blob = await entry.load();
           const safe = a.caminho.replace(/[^a-zA-Z0-9._/-]/g, "_");
           const storagePath = `${userId}/${importacaoId}/${safe}`;
           const { error: eu } = await supabase.storage
