@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
+import { ListaComprasTab } from "@/components/lista-compras-tab";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
@@ -190,7 +191,7 @@ function ProjetoEditor() {
         </TabsContent>
 
         <TabsContent value="compras" className="flex-1 overflow-auto p-6 pt-3">
-          <Placeholder titulo="Lista de Compras" desc="Cálculo de chapas e metros de fita necessários. Disponível na próxima etapa." />
+          <ListaComprasTab projetoId={id} />
         </TabsContent>
 
         <TabsContent value="plano" className="flex-1 overflow-auto p-6 pt-3">

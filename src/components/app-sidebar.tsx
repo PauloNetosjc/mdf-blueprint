@@ -11,6 +11,7 @@ import {
   Tag,
   QrCode,
   Scan,
+  Boxes,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,6 +23,7 @@ const items = [
   { to: "/fitas", label: "Fitas", icon: Tag },
   { to: "/etiquetas", label: "Etiquetas", icon: QrCode },
   { to: "/producao", label: "Produção", icon: Scan },
+  { to: "/almoxarifado", label: "Almoxarifado", icon: Boxes },
   { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/maquina", label: "Máquina", icon: Cog },
 ];
