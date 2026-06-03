@@ -574,7 +574,10 @@ function PecasCadastradasPage() {
     if (filtro === "sem_nome" && p.nome_peca) return false;
     if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
     if (filtro === "sem_bordas" && c.bordas > 0) return false;
-    if (filtro === "com_erro" && p.status_parser === "ok") return false;
+    if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
+    if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
+    if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+    if (filtro === "ok" && p.status_parser !== "ok") return false;
     if (!busca) return true;
     const q = busca.toLowerCase();
     return (
