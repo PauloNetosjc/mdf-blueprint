@@ -93,6 +93,24 @@ function PlanoPage() {
   });
   const projetoImportado = (previewsImp?.length ?? 0) > 0 || (ncsImp?.length ?? 0) > 0;
 
+  // Plano salvo + chapas salvas para botão "G-code da Chapa"
+  const { data: planoSalvo } = useQuery({
+    queryKey: ["plano-salvo", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("planos_corte").select("id").eq("projeto_id", id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      return data;
+    },
+  });
+  const { data: chapasSalvas } = useQuery({
+    queryKey: ["plano-chapas-salvas", planoSalvo?.id],
+    enabled: !!planoSalvo?.id,
+    queryFn: async () => {
+      const { data } = await supabase.from("plano_corte_chapas").select("id, indice, chapa_id").eq("plano_id", planoSalvo!.id);
+      return data ?? [];
+    },
+  });
+
   const calcular = useCallback(() => {
     if (!pecas || !chapas) return;
     const input: PecaInput[] = pecas
@@ -286,6 +304,20 @@ function PlanoPage() {
                   </Button>
                 )}
               </>
+            );
+          })()}
+          {planoSalvo && chapasSalvas && chapaAtual && (() => {
+            const chapaSalva = chapasSalvas.find(
+              (c) => c.chapa_id === chapaAtual.chapa.id && c.indice === chapaAtual.indice,
+            ) ?? chapasSalvas[chapaIndex];
+            if (!chapaSalva) return null;
+            return (
+              <Link
+                to="/projetos/$id/plano/$planoId/chapa/$chapaId/cnc"
+                params={{ id, planoId: planoSalvo.id, chapaId: chapaSalva.id }}
+              >
+                <Button size="sm" variant="outline"><Cpu className="mr-1 h-4 w-4" />G-code da Chapa</Button>
+              </Link>
             );
           })()}
           <Button size="sm" onClick={() => salvar.mutate()} disabled={!resultado || salvar.isPending || colisao}>

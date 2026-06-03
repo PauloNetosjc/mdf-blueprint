@@ -1321,6 +1321,63 @@ export type Database = {
           },
         ]
       }
+      previews_cnc_chapas: {
+        Row: {
+          chapa_id: string | null
+          conteudo: string
+          criado_em: string
+          id: string
+          maquina_id: string | null
+          nome_arquivo: string
+          parametros_json: Json
+          plano_chapa_id: string | null
+          plano_id: string | null
+          projeto_id: string | null
+          status: string
+          user_id: string
+          validacoes_json: Json
+          validado_em: string | null
+          validado_por: string | null
+          versao: number
+        }
+        Insert: {
+          chapa_id?: string | null
+          conteudo: string
+          criado_em?: string
+          id?: string
+          maquina_id?: string | null
+          nome_arquivo: string
+          parametros_json?: Json
+          plano_chapa_id?: string | null
+          plano_id?: string | null
+          projeto_id?: string | null
+          status?: string
+          user_id?: string
+          validacoes_json?: Json
+          validado_em?: string | null
+          validado_por?: string | null
+          versao?: number
+        }
+        Update: {
+          chapa_id?: string | null
+          conteudo?: string
+          criado_em?: string
+          id?: string
+          maquina_id?: string | null
+          nome_arquivo?: string
+          parametros_json?: Json
+          plano_chapa_id?: string | null
+          plano_id?: string | null
+          projeto_id?: string | null
+          status?: string
+          user_id?: string
+          validacoes_json?: Json
+          validado_em?: string | null
+          validado_por?: string | null
+          versao?: number
+        }
+        Relationships: []
+      }
       producao_eventos: {
         Row: {
           centro_trabalho_id: string | null
