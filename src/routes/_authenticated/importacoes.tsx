@@ -224,7 +224,7 @@ function NovaImportacao() {
       const { data: imp, error: e0 } = await supabase
         .from("importacoes")
         .insert({
-          nome_arquivo: arquivo.name,
+          nome_arquivo: origemNome ?? "(pasta)",
           tipo: "promob_zip",
           status: "processando",
           projeto_detectado: nomeProjeto,
