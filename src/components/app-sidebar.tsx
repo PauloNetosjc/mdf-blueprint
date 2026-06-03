@@ -1,11 +1,10 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Package,
   Wrench,
   Cog,
   AlertTriangle,
-  LogOut,
   FolderKanban,
   Layers,
   Tag,
@@ -16,7 +15,6 @@ import {
   GitCompare,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
