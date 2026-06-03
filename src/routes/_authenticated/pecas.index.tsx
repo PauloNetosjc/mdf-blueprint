@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/_authenticated/pecas/")({
   head: () => ({ meta: [{ title: "Peças — Visualizador CNC" }] }),
