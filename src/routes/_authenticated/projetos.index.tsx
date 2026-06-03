@@ -152,12 +152,18 @@ function ProjetosPage() {
               {STATUS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Link to="/projetos/importacoes">
+            <Button variant="outline"><History className="mr-2 h-4 w-4" />Importações</Button>
+          </Link>
+          <Link to="/projetos/importacoes">
+            <Button variant="outline"><Upload className="mr-2 h-4 w-4" />Importar Projeto</Button>
+          </Link>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Novo Projeto</Button>
+              <Button><Plus className="mr-2 h-4 w-4" />Novo Projeto Manual</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Novo Projeto</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Novo Projeto Manual</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <F label="Nome do projeto *"><Input autoFocus value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></F>
                 <div className="grid grid-cols-2 gap-3">
