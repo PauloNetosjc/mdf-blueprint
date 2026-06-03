@@ -444,13 +444,6 @@ function ChapaCNCPage() {
           </Card>
 
           <Card className="space-y-2 p-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Confirmação técnica</h3>
-            <p className="text-[10px] leading-tight text-muted-foreground">
-              O G-code gerado é uma prévia técnica. Antes de usar em máquina real, o operador responsável
-              deve validar o código, o pós-processador, a origem, as ferramentas, os avanços, a rotação
-              e os limites da máquina conforme o manual técnico.
-            </p>
-          <Card className="space-y-2 p-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Homologação</h3>
             <p className="text-[10px] leading-tight text-muted-foreground">
               Para exportar o .nc é obrigatório aprovar uma versão. O fluxo é: Gerar → Validar → (Comparar) → Aprovar → Exportar → Enviar p/ máquina.
