@@ -66,6 +66,32 @@ function PlanoPage() {
     },
   });
 
+  // Recursos importados (Promob/Nesting)
+  const { data: previewsImp } = useQuery({
+    queryKey: ["plano-previews", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("importacao_preview_chapas")
+        .select("*").eq("projeto_id", id);
+      return (data ?? []) as Array<{
+        id: string; numero_chapa: number | null; chapa_id: string | null;
+        tipo_preview: string; storage_url: string | null; arquivo_nome: string;
+        pagina_pdf: number | null;
+      }>;
+    },
+  });
+  const { data: ncsImp } = useQuery({
+    queryKey: ["plano-ncs", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("arquivos_tecnicos")
+        .select("id, nome_arquivo, storage_url, chapa_id, tipo_arquivo")
+        .eq("projeto_id", id).eq("tipo_arquivo", "nc_gcode");
+      return (data ?? []) as Array<{ id: string; nome_arquivo: string; storage_url: string; chapa_id: string | null; tipo_arquivo: string }>;
+    },
+  });
+  const projetoImportado = (previewsImp?.length ?? 0) > 0 || (ncsImp?.length ?? 0) > 0;
+
   const calcular = useCallback(() => {
     if (!pecas || !chapas) return;
     const input: PecaInput[] = pecas
