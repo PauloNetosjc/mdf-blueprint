@@ -50,7 +50,10 @@ function MaquinaPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Máquina / Pós-processador</h1>
           <p className="text-sm text-muted-foreground">Configurações da furadeira CNC e templates de geração de G-code.</p>
         </div>
-        <Button onClick={() => salvar.mutate()}><Save className="mr-2 h-4 w-4" />Salvar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild><Link to="/comparador"><GitCompare className="mr-2 h-4 w-4" />Ver comparações</Link></Button>
+          <Button onClick={() => salvar.mutate()}><Save className="mr-2 h-4 w-4" />Salvar</Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
