@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ShieldCheck, ShieldX, Eye, Download, FileText, History, AlertTriangle } from "lucide-react";
+import { ShieldCheck, ShieldX, Eye, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 import {
   CHECKLIST_HOMOLOGACAO, checklistCompleto, registrarAuditoria,
