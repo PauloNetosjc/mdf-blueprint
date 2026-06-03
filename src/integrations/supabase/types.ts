@@ -711,9 +711,12 @@ export type Database = {
           importacao_id: string
           nome_arquivo: string
           peca_id: string | null
+          pos_x: number | null
+          pos_y: number | null
           projeto_id: string | null
           projeto_peca_id: string | null
           referencia: string | null
+          rotacao: number | null
           status_vinculo: string
           storage_url: string | null
           sufixo: string | null
@@ -729,9 +732,12 @@ export type Database = {
           importacao_id: string
           nome_arquivo: string
           peca_id?: string | null
+          pos_x?: number | null
+          pos_y?: number | null
           projeto_id?: string | null
           projeto_peca_id?: string | null
           referencia?: string | null
+          rotacao?: number | null
           status_vinculo?: string
           storage_url?: string | null
           sufixo?: string | null
@@ -747,9 +753,12 @@ export type Database = {
           importacao_id?: string
           nome_arquivo?: string
           peca_id?: string | null
+          pos_x?: number | null
+          pos_y?: number | null
           projeto_id?: string | null
           projeto_peca_id?: string | null
           referencia?: string | null
+          rotacao?: number | null
           status_vinculo?: string
           storage_url?: string | null
           sufixo?: string | null
@@ -1282,7 +1291,10 @@ export type Database = {
           aproveitamento_medio: number
           created_at: string
           id: string
+          observacao: string | null
+          origem_importacao: string | null
           projeto_id: string
+          status: string
           total_chapas: number
           total_pecas: number
           user_id: string
@@ -1292,7 +1304,10 @@ export type Database = {
           aproveitamento_medio?: number
           created_at?: string
           id?: string
+          observacao?: string | null
+          origem_importacao?: string | null
           projeto_id: string
+          status?: string
           total_chapas?: number
           total_pecas?: number
           user_id?: string
@@ -1302,7 +1317,10 @@ export type Database = {
           aproveitamento_medio?: number
           created_at?: string
           id?: string
+          observacao?: string | null
+          origem_importacao?: string | null
           projeto_id?: string
+          status?: string
           total_chapas?: number
           total_pecas?: number
           user_id?: string
@@ -1655,15 +1673,18 @@ export type Database = {
         Row: {
           altura: number
           chapa_id: string | null
+          codigo_peca: string | null
           created_at: string
           descricao: string
           espessura: number
           fita_codigo: string | null
           id: string
+          indice_peca: string | null
           largura: number
           modulo: string | null
           observacao: string | null
           ordem: number
+          origem_importacao: string | null
           peca_id: string | null
           projeto_id: string
           quantidade: number
@@ -1672,15 +1693,18 @@ export type Database = {
         Insert: {
           altura: number
           chapa_id?: string | null
+          codigo_peca?: string | null
           created_at?: string
           descricao: string
           espessura?: number
           fita_codigo?: string | null
           id?: string
+          indice_peca?: string | null
           largura: number
           modulo?: string | null
           observacao?: string | null
           ordem?: number
+          origem_importacao?: string | null
           peca_id?: string | null
           projeto_id: string
           quantidade?: number
@@ -1689,15 +1713,18 @@ export type Database = {
         Update: {
           altura?: number
           chapa_id?: string | null
+          codigo_peca?: string | null
           created_at?: string
           descricao?: string
           espessura?: number
           fita_codigo?: string | null
           id?: string
+          indice_peca?: string | null
           largura?: number
           modulo?: string | null
           observacao?: string | null
           ordem?: number
+          origem_importacao?: string | null
           peca_id?: string | null
           projeto_id?: string
           quantidade?: number
