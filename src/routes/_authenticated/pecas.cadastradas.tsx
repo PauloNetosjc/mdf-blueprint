@@ -58,7 +58,10 @@ type PecaRow = {
   espessura_ref: number | null;
   fita_ref: string | null;
   status_parser: string;
+  motivo_status: string | null;
   erros_parser: unknown[];
+  parser_alertas_json: unknown[];
+  resumo_parser_json: Record<string, unknown> | null;
   pdf_url: string | null;
   pdf_nome_arquivo: string | null;
   atualizado_em: string;
