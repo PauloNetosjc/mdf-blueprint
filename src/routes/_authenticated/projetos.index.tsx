@@ -176,7 +176,6 @@ function ProjetosPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {lista.map((p) => {
-          const s = statusInfo(p.status);
           const st = stats?.get(p.id) ?? { pecas: 0, chapas: 0, aprov: 0 };
           return (
             <div key={p.id} className="flex flex-col rounded border border-border bg-surface p-4 transition-colors hover:border-border-strong">
@@ -190,8 +189,9 @@ function ProjetosPage() {
                     {[p.cliente, p.ambiente].filter(Boolean).join(" · ") || "—"}
                   </p>
                 </div>
-                <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-medium ${s.color}`}>{s.label}</span>
+                <StatusBadge status={p.status} />
               </div>
+
 
               <div className="mb-3 grid grid-cols-3 gap-2 rounded bg-surface-2 p-2 text-center">
                 <Stat label="Peças" value={st.pecas} />
