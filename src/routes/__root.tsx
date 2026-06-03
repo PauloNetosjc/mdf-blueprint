@@ -136,9 +136,13 @@ function AuthSync() {
   const router = useRouter();
   const queryClient = useQueryClient();
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      router.invalidate();
-      queryClient.invalidateQueries();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Só invalida em login/logout — não em TOKEN_REFRESHED nem INITIAL_SESSION,
+      // que disparam frequentemente e limpariam o cache sem necessidade.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        router.invalidate();
+        queryClient.invalidateQueries();
+      }
     });
     return () => subscription.unsubscribe();
   }, [router, queryClient]);
