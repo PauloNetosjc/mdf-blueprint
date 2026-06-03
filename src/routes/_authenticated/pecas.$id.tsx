@@ -92,6 +92,11 @@ function EditorPeca() {
               <CheckCircle2 className="h-3 w-3" /> Sem erros
             </span>
           )}
+          <Button variant="outline" asChild>
+            <Link to="/comparador" search={{ peca_id: id }}>
+              <FileCode2 className="mr-2 h-4 w-4" /> Comparar com NC original
+            </Link>
+          </Button>
           <Button onClick={() => navigate({ to: "/pecas/$id/cnc", params: { id } })}>
             <FileCode2 className="mr-2 h-4 w-4" /> Gerar prévia CNC
           </Button>

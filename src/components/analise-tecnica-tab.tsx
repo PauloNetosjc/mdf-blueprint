@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Play, Eye, Link2, AlertTriangle } from "lucide-react";
+import { Play, Eye, Link2, AlertTriangle, GitCompare } from "lucide-react";
 import { toast } from "sonner";
 import {
   parseGcode,
@@ -240,6 +241,13 @@ export function AnaliseTecnicaTab({ importacaoId, projetoId }: { importacaoId: s
                     >
                       <Play className="mr-1 h-3 w-3" /> Analisar
                     </Button>
+                    {a.peca_id && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link to="/comparador" search={{ peca_id: a.peca_id, projeto_id: a.projeto_id ?? undefined }}>
+                          <GitCompare className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    )}
                   </td>
                 </tr>
               );

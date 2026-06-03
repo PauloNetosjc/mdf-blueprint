@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Maquina } from "@/lib/db";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, GitCompare } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/maquina")({
   head: () => ({ meta: [{ title: "Máquina — Visualizador CNC" }] }),
@@ -50,7 +50,10 @@ function MaquinaPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Máquina / Pós-processador</h1>
           <p className="text-sm text-muted-foreground">Configurações da furadeira CNC e templates de geração de G-code.</p>
         </div>
-        <Button onClick={() => salvar.mutate()}><Save className="mr-2 h-4 w-4" />Salvar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild><Link to="/comparador"><GitCompare className="mr-2 h-4 w-4" />Ver comparações</Link></Button>
+          <Button onClick={() => salvar.mutate()}><Save className="mr-2 h-4 w-4" />Salvar</Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
