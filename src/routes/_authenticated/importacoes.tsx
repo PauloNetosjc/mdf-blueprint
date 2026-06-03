@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/importacoes")({
   beforeLoad: () => {
     throw redirect({ to: "/projetos/importacoes" });
   },
-  component: () => null,
+  component: ImportacoesPage,
 });
 
 type Importacao = {
