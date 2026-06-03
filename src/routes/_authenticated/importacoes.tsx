@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import {
   Upload, FileArchive, Check, X, AlertTriangle, FileText, Download,
-  RefreshCw, Trash2, FolderOpen, Layers,
+  Trash2, FolderOpen, Layers,
 } from "lucide-react";
 import {
   classificarArquivo, resumirArquivos, parseNomeChapa,
