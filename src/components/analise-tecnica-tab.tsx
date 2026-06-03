@@ -145,13 +145,12 @@ export function AnaliseTecnicaTab({ importacaoId, projetoId }: { importacaoId: s
 
       // Atualizar status do arquivo + vínculo de peça
       const status_analise = operacoes.length ? "analisado" : "parcialmente_analisado";
-      const upd: Record<string, unknown> = {
+      await supabase.from("arquivos_tecnicos").update({
         status_analise,
-        analise_resumo_json: resumo,
+        analise_resumo_json: resumo as never,
         analisado_em: new Date().toISOString(),
-      };
-      if (pecaId) upd.peca_id = pecaId;
-      await supabase.from("arquivos_tecnicos").update(upd).eq("id", arq.id);
+        ...(pecaId ? { peca_id: pecaId } : {}),
+      }).eq("id", arq.id);
 
       return { count: operacoes.length, status_analise };
     },
