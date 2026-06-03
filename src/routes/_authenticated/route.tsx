@@ -5,12 +5,17 @@ import { SafetyBanner } from "@/components/safety-banner";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  // Não re-executa o beforeLoad ao navegar entre rotas filhas —
+  // a sessão é local (localStorage) e fica válida até logout/expiração.
+  staleTime: Infinity,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    // getSession() é síncrono em relação ao storage local (sem rede),
+    // muito mais rápido que getUser() (que valida no servidor a cada call).
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
       throw redirect({ to: "/auth" });
     }
-    return { user: data.user };
+    return { user: data.session.user };
   },
   component: AuthenticatedLayout,
 });
