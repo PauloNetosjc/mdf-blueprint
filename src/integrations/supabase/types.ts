@@ -1322,6 +1322,8 @@ export type Database = {
           altura_ref: number | null
           atualizado_em: string
           codigo: string
+          codigo_completo: string | null
+          codigo_principal: string | null
           criado_em: string
           espessura_ref: number | null
           id: string
@@ -1332,6 +1334,8 @@ export type Database = {
           origem: string | null
           pdf_nome: string | null
           pdf_url: string | null
+          prefixo: string | null
+          sufixo: string | null
           tipo_peca: string | null
           user_id: string
         }
@@ -1339,6 +1343,8 @@ export type Database = {
           altura_ref?: number | null
           atualizado_em?: string
           codigo: string
+          codigo_completo?: string | null
+          codigo_principal?: string | null
           criado_em?: string
           espessura_ref?: number | null
           id?: string
@@ -1349,6 +1355,8 @@ export type Database = {
           origem?: string | null
           pdf_nome?: string | null
           pdf_url?: string | null
+          prefixo?: string | null
+          sufixo?: string | null
           tipo_peca?: string | null
           user_id?: string
         }
@@ -1356,6 +1364,8 @@ export type Database = {
           altura_ref?: number | null
           atualizado_em?: string
           codigo?: string
+          codigo_completo?: string | null
+          codigo_principal?: string | null
           criado_em?: string
           espessura_ref?: number | null
           id?: string
@@ -1366,6 +1376,8 @@ export type Database = {
           origem?: string | null
           pdf_nome?: string | null
           pdf_url?: string | null
+          prefixo?: string | null
+          sufixo?: string | null
           tipo_peca?: string | null
           user_id?: string
         }
