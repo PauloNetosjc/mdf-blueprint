@@ -211,6 +211,11 @@ function ProjetosPage() {
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm(`Excluir "${p.nome}"? Esta ação remove todas as peças do projeto.`)) excluir.mutate(p.id); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
+                  <Link to="/projetos/$id/plano" params={{ id: p.id }}>
+                    <Button size="sm" variant="outline" title="Abrir plano de corte">
+                      <Cpu className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                   <Link to="/projetos/$id" params={{ id: p.id }}>
                     <Button size="sm">Abrir<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button>
                   </Link>
@@ -221,7 +226,7 @@ function ProjetosPage() {
         })}
         {lista.length === 0 && (
           <div className="col-span-full rounded border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            Nenhum projeto {filtro !== "todos" ? "neste filtro" : "ainda"}. Clique em "Novo Projeto" para começar.
+            Nenhum projeto {filtro !== "todos" || busca ? "no filtro/busca atual" : "ainda"}. Clique em "Novo Projeto" para começar.
           </div>
         )}
       </div>
