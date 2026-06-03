@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, FolderKanban, Archive, Trash2, ArrowRight, Search, Cpu, GitBranch } from "lucide-react";
+import { Plus, FolderKanban, Archive, Trash2, ArrowRight, Search, Cpu, GitBranch, Upload, History } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/status-badge";
 
