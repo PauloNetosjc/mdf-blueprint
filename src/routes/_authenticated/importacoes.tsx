@@ -92,11 +92,41 @@ export function ImportacoesPage() {
 // ============================================================
 // Nova Importação
 // ============================================================
+type ImportFileEntry = {
+  name: string;
+  relativePath: string;
+  folder: string;
+  extension: string;
+  size: number;
+  /** Loader devolve o blob sob demanda (zip extrai async; pasta retorna o File). */
+  load: () => Promise<Blob>;
+  source: "folder" | "zip";
+};
+
+/** Extrai "PV-XXX-NNNN" + cliente do nome da pasta/zip raiz. */
+function extrairProjetoCliente(rootName: string): { projeto: string; cliente: string } {
+  const limpo = rootName.replace(/\.zip$/i, "").trim();
+  const m = limpo.match(/^([A-Z]{2,4}-[A-Z0-9]+-?\d+)\s*[-–—]\s*(.+)$/i);
+  if (m) return { projeto: m[1].toUpperCase(), cliente: m[2].trim() };
+  return { projeto: limpo, cliente: "" };
+}
+
+/** Acha o nome da pasta raiz comum entre todos os caminhos. */
+function detectarPastaRaiz(paths: string[]): string {
+  if (!paths.length) return "";
+  const primeiros = paths.map((p) => p.split("/")[0]).filter(Boolean);
+  if (!primeiros.length) return "";
+  const ref = primeiros[0];
+  return primeiros.every((x) => x === ref) ? ref : "";
+}
+
 function NovaImportacao() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [zip, setZip] = useState<JSZip | null>(null);
+  const [origemNome, setOrigemNome] = useState<string | null>(null);
+  const [origemTipo, setOrigemTipo] = useState<"folder" | "zip" | null>(null);
+  const [tamanhoTotal, setTamanhoTotal] = useState(0);
+  const [entries, setEntries] = useState<ImportFileEntry[]>([]);
   const [arquivos, setArquivos] = useState<ArquivoClassificado[]>([]);
   const [resumo, setResumo] = useState<ResumoImportacao | null>(null);
   const [nomeProjeto, setNomeProjeto] = useState("");
@@ -105,29 +135,78 @@ function NovaImportacao() {
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState("");
 
+  function aplicarEntries(novas: ImportFileEntry[], origem: "folder" | "zip", nomeOrigem: string) {
+    setOrigemTipo(origem);
+    setOrigemNome(nomeOrigem);
+    setEntries(novas);
+    setTamanhoTotal(novas.reduce((a, b) => a + b.size, 0));
+
+    const lista = novas.map((e) => classificarArquivo(e.relativePath, e.size));
+    setArquivos(lista);
+    setResumo(resumirArquivos(lista));
+
+    // Nome do projeto = pasta raiz comum, com fallback para nome do arquivo
+    const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || nomeOrigem;
+    const { projeto, cliente: cli } = extrairProjetoCliente(raiz);
+    setNomeProjeto(projeto);
+    if (cli) setCliente(cli);
+
+    toast.success(`${novas.length} arquivos encontrados (${origem === "folder" ? "pasta" : "ZIP"})`);
+  }
+
   async function lerZip(f: File) {
-    setArquivo(f);
-    setNomeProjeto(f.name.replace(/\.zip$/i, ""));
     try {
       const z = await JSZip.loadAsync(f);
-      setZip(z);
-      const lista: ArquivoClassificado[] = [];
+      const novas: ImportFileEntry[] = [];
       z.forEach((path, entry) => {
         if (entry.dir) return;
+        const nome = path.split("/").pop() ?? path;
+        const ext = nome.includes(".") ? nome.split(".").pop()!.toLowerCase() : "";
         // @ts-expect-error - _data exists in JSZip internals for size
         const size = entry?._data?.uncompressedSize ?? 0;
-        lista.push(classificarArquivo(path, size));
+        novas.push({
+          name: nome,
+          relativePath: path,
+          folder: path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "",
+          extension: ext,
+          size,
+          load: () => entry.async("blob"),
+          source: "zip",
+        });
       });
-      setArquivos(lista);
-      setResumo(resumirArquivos(lista));
-      toast.success(`${lista.length} arquivos encontrados`);
+      aplicarEntries(novas, "zip", f.name);
     } catch (e) {
       toast.error(`Falha ao ler ZIP: ${(e as Error).message}`);
     }
   }
 
+  function lerPasta(fileList: FileList) {
+    const novas: ImportFileEntry[] = [];
+    for (const f of Array.from(fileList)) {
+      // webkitRelativePath inclui a pasta raiz (ex: "PV-JAC-3086 - LUIS/.../List.xml")
+      const rel =
+        (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+      const ext = f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "";
+      novas.push({
+        name: f.name,
+        relativePath: rel,
+        folder: rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "",
+        extension: ext,
+        size: f.size,
+        load: async () => f,
+        source: "folder",
+      });
+    }
+    if (!novas.length) {
+      toast.error("Nenhum arquivo encontrado na pasta");
+      return;
+    }
+    const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || "pasta";
+    aplicarEntries(novas, "folder", raiz);
+  }
+
   async function confirmarImportacao() {
-    if (!zip || !arquivo || !resumo) return;
+    if (!entries.length || !resumo) return;
     if (!nomeProjeto.trim()) {
       toast.error("Informe o nome do projeto");
       return;
@@ -145,7 +224,7 @@ function NovaImportacao() {
       const { data: imp, error: e0 } = await supabase
         .from("importacoes")
         .insert({
-          nome_arquivo: arquivo.name,
+          nome_arquivo: origemNome ?? "(pasta)",
           tipo: "promob_zip",
           status: "processando",
           projeto_detectado: nomeProjeto,
@@ -166,7 +245,7 @@ function NovaImportacao() {
           cliente: cliente || null,
           ambiente: ambiente || null,
           status: "ativo",
-          observacao: `Importado de ${arquivo.name}`,
+          observacao: `Importado de ${origemNome ?? "(pasta)"}`,
         })
         .select("id")
         .single();
@@ -248,9 +327,9 @@ function NovaImportacao() {
           continue;
         }
         try {
-          const entry = zip.file(a.caminho);
+          const entry = entries.find((e) => e.relativePath === a.caminho);
           if (!entry) continue;
-          const blob = await entry.async("blob");
+          const blob = await entry.load();
           const safe = a.caminho.replace(/[^a-zA-Z0-9._/-]/g, "_");
           const storagePath = `${userId}/${importacaoId}/${safe}`;
           const { error: eu } = await supabase.storage
@@ -494,36 +573,63 @@ function NovaImportacao() {
   }
 
   function limpar() {
-    setArquivo(null); setZip(null); setArquivos([]); setResumo(null);
+    setOrigemNome(null); setOrigemTipo(null); setEntries([]); setTamanhoTotal(0);
+    setArquivos([]); setResumo(null);
     setNomeProjeto(""); setCliente(""); setAmbiente("");
   }
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      {!arquivo && (
-        <div className="rounded-lg border-2 border-dashed border-border bg-surface p-12 text-center">
-          <FileArchive className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="mb-4 text-sm text-muted-foreground">
-            Selecione o ZIP exportado pelo Promob/Nesting/Cut Pro.
-          </p>
-          <input id="zip-input" type="file" accept=".zip" className="hidden"
-            onChange={(e) => e.target.files?.[0] && lerZip(e.target.files[0])} />
-          <Button onClick={() => document.getElementById("zip-input")?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> Selecionar ZIP
-          </Button>
+      {!origemNome && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border-2 border-dashed border-border bg-surface p-8 text-center">
+            <FolderOpen className="mx-auto mb-3 h-10 w-10 text-primary" />
+            <p className="mb-1 text-sm font-medium">Selecionar pasta do projeto</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Use no computador da fábrica, apontando direto para a pasta gerada pelo Cut Pro/Nesting (ex.: <code>PV-XXX - CLIENTE</code>).
+            </p>
+            <input
+              id="folder-input"
+              type="file"
+              className="hidden"
+              // @ts-expect-error - atributos não tipados no React mas suportados nos browsers
+              webkitdirectory=""
+              directory=""
+              multiple
+              onChange={(e) => e.target.files && lerPasta(e.target.files)}
+            />
+            <Button onClick={() => document.getElementById("folder-input")?.click()}>
+              <FolderOpen className="mr-2 h-4 w-4" /> Selecionar pasta
+            </Button>
+          </div>
+
+          <div className="rounded-lg border-2 border-dashed border-border bg-surface p-8 text-center">
+            <FileArchive className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="mb-1 text-sm font-medium">Enviar ZIP da pasta</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Use quando a pasta foi compactada para envio ou backup. O conteúdo interno é igual ao da pasta original.
+            </p>
+            <input id="zip-input" type="file" accept=".zip" className="hidden"
+              onChange={(e) => e.target.files?.[0] && lerZip(e.target.files[0])} />
+            <Button variant="outline" onClick={() => document.getElementById("zip-input")?.click()}>
+              <Upload className="mr-2 h-4 w-4" /> Selecionar ZIP
+            </Button>
+          </div>
         </div>
       )}
 
-      {arquivo && resumo && (
+      {origemNome && resumo && (
         <>
           <div className="flex items-center justify-between rounded border border-border bg-surface p-3">
             <div className="flex items-center gap-2">
-              <FileArchive className="h-5 w-5 text-primary" />
-              <span className="font-medium">{arquivo.name}</span>
-              <Badge variant="secondary">{(arquivo.size / 1024 / 1024).toFixed(2)} MB</Badge>
+              {origemTipo === "folder" ? <FolderOpen className="h-5 w-5 text-primary" /> : <FileArchive className="h-5 w-5 text-primary" />}
+              <span className="font-medium">{origemNome}</span>
+              <Badge variant="secondary">{entries.length} arquivos</Badge>
+              <Badge variant="outline">{(tamanhoTotal / 1024 / 1024).toFixed(2)} MB</Badge>
+              <Badge>{origemTipo === "folder" ? "Pasta" : "ZIP"}</Badge>
             </div>
             <Button size="sm" variant="ghost" onClick={limpar} disabled={importando}>
-              <X className="mr-1 h-4 w-4" /> Trocar arquivo
+              <X className="mr-1 h-4 w-4" /> Trocar origem
             </Button>
           </div>
 
