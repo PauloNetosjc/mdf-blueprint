@@ -422,6 +422,26 @@ function PecasCadastradasPage() {
       const uploads = parsed.filter(({ result }) => pecaIdByCodigo.has(result.codigo.codigo_completo));
       void uploadPdfsEmSegundoPlano(uploads, logsGerais);
 
+      setUltimoDebug({
+        modo,
+        total: candidatos.length,
+        ok: pecaIdByCodigo.size,
+        falhasParser,
+        falhasBanco,
+        puladas,
+        pecas: parsed.map((p) => ({
+          codigo: p.result.codigo.codigo_completo,
+          nome: p.result.nome_peca,
+          tipo: p.result.codigo.tipo_peca,
+          modulo: p.modulo,
+          operacoes: p.result.operacoes,
+          bordas: p.result.bordas,
+          erros: p.result.erros,
+          logs: p.result.logs,
+        })),
+        erros_arquivos: failedFiles.map((f) => getFileName(f)),
+      });
+
       return {
         ok: pecaIdByCodigo.size,
         falhas: falhasParser + falhasBanco,
@@ -433,6 +453,7 @@ function PecasCadastradasPage() {
     onSuccess: (r) => {
       toast.success(`Dados salvos: ${r.ok} peças, ${r.puladas} puladas, ${r.falhas} falhas. PDFs em envio separado.`);
       qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+      qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
     },
     onError: (e: Error) => {
       setProgresso((p) => p && { ...p, ativo: false, etapa: "Concluído", logs: appendLog([...p.logs], `✗ ${e.message}`) });
