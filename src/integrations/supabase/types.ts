@@ -277,6 +277,66 @@ export type Database = {
         }
         Relationships: []
       }
+      comparacoes_cnc: {
+        Row: {
+          arquivo_original_id: string | null
+          atualizado_em: string
+          chapa_id: string | null
+          criado_em: string
+          diferencas_json: Json
+          id: string
+          maquina_id: string | null
+          nome: string | null
+          observacoes: string | null
+          peca_id: string | null
+          preview_cnc_id: string | null
+          projeto_id: string | null
+          resumo_json: Json
+          status: string
+          sugestoes_json: Json
+          tolerancias_json: Json
+          user_id: string
+        }
+        Insert: {
+          arquivo_original_id?: string | null
+          atualizado_em?: string
+          chapa_id?: string | null
+          criado_em?: string
+          diferencas_json?: Json
+          id?: string
+          maquina_id?: string | null
+          nome?: string | null
+          observacoes?: string | null
+          peca_id?: string | null
+          preview_cnc_id?: string | null
+          projeto_id?: string | null
+          resumo_json?: Json
+          status?: string
+          sugestoes_json?: Json
+          tolerancias_json?: Json
+          user_id?: string
+        }
+        Update: {
+          arquivo_original_id?: string | null
+          atualizado_em?: string
+          chapa_id?: string | null
+          criado_em?: string
+          diferencas_json?: Json
+          id?: string
+          maquina_id?: string | null
+          nome?: string | null
+          observacoes?: string | null
+          peca_id?: string | null
+          preview_cnc_id?: string | null
+          projeto_id?: string | null
+          resumo_json?: Json
+          status?: string
+          sugestoes_json?: Json
+          tolerancias_json?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       etiqueta_config: {
         Row: {
           altura_mm: number
