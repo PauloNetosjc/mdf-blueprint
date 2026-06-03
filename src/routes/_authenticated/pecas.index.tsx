@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/_authenticated/pecas/")({
   head: () => ({ meta: [{ title: "Peças — Visualizador CNC" }] }),
@@ -161,7 +162,7 @@ function PecasList() {
                   {p.largura} × {p.altura} × {p.espessura}
                 </td>
                 <td className="px-3 py-2">
-                  <span className="rounded bg-muted px-2 py-0.5 text-xs">{p.status}</span>
+                  <StatusBadge status={p.status} />
                 </td>
               </tr>
             ))}

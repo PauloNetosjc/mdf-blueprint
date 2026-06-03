@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
+import { ProjetoNav } from "@/components/projeto-nav";
+import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
@@ -149,18 +151,27 @@ function ProjetoEditor() {
         <div className="flex items-center gap-3">
           <Link to="/projetos"><Button size="sm" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div>
-            <h1 className="text-lg font-semibold leading-tight">{projeto?.nome ?? "Carregando..."}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold leading-tight">{projeto?.nome ?? "Carregando..."}</h1>
+              {projeto?.status && <StatusBadge status={projeto.status} />}
+            </div>
             <p className="text-xs text-muted-foreground">{[projeto?.cliente, projeto?.ambiente].filter(Boolean).join(" · ") || "—"}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/projetos/$id/fluxo" params={{ id }}>
+            <Button variant="outline"><GitBranch className="mr-2 h-4 w-4" />Fluxo do Projeto</Button>
+          </Link>
           <Link to="/projetos/$id/plano" params={{ id }}>
             <Button><Cpu className="mr-2 h-4 w-4" />Abrir Plano de Corte</Button>
           </Link>
         </div>
       </header>
 
+      <ProjetoNav projetoId={id} />
+
       <Tabs value={tab} onValueChange={setTab} className="flex flex-1 flex-col overflow-hidden">
+
         <TabsList className="mx-6 mt-3 w-fit">
           <TabsTrigger value="pecas">Peças</TabsTrigger>
           <TabsTrigger value="identificacao">Identificação</TabsTrigger>
