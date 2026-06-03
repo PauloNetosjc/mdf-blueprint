@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, FolderKanban, Archive, Trash2, ArrowRight } from "lucide-react";
+import { Plus, FolderKanban, Archive, Trash2, ArrowRight, Search, Cpu } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/projetos/")({
@@ -43,6 +43,7 @@ function ProjetosPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [filtro, setFiltro] = useState<string>("todos");
+  const [busca, setBusca] = useState<string>("");
   const [form, setForm] = useState({ nome: "", cliente: "", ambiente: "", observacao: "" });
 
   const { data: projetos } = useQuery({
@@ -117,16 +118,32 @@ function ProjetosPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["projetos"] }); toast.success("Excluído"); },
   });
 
-  const lista = (projetos ?? []).filter((p) => filtro === "todos" ? true : p.status === filtro);
+  const buscaLower = busca.trim().toLowerCase();
+  const lista = (projetos ?? [])
+    .filter((p) => filtro === "todos" ? true : p.status === filtro)
+    .filter((p) => !buscaLower ? true : (
+      p.nome.toLowerCase().includes(buscaLower) ||
+      (p.cliente ?? "").toLowerCase().includes(buscaLower) ||
+      (p.ambiente ?? "").toLowerCase().includes(buscaLower)
+    ));
 
   return (
     <div className="p-6">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projetos</h1>
           <p className="text-sm text-muted-foreground">Painel de produção de ambientes e peças.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por projeto, cliente, ambiente…"
+              className="h-9 w-64 pl-8"
+            />
+          </div>
           <Select value={filtro} onValueChange={setFiltro}>
             <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -194,6 +211,11 @@ function ProjetosPage() {
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm(`Excluir "${p.nome}"? Esta ação remove todas as peças do projeto.`)) excluir.mutate(p.id); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
+                  <Link to="/projetos/$id/plano" params={{ id: p.id }}>
+                    <Button size="sm" variant="outline" title="Abrir plano de corte">
+                      <Cpu className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                   <Link to="/projetos/$id" params={{ id: p.id }}>
                     <Button size="sm">Abrir<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button>
                   </Link>
@@ -204,7 +226,7 @@ function ProjetosPage() {
         })}
         {lista.length === 0 && (
           <div className="col-span-full rounded border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-            Nenhum projeto {filtro !== "todos" ? "neste filtro" : "ainda"}. Clique em "Novo Projeto" para começar.
+            Nenhum projeto {filtro !== "todos" || busca ? "no filtro/busca atual" : "ainda"}. Clique em "Novo Projeto" para começar.
           </div>
         )}
       </div>

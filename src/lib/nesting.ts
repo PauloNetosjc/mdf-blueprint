@@ -55,7 +55,7 @@ export type ResultadoPlano = {
   total_chapas: number;
 };
 
-const KERF = 4; // mm — folga entre peças e refilo
+const KERF_DEFAULT = 4; // mm — folga padrão entre peças e refilo
 
 type Item = {
   projeto_peca_id: string;
@@ -71,6 +71,7 @@ type Item = {
 export function calcularPlanoCorte(
   pecas: PecaInput[],
   chapas: Chapa[],
+  refilo: number = KERF_DEFAULT,
 ): ResultadoPlano {
   // 1) Expandir por quantidade e filtrar peças com chapa atribuída
   const items: Item[] = [];
@@ -110,7 +111,7 @@ export function calcularPlanoCorte(
 
     let restantes = [...lote];
     while (restantes.length > 0) {
-      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa);
+      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, refilo);
       if (posicionadas.length === 0) {
         // peça maior que a chapa — pula para evitar loop
         const skip = restantes.shift();
@@ -146,7 +147,7 @@ export function calcularPlanoCorte(
   };
 }
 
-function empacotarShelf(items: Item[], chapa: Chapa) {
+function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT) {
   const W = chapa.largura;
   const H = chapa.altura;
   const posicionadas: PecaPosicionada[] = [];
