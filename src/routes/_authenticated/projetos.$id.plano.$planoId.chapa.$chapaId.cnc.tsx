@@ -14,6 +14,7 @@ import {
   generateSheetGCode, validateSheetGCode,
   type SheetPiece, type SheetOperation, type SheetParams, type SheetGenResult,
 } from "@/lib/chapa-gcode";
+import { CHECKLIST_HOMOLOGACAO, checklistCompleto, registrarAuditoria, STATUS_HOMOLOGACAO_LABELS, type Checklist } from "@/lib/auditoria";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc")({
   head: () => ({ meta: [{ title: "G-code da Chapa — Visualizador CNC" }] }),
@@ -127,6 +128,8 @@ function ChapaCNCPage() {
   const [resultado, setResultado] = useState<SheetGenResult | null>(null);
   const [responsavel, setResponsavel] = useState("");
   const [confirmou, setConfirmou] = useState(false);
+  const [checklist, setChecklist] = useState<Checklist>({});
+  const [observacao, setObservacao] = useState("");
 
   const pecasSheet: SheetPiece[] = useMemo(() => {
     if (!pecasPlano || !projetoPecas) return [];
@@ -195,25 +198,6 @@ function ChapaCNCPage() {
     else toast.success(`G-code gerado (${v.avisos} aviso(s))`);
   };
 
-  const salvar = useMutation({
-    mutationFn: async (status: "rascunho" | "validado" | "exportado") => {
-      if (!resultado) throw new Error("Gere o G-code antes");
-      const { error } = await supabase.from("previews_cnc_chapas").insert({
-        projeto_id: id, plano_id: planoId, plano_chapa_id: chapaId,
-        chapa_id: planoChapa?.chapa_id, maquina_id: maquina?.id,
-        nome_arquivo: resultado.nome_arquivo, conteudo: resultado.codigo,
-        parametros_json: params as never,
-        validacoes_json: resultado.validacoes as never,
-        status,
-        validado_por: status !== "rascunho" ? responsavel : null,
-        validado_em: status !== "rascunho" ? new Date().toISOString() : null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => toast.success("Versão salva"),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const { data: versoes, refetch: refetchVersoes } = useQuery({
     queryKey: ["previews-cnc-chapa", chapaId],
     queryFn: async () => {
@@ -223,12 +207,66 @@ function ChapaCNCPage() {
     },
   });
 
+  const proximaVersao = (versoes?.[0]?.versao ?? 0) + 1;
+
+  const salvar = useMutation({
+    mutationFn: async (status_homologacao: "rascunho" | "gerado" | "em_analise" | "aprovado" | "reprovado" | "exportado") => {
+      if (!resultado) throw new Error("Gere o G-code antes");
+      if (status_homologacao === "aprovado") {
+        if (!responsavel.trim()) throw new Error("Informe o responsável técnico");
+        if (!checklistCompleto(checklist)) throw new Error("Complete o checklist técnico");
+      }
+      const now = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        projeto_id: id, plano_id: planoId, plano_chapa_id: chapaId,
+        chapa_id: planoChapa?.chapa_id, maquina_id: maquina?.id,
+        nome_arquivo: resultado.nome_arquivo, conteudo: resultado.codigo,
+        parametros_json: params as never,
+        validacoes_json: resultado.validacoes as never,
+        status: status_homologacao,
+        status_homologacao,
+        versao: proximaVersao,
+        checklist_json: checklist as never,
+        observacao_homologacao: observacao || null,
+        validado_por: status_homologacao !== "rascunho" ? responsavel || null : null,
+        validado_em: status_homologacao !== "rascunho" ? now : null,
+      };
+      if (status_homologacao === "aprovado") {
+        payload.aprovado_por = responsavel; payload.aprovado_em = now;
+      }
+      if (status_homologacao === "reprovado") {
+        payload.reprovado_por = responsavel; payload.reprovado_em = now;
+      }
+      const { data: ins, error } = await supabase.from("previews_cnc_chapas").insert(payload as never).select().single();
+      if (error) throw error;
+      await registrarAuditoria({
+        acao: `gcode_${status_homologacao}`, entidade_tipo: "previews_cnc_chapas",
+        entidade_id: ins?.id, projeto_id: id, chapa_id: planoChapa?.chapa_id, plano_id: planoId,
+        operador: responsavel || null, observacao,
+        dados_depois: { versao: proximaVersao, status: status_homologacao },
+      });
+    },
+    onSuccess: () => toast.success("Versão salva"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => { if (!salvar.isPending) refetchVersoes(); }, [salvar.isPending, refetchVersoes]);
 
-  const baixar = () => {
+  const ultimaAprovada = useMemo(
+    () => (versoes ?? []).find((v) => ["aprovado", "exportado", "enviado_maquina"].includes((v as { status_homologacao?: string }).status_homologacao ?? "")),
+    [versoes],
+  );
+
+  const baixar = async () => {
     if (!resultado) return;
     const v = validateSheetGCode(resultado);
     if (v.erros > 0) { toast.error("Existem erros críticos"); return; }
+    if (!maquina) { toast.error("Selecione uma máquina"); return; }
+    if (!params.ferramenta_corte_id) { toast.error("Defina a ferramenta de corte"); return; }
+    if (!ultimaAprovada) {
+      toast.error("Esta chapa não tem versão aprovada. Aprove antes de exportar.");
+      return;
+    }
     if (!confirmou || !responsavel.trim()) { toast.error("Confirme a validação técnica e informe o responsável"); return; }
     const blob = new Blob([resultado.codigo], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -339,14 +377,22 @@ function ChapaCNCPage() {
 
           {versoes && versoes.length > 0 && (
             <Card className="p-3">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Versões</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Histórico de versões</h3>
               <div className="space-y-1">
-                {versoes.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between border-b border-border/40 py-1 text-[11px]">
-                    <span>{v.nome_arquivo}</span>
-                    <Badge variant="outline">{v.status}</Badge>
-                  </div>
-                ))}
+                {versoes.map((v) => {
+                  const sh = (v as { status_homologacao?: string }).status_homologacao ?? v.status;
+                  return (
+                    <div key={v.id} className="border-b border-border/40 py-1 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono">v{v.versao} · {v.nome_arquivo}</span>
+                        <Badge variant="outline">{STATUS_HOMOLOGACAO_LABELS[sh] ?? sh}</Badge>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(v.criado_em).toLocaleString()} · {v.validado_por ?? "—"}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           )}
@@ -398,32 +444,71 @@ function ChapaCNCPage() {
           </Card>
 
           <Card className="space-y-2 p-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Confirmação técnica</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Homologação</h3>
             <p className="text-[10px] leading-tight text-muted-foreground">
-              O G-code gerado é uma prévia técnica. Antes de usar em máquina real, o operador responsável
-              deve validar o código, o pós-processador, a origem, as ferramentas, os avanços, a rotação
-              e os limites da máquina conforme o manual técnico.
+              Para exportar o .nc é obrigatório aprovar uma versão. O fluxo é: Gerar → Validar → (Comparar) → Aprovar → Exportar → Enviar p/ máquina.
             </p>
             <div>
-              <Label className="text-[11px]">Responsável</Label>
+              <Label className="text-[11px]">Responsável técnico</Label>
               <Input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="h-8 text-xs" />
             </div>
+            <div>
+              <Label className="text-[11px]">Observação</Label>
+              <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} className="h-8 text-xs" />
+            </div>
+
+            <div className="rounded border border-border/60 p-2">
+              <h4 className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">Checklist técnico</h4>
+              {CHECKLIST_HOMOLOGACAO.map((item) => (
+                <label key={item.key} className="flex items-start gap-2 py-0.5 cursor-pointer">
+                  <Checkbox
+                    checked={!!checklist[item.key]}
+                    onCheckedChange={(v) => setChecklist((c) => ({ ...c, [item.key]: !!v }))}
+                  />
+                  <span className="text-[10px] leading-tight">{item.label}</span>
+                </label>
+              ))}
+            </div>
+
             <label className="flex cursor-pointer items-start gap-2 py-1">
               <Checkbox checked={confirmou} onCheckedChange={(v) => setConfirmou(!!v)} />
-              <span className="text-[11px]">Confirmo a validação técnica do G-code.</span>
+              <span className="text-[10px]">Confirmo a validação técnica deste G-code.</span>
             </label>
-            <Button
-              size="sm" className="w-full" onClick={baixar}
-              disabled={!resultado || !confirmou || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
-            >
-              <ShieldCheck className="mr-1 h-4 w-4" />Confirmar validação técnica
-            </Button>
-            <Button
-              size="sm" variant="outline" className="w-full" onClick={baixar}
-              disabled={!resultado || (validacaoStatus?.erros ?? 0) > 0}
-            >
-              <Download className="mr-1 h-4 w-4" />Baixar .nc
-            </Button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => salvar.mutate("rascunho")}
+                disabled={!resultado || salvar.isPending}
+              >
+                Salvar rascunho
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => salvar.mutate("aprovado")}
+                disabled={!resultado || salvar.isPending || !checklistCompleto(checklist) || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
+              >
+                <ShieldCheck className="mr-1 h-4 w-4" />Aprovar
+              </Button>
+              <Button
+                size="sm" variant="outline" className="text-destructive"
+                onClick={() => salvar.mutate("reprovado")}
+                disabled={!resultado || salvar.isPending || !responsavel.trim()}
+              >
+                Reprovar
+              </Button>
+              <Button
+                size="sm"
+                onClick={baixar}
+                disabled={!resultado || !ultimaAprovada || !confirmou || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
+              >
+                <Download className="mr-1 h-4 w-4" />Exportar .nc
+              </Button>
+            </div>
+
+            {!ultimaAprovada && resultado && (
+              <p className="text-[10px] text-yellow-700">A exportação só é liberada após aprovação técnica.</p>
+            )}
           </Card>
         </aside>
       </div>

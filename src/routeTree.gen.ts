@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedProducaoRouteImport } from './routes/_authenticated/producao'
 import { Route as AuthenticatedMaquinaRouteImport } from './routes/_authenticated/maquina'
 import { Route as AuthenticatedImportacoesRouteImport } from './routes/_authenticated/importacoes'
+import { Route as AuthenticatedHomologacaoRouteImport } from './routes/_authenticated/homologacao'
 import { Route as AuthenticatedFitasRouteImport } from './routes/_authenticated/fitas'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedEtiquetasRouteImport } from './routes/_authenticated/etiquetas'
@@ -60,6 +61,12 @@ const AuthenticatedImportacoesRoute =
   AuthenticatedImportacoesRouteImport.update({
     id: '/importacoes',
     path: '/importacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedHomologacaoRoute =
+  AuthenticatedHomologacaoRouteImport.update({
+    id: '/homologacao',
+    path: '/homologacao',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedFitasRoute = AuthenticatedFitasRouteImport.update({
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
+  '/homologacao': typeof AuthenticatedHomologacaoRoute
   '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
+  '/homologacao': typeof AuthenticatedHomologacaoRoute
   '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
@@ -207,6 +216,7 @@ export interface FileRoutesById {
   '/_authenticated/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/fitas': typeof AuthenticatedFitasRoute
+  '/_authenticated/homologacao': typeof AuthenticatedHomologacaoRoute
   '/_authenticated/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/_authenticated/maquina': typeof AuthenticatedMaquinaRoute
   '/_authenticated/producao': typeof AuthenticatedProducaoRoute
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
+    | '/homologacao'
     | '/importacoes'
     | '/maquina'
     | '/producao'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
+    | '/homologacao'
     | '/importacoes'
     | '/maquina'
     | '/producao'
@@ -279,6 +291,7 @@ export interface FileRouteTypes {
     | '/_authenticated/etiquetas'
     | '/_authenticated/ferramentas'
     | '/_authenticated/fitas'
+    | '/_authenticated/homologacao'
     | '/_authenticated/importacoes'
     | '/_authenticated/maquina'
     | '/_authenticated/producao'
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/importacoes'
       fullPath: '/importacoes'
       preLoaderRoute: typeof AuthenticatedImportacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/homologacao': {
+      id: '/_authenticated/homologacao'
+      path: '/homologacao'
+      fullPath: '/homologacao'
+      preLoaderRoute: typeof AuthenticatedHomologacaoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/fitas': {
@@ -523,6 +543,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEtiquetasRoute: typeof AuthenticatedEtiquetasRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFitasRoute: typeof AuthenticatedFitasRoute
+  AuthenticatedHomologacaoRoute: typeof AuthenticatedHomologacaoRoute
   AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRouteWithChildren
   AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
   AuthenticatedProducaoRoute: typeof AuthenticatedProducaoRoute
@@ -541,6 +562,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEtiquetasRoute: AuthenticatedEtiquetasRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFitasRoute: AuthenticatedFitasRoute,
+  AuthenticatedHomologacaoRoute: AuthenticatedHomologacaoRoute,
   AuthenticatedImportacoesRoute: AuthenticatedImportacoesRouteWithChildren,
   AuthenticatedMaquinaRoute: AuthenticatedMaquinaRoute,
   AuthenticatedProducaoRoute: AuthenticatedProducaoRoute,
