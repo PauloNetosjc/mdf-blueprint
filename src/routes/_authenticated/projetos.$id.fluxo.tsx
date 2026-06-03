@@ -8,6 +8,7 @@ import {
   Send, Factory, CheckCircle2, ChevronRight, FileArchive, History,
 } from "lucide-react";
 import type { StatusTone } from "@/lib/status";
+import { ProjetoNav } from "@/components/projeto-nav";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id/fluxo")({
   head: () => ({ meta: [{ title: "Fluxo do Projeto — Visualizador CNC" }] }),
