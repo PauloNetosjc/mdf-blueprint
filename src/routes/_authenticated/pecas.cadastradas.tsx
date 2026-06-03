@@ -716,6 +716,9 @@ function PecasCadastradasPage() {
             <SelectItem value="com_rasgos">Com rasgos</SelectItem>
             <SelectItem value="com_fita">Com fita</SelectItem>
             <SelectItem value="face5">Com Face 5</SelectItem>
+            <SelectItem value="ok">Status: OK</SelectItem>
+            <SelectItem value="com_alerta">Com alertas</SelectItem>
+            <SelectItem value="pendente_revisao">Pendente revisão</SelectItem>
             <SelectItem value="com_erro">Com erro</SelectItem>
             <SelectItem value="sem_nome">Sem nome</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
