@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedMaquinaRouteImport } from './routes/_authenticated/maquina'
 import { Route as AuthenticatedFitasRouteImport } from './routes/_authenticated/fitas'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
+import { Route as AuthenticatedEtiquetasRouteImport } from './routes/_authenticated/etiquetas'
 import { Route as AuthenticatedChapasRouteImport } from './routes/_authenticated/chapas'
 import { Route as AuthenticatedProjetosIndexRouteImport } from './routes/_authenticated/projetos.index'
 import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authenticated/pecas.index'
@@ -55,6 +56,11 @@ const AuthenticatedFerramentasRoute =
     path: '/ferramentas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEtiquetasRoute = AuthenticatedEtiquetasRouteImport.update({
+  id: '/etiquetas',
+  path: '/etiquetas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedChapasRoute = AuthenticatedChapasRouteImport.update({
   id: '/chapas',
   path: '/chapas',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/chapas': typeof AuthenticatedChapasRoute
+  '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/chapas': typeof AuthenticatedChapasRoute
+  '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/chapas': typeof AuthenticatedChapasRoute
+  '/_authenticated/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/fitas': typeof AuthenticatedFitasRoute
   '/_authenticated/maquina': typeof AuthenticatedMaquinaRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/chapas'
+    | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
     | '/maquina'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/chapas'
+    | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
     | '/maquina'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/chapas'
+    | '/_authenticated/etiquetas'
     | '/_authenticated/ferramentas'
     | '/_authenticated/fitas'
     | '/_authenticated/maquina'
@@ -254,6 +266,13 @@ declare module '@tanstack/react-router' {
       path: '/ferramentas'
       fullPath: '/ferramentas'
       preLoaderRoute: typeof AuthenticatedFerramentasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/etiquetas': {
+      id: '/_authenticated/etiquetas'
+      path: '/etiquetas'
+      fullPath: '/etiquetas'
+      preLoaderRoute: typeof AuthenticatedEtiquetasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chapas': {
@@ -351,6 +370,7 @@ const AuthenticatedProjetosIdRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedChapasRoute: typeof AuthenticatedChapasRoute
+  AuthenticatedEtiquetasRoute: typeof AuthenticatedEtiquetasRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFitasRoute: typeof AuthenticatedFitasRoute
   AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
@@ -364,6 +384,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChapasRoute: AuthenticatedChapasRoute,
+  AuthenticatedEtiquetasRoute: AuthenticatedEtiquetasRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFitasRoute: AuthenticatedFitasRoute,
   AuthenticatedMaquinaRoute: AuthenticatedMaquinaRoute,
@@ -385,3 +406,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
