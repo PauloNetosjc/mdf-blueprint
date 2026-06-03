@@ -58,6 +58,60 @@ export type Database = {
           },
         ]
       }
+      chapas: {
+        Row: {
+          altura: number
+          ativa: boolean
+          codigo: string
+          cor: string
+          created_at: string
+          custo: number
+          espessura: number
+          estoque: number
+          id: string
+          largura: number
+          nome: string
+          permite_rotacao: boolean
+          tipo: string
+          user_id: string
+          veio: string
+        }
+        Insert: {
+          altura?: number
+          ativa?: boolean
+          codigo: string
+          cor?: string
+          created_at?: string
+          custo?: number
+          espessura: number
+          estoque?: number
+          id?: string
+          largura?: number
+          nome: string
+          permite_rotacao?: boolean
+          tipo?: string
+          user_id?: string
+          veio?: string
+        }
+        Update: {
+          altura?: number
+          ativa?: boolean
+          codigo?: string
+          cor?: string
+          created_at?: string
+          custo?: number
+          espessura?: number
+          estoque?: number
+          id?: string
+          largura?: number
+          nome?: string
+          permite_rotacao?: boolean
+          tipo?: string
+          user_id?: string
+          veio?: string
+        }
+        Relationships: []
+      }
       faces: {
         Row: {
           eixo_x_mapeado: string | null
@@ -169,6 +223,56 @@ export type Database = {
             columns: ["maquina_id"]
             isOneToOne: false
             referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitas: {
+        Row: {
+          chapa_id: string | null
+          codigo: string
+          cor: string
+          created_at: string
+          custo: number
+          descricao: string
+          espessura: number
+          estoque_m: number
+          id: string
+          largura: number
+          user_id: string
+        }
+        Insert: {
+          chapa_id?: string | null
+          codigo: string
+          cor?: string
+          created_at?: string
+          custo?: number
+          descricao: string
+          espessura?: number
+          estoque_m?: number
+          id?: string
+          largura?: number
+          user_id?: string
+        }
+        Update: {
+          chapa_id?: string | null
+          codigo?: string
+          cor?: string
+          created_at?: string
+          custo?: number
+          descricao?: string
+          espessura?: number
+          estoque_m?: number
+          id?: string
+          largura?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitas_chapa_id_fkey"
+            columns: ["chapa_id"]
+            isOneToOne: false
+            referencedRelation: "chapas"
             referencedColumns: ["id"]
           },
         ]
@@ -381,6 +485,143 @@ export type Database = {
         }
         Relationships: []
       }
+      plano_corte_chapas: {
+        Row: {
+          aproveitamento: number
+          area_usada: number
+          chapa_id: string
+          id: string
+          indice: number
+          plano_id: string
+          user_id: string
+        }
+        Insert: {
+          aproveitamento?: number
+          area_usada?: number
+          chapa_id: string
+          id?: string
+          indice: number
+          plano_id: string
+          user_id?: string
+        }
+        Update: {
+          aproveitamento?: number
+          area_usada?: number
+          chapa_id?: string
+          id?: string
+          indice?: number
+          plano_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plano_corte_chapas_chapa_id_fkey"
+            columns: ["chapa_id"]
+            isOneToOne: false
+            referencedRelation: "chapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plano_corte_chapas_plano_id_fkey"
+            columns: ["plano_id"]
+            isOneToOne: false
+            referencedRelation: "planos_corte"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plano_corte_pecas: {
+        Row: {
+          altura: number
+          id: string
+          largura: number
+          plano_chapa_id: string
+          projeto_peca_id: string
+          rotacionada: boolean
+          user_id: string
+          x: number
+          y: number
+        }
+        Insert: {
+          altura: number
+          id?: string
+          largura: number
+          plano_chapa_id: string
+          projeto_peca_id: string
+          rotacionada?: boolean
+          user_id?: string
+          x: number
+          y: number
+        }
+        Update: {
+          altura?: number
+          id?: string
+          largura?: number
+          plano_chapa_id?: string
+          projeto_peca_id?: string
+          rotacionada?: boolean
+          user_id?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plano_corte_pecas_plano_chapa_id_fkey"
+            columns: ["plano_chapa_id"]
+            isOneToOne: false
+            referencedRelation: "plano_corte_chapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plano_corte_pecas_projeto_peca_id_fkey"
+            columns: ["projeto_peca_id"]
+            isOneToOne: false
+            referencedRelation: "projeto_pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planos_corte: {
+        Row: {
+          aproveitamento_medio: number
+          created_at: string
+          id: string
+          projeto_id: string
+          total_chapas: number
+          total_pecas: number
+          user_id: string
+          versao: number
+        }
+        Insert: {
+          aproveitamento_medio?: number
+          created_at?: string
+          id?: string
+          projeto_id: string
+          total_chapas?: number
+          total_pecas?: number
+          user_id?: string
+          versao?: number
+        }
+        Update: {
+          aproveitamento_medio?: number
+          created_at?: string
+          id?: string
+          projeto_id?: string
+          total_chapas?: number
+          total_pecas?: number
+          user_id?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planos_corte_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       previews_cnc: {
         Row: {
           aprovado_por: string | null
@@ -431,6 +672,156 @@ export type Database = {
             columns: ["peca_id"]
             isOneToOne: false
             referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projeto_pecas: {
+        Row: {
+          altura: number
+          chapa_id: string | null
+          created_at: string
+          descricao: string
+          espessura: number
+          fita_codigo: string | null
+          id: string
+          largura: number
+          modulo: string | null
+          observacao: string | null
+          ordem: number
+          peca_id: string | null
+          projeto_id: string
+          quantidade: number
+          user_id: string
+        }
+        Insert: {
+          altura: number
+          chapa_id?: string | null
+          created_at?: string
+          descricao: string
+          espessura?: number
+          fita_codigo?: string | null
+          id?: string
+          largura: number
+          modulo?: string | null
+          observacao?: string | null
+          ordem?: number
+          peca_id?: string | null
+          projeto_id: string
+          quantidade?: number
+          user_id?: string
+        }
+        Update: {
+          altura?: number
+          chapa_id?: string | null
+          created_at?: string
+          descricao?: string
+          espessura?: number
+          fita_codigo?: string | null
+          id?: string
+          largura?: number
+          modulo?: string | null
+          observacao?: string | null
+          ordem?: number
+          peca_id?: string | null
+          projeto_id?: string
+          quantidade?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projeto_pecas_chapa_id_fkey"
+            columns: ["chapa_id"]
+            isOneToOne: false
+            referencedRelation: "chapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projeto_pecas_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projeto_pecas_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projetos: {
+        Row: {
+          ambiente: string | null
+          cliente: string | null
+          created_at: string
+          id: string
+          nome: string
+          observacao: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ambiente?: string | null
+          cliente?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          ambiente?: string | null
+          cliente?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sobras_chapa: {
+        Row: {
+          altura: number
+          id: string
+          largura: number
+          plano_chapa_id: string
+          user_id: string
+          x: number
+          y: number
+        }
+        Insert: {
+          altura: number
+          id?: string
+          largura: number
+          plano_chapa_id: string
+          user_id?: string
+          x: number
+          y: number
+        }
+        Update: {
+          altura?: number
+          id?: string
+          largura?: number
+          plano_chapa_id?: string
+          user_id?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sobras_chapa_plano_chapa_id_fkey"
+            columns: ["plano_chapa_id"]
+            isOneToOne: false
+            referencedRelation: "plano_corte_chapas"
             referencedColumns: ["id"]
           },
         ]
