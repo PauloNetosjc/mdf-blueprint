@@ -1374,14 +1374,17 @@ export type Database = {
           material_ref: string | null
           metadados_json: Json
           modulo_origem: string | null
+          motivo_status: string | null
           nome: string | null
           nome_peca: string | null
           observacao: string | null
           origem: string | null
+          parser_alertas_json: Json
           pdf_nome: string | null
           pdf_nome_arquivo: string | null
           pdf_url: string | null
           prefixo: string | null
+          resumo_parser_json: Json
           status_parser: string
           sufixo: string | null
           tipo_peca: string | null
@@ -1404,14 +1407,17 @@ export type Database = {
           material_ref?: string | null
           metadados_json?: Json
           modulo_origem?: string | null
+          motivo_status?: string | null
           nome?: string | null
           nome_peca?: string | null
           observacao?: string | null
           origem?: string | null
+          parser_alertas_json?: Json
           pdf_nome?: string | null
           pdf_nome_arquivo?: string | null
           pdf_url?: string | null
           prefixo?: string | null
+          resumo_parser_json?: Json
           status_parser?: string
           sufixo?: string | null
           tipo_peca?: string | null
@@ -1434,14 +1440,17 @@ export type Database = {
           material_ref?: string | null
           metadados_json?: Json
           modulo_origem?: string | null
+          motivo_status?: string | null
           nome?: string | null
           nome_peca?: string | null
           observacao?: string | null
           origem?: string | null
+          parser_alertas_json?: Json
           pdf_nome?: string | null
           pdf_nome_arquivo?: string | null
           pdf_url?: string | null
           prefixo?: string | null
+          resumo_parser_json?: Json
           status_parser?: string
           sufixo?: string | null
           tipo_peca?: string | null
