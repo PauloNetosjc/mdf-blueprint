@@ -142,6 +142,51 @@ export type Database = {
           },
         ]
       }
+      arquivos_tecnicos: {
+        Row: {
+          chapa_id: string | null
+          criado_em: string
+          dados_extraidos_json: Json
+          id: string
+          importacao_id: string | null
+          nome_arquivo: string
+          origem_pasta: string | null
+          peca_id: string | null
+          projeto_id: string | null
+          storage_url: string | null
+          tipo_arquivo: string | null
+          user_id: string
+        }
+        Insert: {
+          chapa_id?: string | null
+          criado_em?: string
+          dados_extraidos_json?: Json
+          id?: string
+          importacao_id?: string | null
+          nome_arquivo: string
+          origem_pasta?: string | null
+          peca_id?: string | null
+          projeto_id?: string | null
+          storage_url?: string | null
+          tipo_arquivo?: string | null
+          user_id?: string
+        }
+        Update: {
+          chapa_id?: string | null
+          criado_em?: string
+          dados_extraidos_json?: Json
+          id?: string
+          importacao_id?: string | null
+          nome_arquivo?: string
+          origem_pasta?: string | null
+          peca_id?: string | null
+          projeto_id?: string | null
+          storage_url?: string | null
+          tipo_arquivo?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       centros_trabalho: {
         Row: {
           ativo: boolean
@@ -493,6 +538,93 @@ export type Database = {
           },
         ]
       }
+      importacao_arquivos: {
+        Row: {
+          caminho_original: string
+          criado_em: string
+          id: string
+          importacao_id: string
+          metadados_json: Json
+          nome_arquivo: string
+          origem_pasta: string | null
+          status_leitura: string
+          storage_url: string | null
+          tipo_arquivo: string | null
+          user_id: string
+        }
+        Insert: {
+          caminho_original: string
+          criado_em?: string
+          id?: string
+          importacao_id: string
+          metadados_json?: Json
+          nome_arquivo: string
+          origem_pasta?: string | null
+          status_leitura?: string
+          storage_url?: string | null
+          tipo_arquivo?: string | null
+          user_id?: string
+        }
+        Update: {
+          caminho_original?: string
+          criado_em?: string
+          id?: string
+          importacao_id?: string
+          metadados_json?: Json
+          nome_arquivo?: string
+          origem_pasta?: string | null
+          status_leitura?: string
+          storage_url?: string | null
+          tipo_arquivo?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      importacoes: {
+        Row: {
+          ambiente_detectado: string | null
+          cliente_detectado: string | null
+          criado_em: string
+          erros_json: Json
+          id: string
+          nome_arquivo: string
+          projeto_detectado: string | null
+          projeto_id: string | null
+          resumo_json: Json
+          status: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          ambiente_detectado?: string | null
+          cliente_detectado?: string | null
+          criado_em?: string
+          erros_json?: Json
+          id?: string
+          nome_arquivo: string
+          projeto_detectado?: string | null
+          projeto_id?: string | null
+          resumo_json?: Json
+          status?: string
+          tipo?: string
+          user_id?: string
+        }
+        Update: {
+          ambiente_detectado?: string | null
+          cliente_detectado?: string | null
+          criado_em?: string
+          erros_json?: Json
+          id?: string
+          nome_arquivo?: string
+          projeto_detectado?: string | null
+          projeto_id?: string | null
+          resumo_json?: Json
+          status?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       maquinas: {
         Row: {
           altura_segura_z: number
@@ -688,6 +820,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      peca_operacoes_importadas: {
+        Row: {
+          arquivo_tecnico_id: string | null
+          comprimento: number | null
+          criado_em: string
+          dados_brutos: Json
+          diametro: number | null
+          face: string | null
+          id: string
+          largura: number | null
+          origem: string | null
+          peca_id: string | null
+          profundidade: number | null
+          projeto_id: string | null
+          tipo_operacao: string | null
+          user_id: string
+          x: number | null
+          y: number | null
+          z: number | null
+        }
+        Insert: {
+          arquivo_tecnico_id?: string | null
+          comprimento?: number | null
+          criado_em?: string
+          dados_brutos?: Json
+          diametro?: number | null
+          face?: string | null
+          id?: string
+          largura?: number | null
+          origem?: string | null
+          peca_id?: string | null
+          profundidade?: number | null
+          projeto_id?: string | null
+          tipo_operacao?: string | null
+          user_id?: string
+          x?: number | null
+          y?: number | null
+          z?: number | null
+        }
+        Update: {
+          arquivo_tecnico_id?: string | null
+          comprimento?: number | null
+          criado_em?: string
+          dados_brutos?: Json
+          diametro?: number | null
+          face?: string | null
+          id?: string
+          largura?: number | null
+          origem?: string | null
+          peca_id?: string | null
+          profundidade?: number | null
+          projeto_id?: string | null
+          tipo_operacao?: string | null
+          user_id?: string
+          x?: number | null
+          y?: number | null
+          z?: number | null
+        }
+        Relationships: []
       }
       pecas: {
         Row: {
