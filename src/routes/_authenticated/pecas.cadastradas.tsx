@@ -547,25 +547,55 @@ function PecasCadastradasPage() {
     importar.mutate({ files: arquivosComErro, modo: "reprocessar" });
   }
 
-  const filtradas = (lista.data ?? []).filter((p) => {
+  const cont = contadores.data;
+  const getCont = (id: string) => cont?.get(id) ?? { furos: 0, rasgos: 0, bordas: 0, face5: false };
+
+  const pecas = lista.data ?? [];
+  const filtradas = pecas.filter((p) => {
+    const c = getCont(p.id);
+    if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
+    if (filtro === "com_fita" && !p.fita_ref) return false;
+    if (filtro === "com_furos" && c.furos === 0) return false;
+    if (filtro === "com_rasgos" && c.rasgos === 0) return false;
+    if (filtro === "face5" && !c.face5) return false;
+    if (filtro === "sem_nome" && p.nome_peca) return false;
+    if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
+    if (filtro === "sem_bordas" && c.bordas > 0) return false;
+    if (filtro === "com_erro" && p.status_parser === "ok") return false;
     if (!busca) return true;
     const q = busca.toLowerCase();
     return (
       (p.codigo_completo ?? "").toLowerCase().includes(q) ||
+      (p.codigo_principal ?? "").toLowerCase().includes(q) ||
       (p.nome_peca ?? "").toLowerCase().includes(q) ||
       (p.tipo_peca ?? "").toLowerCase().includes(q) ||
-      (p.modulo_origem ?? "").toLowerCase().includes(q)
+      (p.modulo_origem ?? "").toLowerCase().includes(q) ||
+      (p.fita_ref ?? "").toLowerCase().includes(q)
     );
   });
 
   const stats = {
-    total: lista.data?.length ?? 0,
-    com_erro: lista.data?.filter((p) => p.status_parser === "com_erros").length ?? 0,
-    divisorias: lista.data?.filter((p) => p.prefixo === "DIV").length ?? 0,
-    com_fita: lista.data?.filter((p) => p.fita_ref).length ?? 0,
+    total: pecas.length,
+    com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
+    divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
+    com_fita: pecas.filter((p) => p.fita_ref).length,
+    com_furos: pecas.filter((p) => getCont(p.id).furos > 0).length,
+    com_rasgos: pecas.filter((p) => getCont(p.id).rasgos > 0).length,
+    face5: pecas.filter((p) => getCont(p.id).face5).length,
   };
   const importando = importar.isPending || Boolean(progresso?.ativo);
   const progressoPct = progresso?.total ? Math.round((progresso.atual / progresso.total) * 100) : 0;
+
+  function baixarDebugJson() {
+    if (!ultimoDebug) return;
+    const blob = new Blob([JSON.stringify(ultimoDebug, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pecas-cadastradas-debug-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="p-6">
@@ -590,13 +620,7 @@ function PecasCadastradasPage() {
               <SelectItem value="reprocessar">Reprocessar tudo</SelectItem>
             </SelectContent>
           </Select>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".zip"
-            className="hidden"
-            onChange={handleZipSelect}
-          />
+          <input ref={fileInputRef} type="file" accept=".zip" className="hidden" onChange={handleZipSelect} />
           <input
             ref={folderInputRef}
             type="file"
@@ -608,25 +632,31 @@ function PecasCadastradasPage() {
             onChange={handleFolderSelect}
           />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importando}>
-            <Upload className="mr-2 h-4 w-4" />
-            Importar ZIP
+            <Upload className="mr-2 h-4 w-4" /> Importar ZIP
           </Button>
           <Button onClick={() => folderInputRef.current?.click()} disabled={importando}>
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Selecionar pasta
+            <FolderOpen className="mr-2 h-4 w-4" /> Selecionar pasta
           </Button>
           <Button variant="outline" onClick={handleReprocessarErros} disabled={importando || !arquivosComErro.length}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Reprocessar erros{arquivosComErro.length ? ` (${arquivosComErro.length})` : ""}
           </Button>
+          {ultimoDebug && (
+            <Button variant="ghost" size="sm" onClick={baixarDebugJson}>
+              Baixar JSON de debug
+            </Button>
+          )}
         </div>
       </header>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <StatCard label="Peças cadastradas" value={stats.total} />
         <StatCard label="Divisórias" value={stats.divisorias} />
-        <StatCard label="Com fita de borda" value={stats.com_fita} />
-        <StatCard label="Com alertas do parser" value={stats.com_erro} tone={stats.com_erro ? "warn" : undefined} />
+        <StatCard label="Com fita" value={stats.com_fita} />
+        <StatCard label="Com furos" value={stats.com_furos} />
+        <StatCard label="Com rasgos" value={stats.com_rasgos} />
+        <StatCard label="Com Face 5" value={stats.face5} />
+        <StatCard label="Com alertas" value={stats.com_erro} tone={stats.com_erro ? "warn" : undefined} />
       </div>
 
       {progresso && (
@@ -651,66 +681,98 @@ function PecasCadastradasPage() {
         </div>
       )}
 
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por código, nome, tipo ou módulo..."
+          placeholder="Buscar código, nome, tipo, módulo ou fita..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          className="max-w-md"
+          className="max-w-sm"
         />
+        <Select value={filtro} onValueChange={setFiltro}>
+          <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas</SelectItem>
+            <SelectItem value="divisorias">Divisórias</SelectItem>
+            <SelectItem value="com_furos">Com furos</SelectItem>
+            <SelectItem value="com_rasgos">Com rasgos</SelectItem>
+            <SelectItem value="com_fita">Com fita</SelectItem>
+            <SelectItem value="face5">Com Face 5</SelectItem>
+            <SelectItem value="com_erro">Com erro</SelectItem>
+            <SelectItem value="sem_nome">Sem nome</SelectItem>
+            <SelectItem value="sem_operacoes">Sem operações</SelectItem>
+            <SelectItem value="sem_bordas">Sem bordas</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
       </div>
 
-      <div className="overflow-hidden rounded border border-border bg-surface">
+      <div className="overflow-auto rounded border border-border bg-surface">
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left">Código</th>
               <th className="px-3 py-2 text-left">Nome</th>
               <th className="px-3 py-2 text-left">Tipo</th>
+              <th className="px-3 py-2 text-left">Prefixo</th>
               <th className="px-3 py-2 text-left">Módulo</th>
               <th className="px-3 py-2 text-right">L × A × E</th>
               <th className="px-3 py-2 text-left">Fita</th>
+              <th className="px-3 py-2 text-center">Furos</th>
+              <th className="px-3 py-2 text-center">Rasgos</th>
+              <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
             </tr>
           </thead>
           <tbody>
-            {filtradas.map((p) => (
-              <tr key={p.id} className="border-t border-border hover:bg-surface-2">
-                <td className="px-3 py-2 font-mono font-semibold">
-                  <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} className="hover:underline">
-                    {p.codigo_completo}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">{p.nome_peca ?? "—"}</td>
-                <td className="px-3 py-2">
-                  {p.prefixo === "DIV" ? (
-                    <Badge variant="default">Divisória</Badge>
-                  ) : (
-                    <span className="text-muted-foreground">{p.tipo_peca ?? "—"}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{p.modulo_origem ?? "—"}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">
-                  {p.largura_ref ?? "—"} × {p.altura_ref ?? "—"} × {p.espessura_ref ?? "—"}
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">{p.fita_ref ?? "—"}</td>
-                <td className="px-3 py-2">
-                  {p.status_parser === "ok" ? (
-                    <Badge variant="outline">ok</Badge>
-                  ) : (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertTriangle className="h-3 w-3" /> {p.status_parser}
-                    </Badge>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {filtradas.map((p) => {
+              const c = getCont(p.id);
+              const tipoAmigavel = p.tipo_peca || getTipoPecaPorPrefixo(p.prefixo);
+              const nome = p.nome_peca || (p.prefixo ? `${tipoAmigavel} ${p.codigo_principal ?? ""}${p.sufixo ?? ""}` : "—");
+              return (
+                <tr key={p.id} className="border-t border-border hover:bg-surface-2">
+                  <td className="px-3 py-2 font-mono font-semibold">
+                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} className="hover:underline">
+                      {p.codigo_completo}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2">{nome}</td>
+                  <td className="px-3 py-2">
+                    {p.prefixo === "DIV" ? (
+                      <Badge>Divisória</Badge>
+                    ) : (
+                      <span>{tipoAmigavel}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{p.prefixo ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{p.modulo_origem ?? "—"}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {p.largura_ref ?? "—"} × {p.altura_ref ?? "—"} × {p.espessura_ref ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{p.fita_ref ?? "—"}</td>
+                  <td className="px-3 py-2 text-center">{c.furos || <span className="text-muted-foreground">0</span>}</td>
+                  <td className="px-3 py-2 text-center">{c.rasgos || <span className="text-muted-foreground">0</span>}</td>
+                  <td className="px-3 py-2 text-center">{c.bordas || <span className="text-muted-foreground">0</span>}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {p.status_parser === "ok" ? (
+                        <Badge variant="outline">ok</Badge>
+                      ) : (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" /> {p.status_parser}
+                        </Badge>
+                      )}
+                      {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {!filtradas.length && (
               <tr>
-                <td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={11} className="px-3 py-10 text-center text-muted-foreground">
                   <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                  Nenhuma peça cadastrada. Importe a pasta <strong>TECNICO FURAÇÕES CADASTRO</strong>.
+                  Nenhuma peça encontrada.
                 </td>
               </tr>
             )}
