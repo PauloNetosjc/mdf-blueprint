@@ -253,13 +253,12 @@ function FluxoProjeto() {
                 return (
                   <li key={e.key} className="relative">
                     <span
-                      className={`absolute -left-[33px] top-2 grid h-6 w-6 place-content-center rounded-full border-2 border-background bg-${
-                        e.tone === "green" ? "green" : e.tone === "red" ? "red" : e.tone === "yellow" ? "yellow" : e.tone === "orange" ? "orange" : e.tone === "blue" ? "blue" : e.tone === "purple" ? "purple" : "gray"
-                      }-500`}
+                      className={`absolute -left-[33px] top-2 grid h-6 w-6 place-content-center rounded-full border-2 border-background ${STATUS_DOT_CLASS[e.tone]}`}
                       aria-hidden
                     >
                       <Icon className="h-3 w-3 text-white" />
                     </span>
+
                     <div className="rounded border border-border bg-surface p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
