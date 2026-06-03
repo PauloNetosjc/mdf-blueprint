@@ -92,11 +92,41 @@ export function ImportacoesPage() {
 // ============================================================
 // Nova Importação
 // ============================================================
+type ImportFileEntry = {
+  name: string;
+  relativePath: string;
+  folder: string;
+  extension: string;
+  size: number;
+  /** Loader devolve o blob sob demanda (zip extrai async; pasta retorna o File). */
+  load: () => Promise<Blob>;
+  source: "folder" | "zip";
+};
+
+/** Extrai "PV-XXX-NNNN" + cliente do nome da pasta/zip raiz. */
+function extrairProjetoCliente(rootName: string): { projeto: string; cliente: string } {
+  const limpo = rootName.replace(/\.zip$/i, "").trim();
+  const m = limpo.match(/^([A-Z]{2,4}-[A-Z0-9]+-?\d+)\s*[-–—]\s*(.+)$/i);
+  if (m) return { projeto: m[1].toUpperCase(), cliente: m[2].trim() };
+  return { projeto: limpo, cliente: "" };
+}
+
+/** Acha o nome da pasta raiz comum entre todos os caminhos. */
+function detectarPastaRaiz(paths: string[]): string {
+  if (!paths.length) return "";
+  const primeiros = paths.map((p) => p.split("/")[0]).filter(Boolean);
+  if (!primeiros.length) return "";
+  const ref = primeiros[0];
+  return primeiros.every((x) => x === ref) ? ref : "";
+}
+
 function NovaImportacao() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [zip, setZip] = useState<JSZip | null>(null);
+  const [origemNome, setOrigemNome] = useState<string | null>(null);
+  const [origemTipo, setOrigemTipo] = useState<"folder" | "zip" | null>(null);
+  const [tamanhoTotal, setTamanhoTotal] = useState(0);
+  const [entries, setEntries] = useState<ImportFileEntry[]>([]);
   const [arquivos, setArquivos] = useState<ArquivoClassificado[]>([]);
   const [resumo, setResumo] = useState<ResumoImportacao | null>(null);
   const [nomeProjeto, setNomeProjeto] = useState("");
@@ -105,29 +135,78 @@ function NovaImportacao() {
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState("");
 
+  function aplicarEntries(novas: ImportFileEntry[], origem: "folder" | "zip", nomeOrigem: string) {
+    setOrigemTipo(origem);
+    setOrigemNome(nomeOrigem);
+    setEntries(novas);
+    setTamanhoTotal(novas.reduce((a, b) => a + b.size, 0));
+
+    const lista = novas.map((e) => classificarArquivo(e.relativePath, e.size));
+    setArquivos(lista);
+    setResumo(resumirArquivos(lista));
+
+    // Nome do projeto = pasta raiz comum, com fallback para nome do arquivo
+    const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || nomeOrigem;
+    const { projeto, cliente: cli } = extrairProjetoCliente(raiz);
+    setNomeProjeto(projeto);
+    if (cli) setCliente(cli);
+
+    toast.success(`${novas.length} arquivos encontrados (${origem === "folder" ? "pasta" : "ZIP"})`);
+  }
+
   async function lerZip(f: File) {
-    setArquivo(f);
-    setNomeProjeto(f.name.replace(/\.zip$/i, ""));
     try {
       const z = await JSZip.loadAsync(f);
-      setZip(z);
-      const lista: ArquivoClassificado[] = [];
+      const novas: ImportFileEntry[] = [];
       z.forEach((path, entry) => {
         if (entry.dir) return;
+        const nome = path.split("/").pop() ?? path;
+        const ext = nome.includes(".") ? nome.split(".").pop()!.toLowerCase() : "";
         // @ts-expect-error - _data exists in JSZip internals for size
         const size = entry?._data?.uncompressedSize ?? 0;
-        lista.push(classificarArquivo(path, size));
+        novas.push({
+          name: nome,
+          relativePath: path,
+          folder: path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "",
+          extension: ext,
+          size,
+          load: () => entry.async("blob"),
+          source: "zip",
+        });
       });
-      setArquivos(lista);
-      setResumo(resumirArquivos(lista));
-      toast.success(`${lista.length} arquivos encontrados`);
+      aplicarEntries(novas, "zip", f.name);
     } catch (e) {
       toast.error(`Falha ao ler ZIP: ${(e as Error).message}`);
     }
   }
 
+  function lerPasta(fileList: FileList) {
+    const novas: ImportFileEntry[] = [];
+    for (const f of Array.from(fileList)) {
+      // webkitRelativePath inclui a pasta raiz (ex: "PV-JAC-3086 - LUIS/.../List.xml")
+      const rel =
+        (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+      const ext = f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "";
+      novas.push({
+        name: f.name,
+        relativePath: rel,
+        folder: rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "",
+        extension: ext,
+        size: f.size,
+        load: async () => f,
+        source: "folder",
+      });
+    }
+    if (!novas.length) {
+      toast.error("Nenhum arquivo encontrado na pasta");
+      return;
+    }
+    const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || "pasta";
+    aplicarEntries(novas, "folder", raiz);
+  }
+
   async function confirmarImportacao() {
-    if (!zip || !arquivo || !resumo) return;
+    if (!entries.length || !resumo) return;
     if (!nomeProjeto.trim()) {
       toast.error("Informe o nome do projeto");
       return;
