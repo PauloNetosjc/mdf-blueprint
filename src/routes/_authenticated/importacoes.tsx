@@ -216,6 +216,8 @@ async function uploadEmBackground(ctx: UploadCtx) {
     toast.warning(`Upload finalizado com ${falhas} falhas de ${total}. Você pode reenviar pela tela da importação.`, { id: toastId, duration: 8000 });
   }
 }
+
+function NovaImportacao() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [origemNome, setOrigemNome] = useState<string | null>(null);
