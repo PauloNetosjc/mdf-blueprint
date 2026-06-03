@@ -1159,7 +1159,9 @@ function StatusBadge({ status }: { status: string }) {
     pendente: { label: "Pendente", variant: "outline" },
     processando: { label: "Processando", variant: "secondary" },
     concluido: { label: "Concluído", variant: "default" },
+    concluido_com_upload_pendente: { label: "Upload pendente", variant: "secondary" },
     concluido_com_erros: { label: "Com erros", variant: "destructive" },
+    erro_parser_pecas: { label: "Erro parser peças", variant: "destructive" },
     erro: { label: "Erro", variant: "destructive" },
   };
   const m = map[status] ?? { label: status, variant: "outline" as const };
