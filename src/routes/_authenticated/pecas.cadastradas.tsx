@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import {
   parseTechnicalDrawingPdf,
   parseTechnicalPartCode,
+  getTipoPecaPorPrefixo,
   type ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
 
