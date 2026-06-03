@@ -290,9 +290,14 @@ function PecasTab({
               <AlertTriangle className="h-3 w-3" />{semChapa} sem chapa
             </span>
           )}
-          {espessuraMismatch > 0 && (
+          {qtdInvalida > 0 && (
             <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
-              <AlertTriangle className="h-3 w-3" />{espessuraMismatch} espessura divergente
+              <AlertTriangle className="h-3 w-3" />{qtdInvalida} qtd inválida
+            </span>
+          )}
+          {dimsInvalidas > 0 && (
+            <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+              <AlertTriangle className="h-3 w-3" />{dimsInvalidas} sem dimensões
             </span>
           )}
         </div>
