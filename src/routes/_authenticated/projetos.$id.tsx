@@ -191,7 +191,7 @@ function ProjetoEditor() {
         </TabsContent>
 
         <TabsContent value="compras" className="flex-1 overflow-auto p-6 pt-3">
-          <Placeholder titulo="Lista de Compras" desc="Cálculo de chapas e metros de fita necessários. Disponível na próxima etapa." />
+          <ListaComprasTab projetoId={id} />
         </TabsContent>
 
         <TabsContent value="plano" className="flex-1 overflow-auto p-6 pt-3">
