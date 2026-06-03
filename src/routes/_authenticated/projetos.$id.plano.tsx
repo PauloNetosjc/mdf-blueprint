@@ -97,7 +97,7 @@ function PlanoPage() {
   const { data: planoSalvo } = useQuery({
     queryKey: ["plano-salvo", id],
     queryFn: async () => {
-      const { data } = await supabase.from("planos_corte").select("id").eq("projeto_id", id)
+      const { data } = await supabase.from("planos_corte").select("id, status, observacao").eq("projeto_id", id)
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       return data;
     },
@@ -325,6 +325,13 @@ function PlanoPage() {
           </Button>
         </div>
       </header>
+
+      {planoSalvo?.status === "importado_referencia_visual" && (
+        <div className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning-foreground">
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {planoSalvo.observacao || "Plano importado com referência visual. As posições originais estão no PreviewCorte/LargePreview. Coordenadas estruturadas ainda não foram extraídas."}
+        </div>
+      )}
 
       <div className="grid flex-1 grid-cols-[260px_1fr_300px] overflow-hidden">
         {/* Painel esquerdo */}
