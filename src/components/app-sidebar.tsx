@@ -14,6 +14,7 @@ import {
   Boxes,
   FileArchive,
   GitCompare,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
