@@ -6,16 +6,21 @@ import {
   Cog,
   AlertTriangle,
   LogOut,
+  FolderKanban,
+  Layers,
+  Tag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/projetos", label: "Projetos", icon: FolderKanban },
   { to: "/pecas", label: "Peças", icon: Package },
+  { to: "/chapas", label: "Chapas", icon: Layers },
+  { to: "/fitas", label: "Fitas", icon: Tag },
   { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/maquina", label: "Máquina", icon: Cog },
 ];
-
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -75,4 +80,3 @@ export function AppSidebar() {
     </aside>
   );
 }
-
