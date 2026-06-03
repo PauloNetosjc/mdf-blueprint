@@ -1,7 +1,9 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { ensureDevSession } from "@/lib/dev-auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +12,12 @@ import { Cog } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  beforeLoad: async () => {
+    if (isDemoMode()) {
+      await ensureDevSession();
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Acessar — Visualizador Técnico CNC" },
@@ -25,18 +33,22 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (isDemoMode()) {
+        const ok = await ensureDevSession();
+        if (ok && !cancelled) navigate({ to: "/dashboard", replace: true });
+        return;
+      }
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         navigate({ to: "/", replace: true });
         return;
       }
-      const { ensureDevSession } = await import("@/lib/dev-auth");
-      const ok = await ensureDevSession();
-      if (ok && !cancelled) navigate({ to: "/", replace: true });
+      if (!cancelled) setLoadingSession(false);
     })();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) navigate({ to: "/", replace: true });
@@ -46,6 +58,14 @@ function AuthPage() {
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  if (loadingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-sm text-muted-foreground">
+        Carregando sessão...
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

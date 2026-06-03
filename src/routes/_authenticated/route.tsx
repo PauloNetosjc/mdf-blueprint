@@ -3,11 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SafetyBanner } from "@/components/safety-banner";
 import { ensureDevSession } from "@/lib/dev-auth";
+import { getStoredDemoUser, isDemoMode } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   staleTime: Infinity,
   beforeLoad: async () => {
+    if (isDemoMode()) {
+      await ensureDevSession();
+      return { user: getStoredDemoUser(), demo: true };
+    }
+
     let { data } = await supabase.auth.getSession();
     if (!data.session) {
       const ok = await ensureDevSession();
