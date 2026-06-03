@@ -139,9 +139,11 @@ function PecasCadastradasPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<string>("todas");
   const [modoImportacao, setModoImportacao] = useState<ImportMode>("novas");
   const [arquivosComErro, setArquivosComErro] = useState<File[]>([]);
   const [progresso, setProgresso] = useState<ImportProgress | null>(null);
+  const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -152,6 +154,32 @@ function PecasCadastradasPage() {
         .order("codigo_completo", { ascending: true });
       if (error) throw error;
       return (data ?? []) as PecaRow[];
+    },
+  });
+
+  const contadores = useQuery({
+    queryKey: ["pecas-cadastradas-contadores"],
+    queryFn: async () => {
+      const [{ data: ops }, { data: brds }] = await Promise.all([
+        db.from("peca_cadastrada_operacoes").select("peca_cadastrada_id,tipo,face"),
+        db.from("peca_cadastrada_bordas").select("peca_cadastrada_id"),
+      ]);
+      const mapa = new Map<string, { furos: number; rasgos: number; bordas: number; face5: boolean }>();
+      const get = (id: string) => {
+        let v = mapa.get(id);
+        if (!v) { v = { furos: 0, rasgos: 0, bordas: 0, face5: false }; mapa.set(id, v); }
+        return v;
+      };
+      for (const o of (ops ?? []) as { peca_cadastrada_id: string; tipo: string; face: number }[]) {
+        const v = get(o.peca_cadastrada_id);
+        if (o.tipo === "furo") v.furos++;
+        else if (o.tipo === "rasgo") v.rasgos++;
+        if (Number(o.face) === 5) v.face5 = true;
+      }
+      for (const b of (brds ?? []) as { peca_cadastrada_id: string }[]) {
+        get(b.peca_cadastrada_id).bordas++;
+      }
+      return mapa;
     },
   });
 
