@@ -55,7 +55,7 @@ export type ResultadoPlano = {
   total_chapas: number;
 };
 
-const KERF = 4; // mm — folga entre peças e refilo
+const KERF_DEFAULT = 4; // mm — folga padrão entre peças e refilo
 
 type Item = {
   projeto_peca_id: string;
