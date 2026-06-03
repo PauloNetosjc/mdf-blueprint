@@ -120,6 +120,103 @@ function detectarPastaRaiz(paths: string[]): string {
   return primeiros.every((x) => x === ref) ? ref : "";
 }
 
+// ============================================================
+// Fila de upload em segundo plano (concorrência limitada)
+// ============================================================
+type UploadCtx = {
+  importacaoId: string;
+  userId: string;
+  entries: ImportFileEntry[];
+  arquivos: ArquivoClassificado[];
+  prioridade: Record<string, 1 | 2 | 3>;
+  pathSafe: (p: string) => string;
+};
+
+async function uploadEmBackground(ctx: UploadCtx) {
+  const { importacaoId, userId, entries, arquivos, prioridade, pathSafe } = ctx;
+  const fila = arquivos
+    .filter((a) => a.categoria !== "ignorado")
+    .map((a) => ({
+      a,
+      entry: entries.find((e) => e.relativePath === a.caminho) ?? null,
+      prio: prioridade[a.categoria] ?? 3,
+    }))
+    .filter((x) => x.entry)
+    .sort((x, y) => x.prio - y.prio);
+
+  const total = fila.length;
+  let enviados = 0;
+  let falhas = 0;
+  const CONCURRENCY = 4;
+  const toastId = `up-${importacaoId}`;
+  toast.loading(`Enviando arquivos... 0/${total}`, { id: toastId });
+
+  async function atualizaResumo() {
+    // Atualiza contador no resumo_json (best-effort, sem race-condition perfeita)
+    if (enviados % 25 === 0 || enviados + falhas === total) {
+      const { data } = await supabase
+        .from("importacoes").select("resumo_json").eq("id", importacaoId).single();
+      const resumoAtual = (data?.resumo_json ?? {}) as Record<string, unknown>;
+      await supabase.from("importacoes").update({
+        resumo_json: {
+          ...resumoAtual,
+          upload_enviados: enviados,
+          upload_erros: falhas,
+        } as unknown as never,
+        status: enviados + falhas === total
+          ? (falhas ? "concluido_com_erros" : "concluido")
+          : "concluido_com_upload_pendente",
+      }).eq("id", importacaoId);
+    }
+  }
+
+  async function processaUm(item: { a: ArquivoClassificado; entry: ImportFileEntry | null }) {
+    const { a, entry } = item;
+    if (!entry) return;
+    const storagePath = `${userId}/${importacaoId}/${pathSafe(a.caminho)}`;
+    try {
+      const blob = await entry.load();
+      const { error } = await supabase.storage
+        .from("importacoes")
+        .upload(storagePath, blob, { upsert: true });
+      if (error) throw error;
+      enviados += 1;
+      await supabase.from("importacao_arquivos")
+        .update({ status_leitura: "lido" })
+        .eq("importacao_id", importacaoId)
+        .eq("caminho_original", a.caminho);
+    } catch (e) {
+      falhas += 1;
+      await supabase.from("importacao_arquivos")
+        .update({
+          status_leitura: "erro",
+          metadados_json: { erro: (e as Error).message, categoria: a.categoria },
+        })
+        .eq("importacao_id", importacaoId)
+        .eq("caminho_original", a.caminho);
+    } finally {
+      toast.loading(`Enviando arquivos... ${enviados + falhas}/${total}${falhas ? ` (${falhas} falhas)` : ""}`, { id: toastId });
+      await atualizaResumo();
+    }
+  }
+
+  // Workers em paralelo consumindo a mesma fila
+  let idx = 0;
+  const workers = Array.from({ length: CONCURRENCY }, async () => {
+    while (idx < fila.length) {
+      const myIdx = idx++;
+      await processaUm(fila[myIdx]);
+    }
+  });
+  await Promise.all(workers);
+
+  if (falhas === 0) {
+    toast.success(`Upload concluído: ${enviados}/${total} arquivos enviados.`, { id: toastId, duration: 5000 });
+  } else {
+    toast.warning(`Upload finalizado com ${falhas} falhas de ${total}. Você pode reenviar pela tela da importação.`, { id: toastId, duration: 8000 });
+  }
+}
+
 function NovaImportacao() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -214,6 +311,16 @@ function NovaImportacao() {
     setImportando(true);
     const erros: Array<{ msg: string }> = [];
 
+    // ---- helpers (escopo local) ----
+    const PRIORIDADE: Record<string, 1 | 2 | 3> = {
+      list: 1, lista_corte_pdf: 1, preview_corte_pdf: 1, almoxarifado_pdf: 1,
+      autolabel_pdf: 1, autolabel_large_preview: 1, autolabel_small_preview: 1,
+      xml_cyc: 1, nc_cyc: 1, nc_gcode: 1,
+      parts_info: 2, parts_nc: 2, profile_info: 2, profile_nc: 2,
+      autolabel_etiqueta: 3, nc_bmp: 3,
+    };
+    const pathSafe = (p: string) => p.replace(/[^a-zA-Z0-9._/-]/g, "_");
+
     try {
       setProgresso("Identificando usuário...");
       const { data: u } = await supabase.auth.getUser();
@@ -273,8 +380,85 @@ function NovaImportacao() {
         else if (ch) chapasInseridas.set(c.ordem, { id: ch.id, espessura: c.espessura, material: c.material });
       }
 
-      // Upload + registros
-      setProgresso("Enviando arquivos técnicos...");
+      // -------- Fase A.2: Ler localmente os PDFs essenciais (sem upload) --------
+      setProgresso("Lendo PDFs essenciais (local)...");
+      const acharEntry = (cat: string) => {
+        const arq = arquivos.find((a) => a.categoria === cat);
+        if (!arq) return null;
+        return entries.find((e) => e.relativePath === arq.caminho) ?? null;
+      };
+      const entryListaCorte = acharEntry("lista_corte_pdf");
+      const entryAlmox = acharEntry("almoxarifado_pdf");
+      const entryPreviewCorte = acharEntry("preview_corte_pdf");
+
+      // -------- Parse ListaCorte → peças --------
+      let pecasCriadas = 0;
+      if (entryListaCorte) {
+        try {
+          setProgresso("Interpretando ListaCorte.pdf...");
+          const blob = await entryListaCorte.load();
+          const paginas = await extrairTextoPdf(blob);
+          const pecas = parseListaCorte(paginas);
+          if (pecas.length) {
+            const rows = pecas.map((p, idx) => {
+              const chapa = p.chapa_numero ? chapasInseridas.get(p.chapa_numero) : undefined;
+              return {
+                projeto_id: projetoId,
+                descricao: p.descricao || `Peça ${idx + 1}`,
+                quantidade: 1,
+                largura: p.largura,
+                altura: p.altura,
+                espessura: chapa?.espessura ?? 15,
+                chapa_id: chapa?.id ?? null,
+                fita_codigo: p.borda,
+                modulo: p.modulo,
+                observacao: p.indice ? `Índice ${p.indice} • Código ${p.codigo ?? "—"}` : (p.codigo ?? null),
+                ordem: idx,
+              };
+            });
+            for (let k = 0; k < rows.length; k += 200) {
+              const { error: ep } = await supabase.from("projeto_pecas").insert(rows.slice(k, k + 200) as unknown as never);
+              if (ep) erros.push({ msg: `Peças (lote ${k}): ${ep.message}` });
+            }
+            pecasCriadas = rows.length;
+          } else {
+            erros.push({ msg: "ListaCorte: nenhuma peça reconhecida automaticamente." });
+          }
+        } catch (e) {
+          erros.push({ msg: `Falha lendo ListaCorte: ${(e as Error).message}` });
+        }
+      }
+
+      // -------- Parse Almoxarifado --------
+      let itensAlmox = 0;
+      if (entryAlmox) {
+        try {
+          setProgresso("Interpretando Almoxarifado.pdf...");
+          const blob = await entryAlmox.load();
+          const paginas = await extrairTextoPdf(blob);
+          const itens = parseAlmoxarifado(paginas);
+          if (itens.length) {
+            const rows = itens.map((it) => ({
+              projeto_id: projetoId,
+              descricao: it.descricao,
+              referencia: it.referencia,
+              quantidade: it.quantidade,
+              unidade: it.unidade,
+              categoria: "ferragem",
+              origem: "importacao_promob",
+              status: "pendente",
+            }));
+            const { error: ea } = await supabase.from("projeto_almoxarifado_itens").insert(rows as unknown as never);
+            if (ea) erros.push({ msg: `Almoxarifado: ${ea.message}` });
+            else itensAlmox = rows.length;
+          }
+        } catch (e) {
+          erros.push({ msg: `Falha lendo Almoxarifado: ${(e as Error).message}` });
+        }
+      }
+
+      // -------- Pre-insere TODOS os registros (metadados) com storage_url previsto --------
+      setProgresso("Registrando metadados de arquivos...");
       type ImpArqRow = {
         importacao_id: string; nome_arquivo: string; caminho_original: string;
         tipo_arquivo: string | null; origem_pasta: string | null;
@@ -305,186 +489,75 @@ function NovaImportacao() {
       const previewsImp: PreviewRow[] = [];
       const etiquetasImp: EtiquetaRow[] = [];
 
-      // Para PDFs especiais, guardamos blob para parser depois
-      let blobListaCorte: Blob | null = null;
-      let blobAlmoxarifado: Blob | null = null;
-      let blobPreviewCorte: { blob: Blob; storage: string } | null = null;
-
-      let i = 0;
       for (const a of arquivos) {
-        i += 1;
-        if ((i % 25) === 0) setProgresso(`Enviando ${i}/${arquivos.length}...`);
-        if (a.categoria === "ignorado") {
-          arquivosImp.push({
-            importacao_id: importacaoId,
+        const storagePath = `${userId}/${importacaoId}/${pathSafe(a.caminho)}`;
+        const isUploadable = a.categoria !== "ignorado";
+        arquivosImp.push({
+          importacao_id: importacaoId,
+          nome_arquivo: a.nome,
+          caminho_original: a.caminho,
+          tipo_arquivo: a.extensao,
+          origem_pasta: a.pasta || "raiz",
+          status_leitura: isUploadable ? "pendente_upload" : "ignorado",
+          storage_url: isUploadable ? storagePath : undefined,
+          metadados_json: {
+            categoria: a.categoria,
+            tamanho: a.tamanho,
+            prioridade: PRIORIDADE[a.categoria] ?? 3,
+          },
+        });
+        if (!isUploadable) continue;
+
+        const chapaInfo = parseNomeChapa(a.nome);
+        const chapaIdVinc = chapaInfo ? chapasInseridas.get(chapaInfo.ordem)?.id ?? null : null;
+
+        arquivosTec.push({
+          projeto_id: projetoId, chapa_id: chapaIdVinc,
+          importacao_id: importacaoId, origem_pasta: a.pasta || "raiz",
+          tipo_arquivo: a.categoria, nome_arquivo: a.nome,
+          storage_url: storagePath,
+          dados_extraidos_json: { categoria: a.categoria, tamanho: a.tamanho },
+        });
+
+        if (a.categoria === "autolabel_large_preview" || a.categoria === "autolabel_small_preview") {
+          const mNum = a.nome.match(/(\d+)/);
+          const numChapa = mNum ? Number(mNum[1]) : null;
+          const chapaIdPrev = numChapa ? chapasInseridas.get(numChapa)?.id ?? null : null;
+          previewsImp.push({
+            importacao_id: importacaoId, projeto_id: projetoId,
+            chapa_id: chapaIdPrev, numero_chapa: numChapa,
+            tipo_preview: a.categoria === "autolabel_large_preview" ? "large" : "small",
+            arquivo_nome: a.nome, storage_url: storagePath,
+            pagina_pdf: null, largura_chapa: null, altura_chapa: null,
+            metadados_json: {},
+          });
+        }
+
+        if (a.categoria === "autolabel_etiqueta" || a.categoria === "nc_bmp") {
+          const info = parseNomeEtiqueta(a.nome);
+          etiquetasImp.push({
+            importacao_id: importacaoId, projeto_id: projetoId,
+            chapa_id: chapaIdVinc,
             nome_arquivo: a.nome,
-            caminho_original: a.caminho,
-            tipo_arquivo: a.extensao,
-            origem_pasta: a.pasta || "raiz",
-            status_leitura: "ignorado",
-            metadados_json: { categoria: a.categoria },
-          });
-          continue;
-        }
-        try {
-          const entry = entries.find((e) => e.relativePath === a.caminho);
-          if (!entry) continue;
-          const blob = await entry.load();
-          const safe = a.caminho.replace(/[^a-zA-Z0-9._/-]/g, "_");
-          const storagePath = `${userId}/${importacaoId}/${safe}`;
-          const { error: eu } = await supabase.storage
-            .from("importacoes")
-            .upload(storagePath, blob, { upsert: true });
-          if (eu) {
-            erros.push({ msg: `Upload ${a.nome}: ${eu.message}` });
-            arquivosImp.push({
-              importacao_id: importacaoId, nome_arquivo: a.nome,
-              caminho_original: a.caminho, tipo_arquivo: a.extensao,
-              origem_pasta: a.pasta || "raiz", status_leitura: "erro",
-              metadados_json: { categoria: a.categoria, erro: eu.message },
-            });
-            continue;
-          }
-          arquivosImp.push({
-            importacao_id: importacaoId, nome_arquivo: a.nome,
-            caminho_original: a.caminho, tipo_arquivo: a.extensao,
-            origem_pasta: a.pasta || "raiz", status_leitura: "lido",
+            codigo_completo: info?.nome_base ?? a.nome.replace(/\.[^.]+$/, ""),
+            referencia: info?.referencia ?? null,
+            codigo_peca: info?.codigo ?? null,
+            sufixo: info?.sufixo ?? null,
+            duplicidade: info?.duplicidade ?? null,
             storage_url: storagePath,
-            metadados_json: { categoria: a.categoria, tamanho: a.tamanho },
+            status_vinculo: "pendente_vinculo",
           });
-
-          // Vincula chapa (xml_cyc, nc_*)
-          let chapaIdVinc: string | null = null;
-          let chapaOrdem: number | null = null;
-          const chapaInfo = parseNomeChapa(a.nome);
-          if (chapaInfo) {
-            chapaIdVinc = chapasInseridas.get(chapaInfo.ordem)?.id ?? null;
-            chapaOrdem = chapaInfo.ordem;
-          }
-
-          arquivosTec.push({
-            projeto_id: projetoId, chapa_id: chapaIdVinc,
-            importacao_id: importacaoId, origem_pasta: a.pasta || "raiz",
-            tipo_arquivo: a.categoria, nome_arquivo: a.nome,
-            storage_url: storagePath,
-            dados_extraidos_json: { categoria: a.categoria, tamanho: a.tamanho },
-          });
-
-          // Previews → tabela específica
-          if (a.categoria === "autolabel_large_preview" || a.categoria === "autolabel_small_preview") {
-            // Tenta extrair "N" ou ordem do nome
-            const mNum = a.nome.match(/(\d+)/);
-            const numChapa = mNum ? Number(mNum[1]) : null;
-            const chapaIdPrev = numChapa ? chapasInseridas.get(numChapa)?.id ?? null : null;
-            previewsImp.push({
-              importacao_id: importacaoId, projeto_id: projetoId,
-              chapa_id: chapaIdPrev, numero_chapa: numChapa,
-              tipo_preview: a.categoria === "autolabel_large_preview" ? "large" : "small",
-              arquivo_nome: a.nome, storage_url: storagePath,
-              pagina_pdf: null, largura_chapa: null, altura_chapa: null,
-              metadados_json: {},
-            });
-          }
-
-          // Etiquetas (AutoLabel + NC bmp)
-          if (a.categoria === "autolabel_etiqueta" || a.categoria === "nc_bmp") {
-            const info = parseNomeEtiqueta(a.nome);
-            etiquetasImp.push({
-              importacao_id: importacaoId, projeto_id: projetoId,
-              chapa_id: chapaIdVinc,
-              nome_arquivo: a.nome,
-              codigo_completo: info?.nome_base ?? a.nome.replace(/\.[^.]+$/, ""),
-              referencia: info?.referencia ?? null,
-              codigo_peca: info?.codigo ?? null,
-              sufixo: info?.sufixo ?? null,
-              duplicidade: info?.duplicidade ?? null,
-              storage_url: storagePath,
-              status_vinculo: "pendente_vinculo",
-            });
-          }
-
-          // Guarda PDFs especiais para parsing
-          if (a.categoria === "lista_corte_pdf") blobListaCorte = blob;
-          else if (a.categoria === "almoxarifado_pdf") blobAlmoxarifado = blob;
-          else if (a.categoria === "preview_corte_pdf") blobPreviewCorte = { blob, storage: storagePath };
-          // chapaOrdem usado apenas no fluxo já tratado acima
-          void chapaOrdem;
-        } catch (e) {
-          erros.push({ msg: `${a.nome}: ${(e as Error).message}` });
         }
       }
 
-      // -------- Parse ListaCorte → projeto_pecas --------
-      let pecasCriadas = 0;
-      if (blobListaCorte) {
+      // PreviewCorte → 1 página = 1 chapa (lê local, não bloqueia upload)
+      if (entryPreviewCorte) {
         try {
-          setProgresso("Lendo ListaCorte.pdf...");
-          const paginas = await extrairTextoPdf(blobListaCorte);
-          const pecas = parseListaCorte(paginas);
-          if (pecas.length) {
-            setProgresso(`Criando ${pecas.length} peças...`);
-            const rows = pecas.map((p, idx) => {
-              const chapa = p.chapa_numero ? chapasInseridas.get(p.chapa_numero) : undefined;
-              return {
-                projeto_id: projetoId,
-                descricao: p.descricao || `Peça ${idx + 1}`,
-                quantidade: 1,
-                largura: p.largura,
-                altura: p.altura,
-                espessura: chapa?.espessura ?? 15,
-                chapa_id: chapa?.id ?? null,
-                fita_codigo: p.borda,
-                modulo: p.modulo,
-                observacao: p.indice ? `Índice ${p.indice} • Código ${p.codigo ?? "—"}` : (p.codigo ?? null),
-                ordem: idx,
-              };
-            });
-            for (let k = 0; k < rows.length; k += 200) {
-              const { error: ep } = await supabase.from("projeto_pecas").insert(rows.slice(k, k + 200) as unknown as never);
-              if (ep) erros.push({ msg: `Peças (lote ${k}): ${ep.message}` });
-            }
-            pecasCriadas = rows.length;
-          } else {
-            erros.push({ msg: "ListaCorte: nenhuma peça reconhecida automaticamente (verificar layout)." });
-          }
-        } catch (e) {
-          erros.push({ msg: `Falha lendo ListaCorte: ${(e as Error).message}` });
-        }
-      }
-
-      // -------- Parse Almoxarifado → projeto_almoxarifado_itens --------
-      let itensAlmox = 0;
-      if (blobAlmoxarifado) {
-        try {
-          setProgresso("Lendo Relatório de Almoxarifado...");
-          const paginas = await extrairTextoPdf(blobAlmoxarifado);
-          const itens = parseAlmoxarifado(paginas);
-          if (itens.length) {
-            const rows = itens.map((it) => ({
-              projeto_id: projetoId,
-              descricao: it.descricao,
-              referencia: it.referencia,
-              quantidade: it.quantidade,
-              unidade: it.unidade,
-              categoria: "ferragem",
-              origem: "importacao_promob",
-              status: "pendente",
-            }));
-            const { error: ea } = await supabase.from("projeto_almoxarifado_itens").insert(rows as unknown as never);
-            if (ea) erros.push({ msg: `Almoxarifado: ${ea.message}` });
-            else itensAlmox = rows.length;
-          } else {
-            erros.push({ msg: "Almoxarifado: nenhum item reconhecido automaticamente." });
-          }
-        } catch (e) {
-          erros.push({ msg: `Falha lendo Almoxarifado: ${(e as Error).message}` });
-        }
-      }
-
-      // -------- PreviewCorte → 1 página = 1 chapa (referência visual) --------
-      if (blobPreviewCorte) {
-        try {
-          const paginas = await extrairTextoPdf(blobPreviewCorte.blob);
+          const blob = await entryPreviewCorte.load();
+          const paginas = await extrairTextoPdf(blob);
+          const storagePathPreview = `${userId}/${importacaoId}/${pathSafe(
+            arquivos.find((a) => a.categoria === "preview_corte_pdf")?.caminho ?? "PreviewCorte.pdf",
+          )}`;
           for (const pg of paginas) {
             const chapa = chapasInseridas.get(pg.pagina);
             previewsImp.push({
@@ -492,7 +565,7 @@ function NovaImportacao() {
               chapa_id: chapa?.id ?? null, numero_chapa: pg.pagina,
               tipo_preview: "preview_corte_pdf",
               arquivo_nome: `PreviewCorte p.${pg.pagina}`,
-              storage_url: blobPreviewCorte.storage,
+              storage_url: storagePathPreview,
               pagina_pdf: pg.pagina,
               largura_chapa: null, altura_chapa: null,
               metadados_json: { linhas: pg.linhas.length },
@@ -503,7 +576,7 @@ function NovaImportacao() {
         }
       }
 
-      // -------- Vínculo etiqueta → projeto_peca por código principal --------
+      // Vínculo etiqueta → peça por código
       if (etiquetasImp.length && pecasCriadas > 0) {
         const { data: pjPecas } = await supabase
           .from("projeto_pecas")
@@ -530,23 +603,20 @@ function NovaImportacao() {
       for (let k = 0; k < arquivosTec.length; k += lote) {
         await supabase.from("arquivos_tecnicos").insert(arquivosTec.slice(k, k + lote) as unknown as never);
       }
-      if (previewsImp.length) {
-        for (let k = 0; k < previewsImp.length; k += lote) {
-          await supabase.from("importacao_preview_chapas").insert(previewsImp.slice(k, k + lote) as unknown as never);
-        }
+      for (let k = 0; k < previewsImp.length; k += lote) {
+        await supabase.from("importacao_preview_chapas").insert(previewsImp.slice(k, k + lote) as unknown as never);
       }
-      if (etiquetasImp.length) {
-        for (let k = 0; k < etiquetasImp.length; k += lote) {
-          await supabase.from("importacao_etiquetas").insert(etiquetasImp.slice(k, k + lote) as unknown as never);
-        }
+      for (let k = 0; k < etiquetasImp.length; k += lote) {
+        await supabase.from("importacao_etiquetas").insert(etiquetasImp.slice(k, k + lote) as unknown as never);
       }
 
-      setProgresso("Finalizando...");
+      // Marca importação como "projeto pronto, upload pendente"
+      const totalUploadaveis = arquivos.filter((a) => a.categoria !== "ignorado").length;
       await supabase
         .from("importacoes")
         .update({
           projeto_id: projetoId,
-          status: erros.length ? "concluido_com_erros" : "concluido",
+          status: "concluido_com_upload_pendente",
           erros_json: erros as unknown as never,
           resumo_json: {
             ...resumo,
@@ -554,16 +624,31 @@ function NovaImportacao() {
             itens_almoxarifado: itensAlmox,
             etiquetas_importadas: etiquetasImp.length,
             previews_importados: previewsImp.length,
+            upload_total: totalUploadaveis,
+            upload_enviados: 0,
+            upload_erros: 0,
           } as unknown as never,
         })
         .eq("id", importacaoId);
 
       toast.success(
-        `Importação concluída: ${chapasInseridas.size} chapas, ${pecasCriadas} peças, ${etiquetasImp.length} etiquetas, ${itensAlmox} itens almox`,
+        `Projeto criado: ${chapasInseridas.size} chapas, ${pecasCriadas} peças. Upload dos ${totalUploadaveis} arquivos rodando em segundo plano.`,
+        { duration: 6000 },
       );
       qc.invalidateQueries({ queryKey: ["importacoes"] });
       qc.invalidateQueries({ queryKey: ["projetos"] });
-      navigate({ to: "/importacoes/$id", params: { id: importacaoId } });
+
+      // -------- Fase C: upload em segundo plano (não-bloqueante) --------
+      void uploadEmBackground({
+        importacaoId,
+        userId,
+        entries,
+        arquivos,
+        prioridade: PRIORIDADE,
+        pathSafe,
+      });
+
+      navigate({ to: "/projetos/importacoes/$id", params: { id: importacaoId } });
     } catch (e) {
       toast.error(`Erro: ${(e as Error).message}`);
     } finally {
