@@ -228,6 +228,11 @@ function PlanoPage() {
           <Button size="sm" variant="outline" onClick={calcular}>
             <RefreshCw className="mr-1 h-4 w-4" />Recalcular
           </Button>
+          <Link to="/etiquetas" search={{ projeto: id }}>
+            <Button size="sm" variant="outline">
+              <Tag className="mr-1 h-4 w-4" />Etiquetas
+            </Button>
+          </Link>
           <Button size="sm" onClick={() => salvar.mutate()} disabled={!resultado || salvar.isPending || colisao}>
             <Save className="mr-1 h-4 w-4" />Salvar plano
           </Button>
