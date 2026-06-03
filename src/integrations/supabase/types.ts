@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      almoxarifado_itens_catalogo: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          criado_em: string
+          custo_unitario: number
+          descricao: string
+          estoque_atual: number
+          estoque_minimo: number
+          id: string
+          referencia: string
+          unidade: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string
+          criado_em?: string
+          custo_unitario?: number
+          descricao: string
+          estoque_atual?: number
+          estoque_minimo?: number
+          id?: string
+          referencia: string
+          unidade?: string
+          user_id?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          criado_em?: string
+          custo_unitario?: number
+          descricao?: string
+          estoque_atual?: number
+          estoque_minimo?: number
+          id?: string
+          referencia?: string
+          unidade?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      almoxarifado_movimentos: {
+        Row: {
+          criado_em: string
+          id: string
+          item_catalogo_id: string | null
+          observacao: string | null
+          operador: string | null
+          origem: string | null
+          projeto_id: string | null
+          quantidade: number
+          tipo_movimento: string
+          unidade: string
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          item_catalogo_id?: string | null
+          observacao?: string | null
+          operador?: string | null
+          origem?: string | null
+          projeto_id?: string | null
+          quantidade?: number
+          tipo_movimento?: string
+          unidade?: string
+          user_id?: string
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          item_catalogo_id?: string | null
+          observacao?: string | null
+          operador?: string | null
+          origem?: string | null
+          projeto_id?: string | null
+          quantidade?: number
+          tipo_movimento?: string
+          unidade?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       arquivos_importados: {
         Row: {
           created_at: string
@@ -948,6 +1032,66 @@ export type Database = {
           status_expedicao?: string
           status_furacao?: string
           status_separacao?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projeto_almoxarifado_itens: {
+        Row: {
+          ambiente: string | null
+          categoria: string
+          criado_em: string
+          descricao: string
+          id: string
+          item_catalogo_id: string | null
+          modulo: string | null
+          observacao: string | null
+          origem: string
+          projeto_id: string
+          quantidade: number
+          referencia: string | null
+          separado_em: string | null
+          separado_por: string | null
+          status: string
+          unidade: string
+          user_id: string
+        }
+        Insert: {
+          ambiente?: string | null
+          categoria?: string
+          criado_em?: string
+          descricao: string
+          id?: string
+          item_catalogo_id?: string | null
+          modulo?: string | null
+          observacao?: string | null
+          origem?: string
+          projeto_id: string
+          quantidade?: number
+          referencia?: string | null
+          separado_em?: string | null
+          separado_por?: string | null
+          status?: string
+          unidade?: string
+          user_id?: string
+        }
+        Update: {
+          ambiente?: string | null
+          categoria?: string
+          criado_em?: string
+          descricao?: string
+          id?: string
+          item_catalogo_id?: string | null
+          modulo?: string | null
+          observacao?: string | null
+          origem?: string
+          projeto_id?: string
+          quantidade?: number
+          referencia?: string | null
+          separado_em?: string | null
+          separado_por?: string | null
+          status?: string
+          unidade?: string
           user_id?: string
         }
         Relationships: []
