@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,8 +10,10 @@ import { CATEGORIA_LABEL, type CategoriaArquivo } from "@/lib/importacao-promob"
 import { AnaliseTecnicaTab, PendenciasTab } from "@/components/analise-tecnica-tab";
 
 export const Route = createFileRoute("/_authenticated/importacoes/$id")({
-  head: () => ({ meta: [{ title: "Importação — Visualizador CNC" }] }),
-  component: ImportacaoDetalhe,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/projetos/importacoes/$id", params: { id: params.id } });
+  },
+  component: () => null,
 });
 
 async function baixar(path: string, nome: string) {
