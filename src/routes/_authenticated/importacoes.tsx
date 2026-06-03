@@ -245,7 +245,7 @@ function NovaImportacao() {
           cliente: cliente || null,
           ambiente: ambiente || null,
           status: "ativo",
-          observacao: `Importado de ${arquivo.name}`,
+          observacao: `Importado de ${origemNome ?? "(pasta)"}`,
         })
         .select("id")
         .single();
