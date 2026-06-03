@@ -410,7 +410,7 @@ function OpRow({
         <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>{TIPOS_OP.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
       </Select>
-      <Select value={local.face ?? "0"} onValueChange={(v) => setLocal({ ...local, face: v })}>
+      <Select value={String(local.face ?? "0")} onValueChange={(v) => setLocal({ ...local, face: v })}>
         <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent>
           {Object.entries(FACE_LABELS).map(([f, n]) => (
