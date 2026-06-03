@@ -58,6 +58,33 @@ export type Database = {
           },
         ]
       }
+      centros_trabalho: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: string
+          nome: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome: string
+          tipo?: string
+          user_id?: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chapas: {
         Row: {
           altura: number
@@ -451,6 +478,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ocorrencias_producao: {
+        Row: {
+          centro_trabalho_id: string | null
+          criado_em: string
+          descricao: string | null
+          etiqueta_id: string | null
+          id: string
+          operador: string | null
+          projeto_id: string | null
+          projeto_peca_id: string | null
+          resolvido_em: string | null
+          status: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          centro_trabalho_id?: string | null
+          criado_em?: string
+          descricao?: string | null
+          etiqueta_id?: string | null
+          id?: string
+          operador?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          resolvido_em?: string | null
+          status?: string
+          tipo?: string
+          user_id?: string
+        }
+        Update: {
+          centro_trabalho_id?: string | null
+          criado_em?: string
+          descricao?: string | null
+          etiqueta_id?: string | null
+          id?: string
+          operador?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          resolvido_em?: string | null
+          status?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       operacoes: {
         Row: {
           comprimento: number | null
@@ -780,6 +852,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      producao_eventos: {
+        Row: {
+          centro_trabalho_id: string | null
+          codigo_barras: string | null
+          criado_em: string
+          etiqueta_id: string | null
+          id: string
+          observacao: string | null
+          operador: string | null
+          plano_corte_peca_id: string | null
+          projeto_id: string | null
+          projeto_peca_id: string | null
+          status_anterior: string | null
+          status_novo: string | null
+          tipo_evento: string
+          user_id: string
+        }
+        Insert: {
+          centro_trabalho_id?: string | null
+          codigo_barras?: string | null
+          criado_em?: string
+          etiqueta_id?: string | null
+          id?: string
+          observacao?: string | null
+          operador?: string | null
+          plano_corte_peca_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          status_anterior?: string | null
+          status_novo?: string | null
+          tipo_evento: string
+          user_id?: string
+        }
+        Update: {
+          centro_trabalho_id?: string | null
+          codigo_barras?: string | null
+          criado_em?: string
+          etiqueta_id?: string | null
+          id?: string
+          observacao?: string | null
+          operador?: string | null
+          plano_corte_peca_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          status_anterior?: string | null
+          status_novo?: string | null
+          tipo_evento?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      producao_status_pecas: {
+        Row: {
+          atualizado_em: string
+          etiqueta_id: string | null
+          id: string
+          plano_corte_peca_id: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          status_almoxarifado: string
+          status_borda: string
+          status_corte: string
+          status_expedicao: string
+          status_furacao: string
+          status_separacao: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          etiqueta_id?: string | null
+          id?: string
+          plano_corte_peca_id?: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          status_almoxarifado?: string
+          status_borda?: string
+          status_corte?: string
+          status_expedicao?: string
+          status_furacao?: string
+          status_separacao?: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          etiqueta_id?: string | null
+          id?: string
+          plano_corte_peca_id?: string | null
+          projeto_id?: string
+          projeto_peca_id?: string
+          status_almoxarifado?: string
+          status_borda?: string
+          status_corte?: string
+          status_expedicao?: string
+          status_furacao?: string
+          status_separacao?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       projeto_pecas: {
         Row: {
