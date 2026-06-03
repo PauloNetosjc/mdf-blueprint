@@ -223,14 +223,11 @@ function PecasTab({
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  const totalPecas = pecas.reduce((s, p) => s + p.quantidade, 0);
-  const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * p.quantidade) / 1_000_000, 0);
+  const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
+  const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
   const semChapa = pecas.filter((p) => !p.chapa_id).length;
-  const espessuraMismatch = pecas.filter((p) => {
-    if (!p.chapa_id) return false;
-    const c = chapas.find((x) => x.id === p.chapa_id);
-    return c && Math.abs(c.espessura - p.espessura) > 0.01;
-  }).length;
+  const qtdInvalida = pecas.filter((p) => !p.quantidade || p.quantidade < 1).length;
+  const dimsInvalidas = pecas.filter((p) => !p.altura || !p.largura).length;
 
   function toggleRow(id: string) {
     setSelectedRows((s) => {
