@@ -34,11 +34,8 @@ const items = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
+
+
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border-strong bg-panel">
