@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Layers,
   Tag,
+  QrCode,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +19,7 @@ const items = [
   { to: "/pecas", label: "Peças", icon: Package },
   { to: "/chapas", label: "Chapas", icon: Layers },
   { to: "/fitas", label: "Fitas", icon: Tag },
+  { to: "/etiquetas", label: "Etiquetas", icon: QrCode },
   { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/maquina", label: "Máquina", icon: Cog },
 ];
