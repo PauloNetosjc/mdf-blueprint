@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Cpu, Maximize2, MousePointer2, Move, RotateCw, Trash2, Plus, Save,
   AlertTriangle, RefreshCw, Tag, Image as ImageIcon, Download, FileArchive,
