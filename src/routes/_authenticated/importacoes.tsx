@@ -573,36 +573,63 @@ function NovaImportacao() {
   }
 
   function limpar() {
-    setArquivo(null); setZip(null); setArquivos([]); setResumo(null);
+    setOrigemNome(null); setOrigemTipo(null); setEntries([]); setTamanhoTotal(0);
+    setArquivos([]); setResumo(null);
     setNomeProjeto(""); setCliente(""); setAmbiente("");
   }
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      {!arquivo && (
-        <div className="rounded-lg border-2 border-dashed border-border bg-surface p-12 text-center">
-          <FileArchive className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="mb-4 text-sm text-muted-foreground">
-            Selecione o ZIP exportado pelo Promob/Nesting/Cut Pro.
-          </p>
-          <input id="zip-input" type="file" accept=".zip" className="hidden"
-            onChange={(e) => e.target.files?.[0] && lerZip(e.target.files[0])} />
-          <Button onClick={() => document.getElementById("zip-input")?.click()}>
-            <Upload className="mr-2 h-4 w-4" /> Selecionar ZIP
-          </Button>
+      {!origemNome && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-lg border-2 border-dashed border-border bg-surface p-8 text-center">
+            <FolderOpen className="mx-auto mb-3 h-10 w-10 text-primary" />
+            <p className="mb-1 text-sm font-medium">Selecionar pasta do projeto</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Use no computador da fábrica, apontando direto para a pasta gerada pelo Cut Pro/Nesting (ex.: <code>PV-XXX - CLIENTE</code>).
+            </p>
+            <input
+              id="folder-input"
+              type="file"
+              className="hidden"
+              // @ts-expect-error - atributos não tipados no React mas suportados nos browsers
+              webkitdirectory=""
+              directory=""
+              multiple
+              onChange={(e) => e.target.files && lerPasta(e.target.files)}
+            />
+            <Button onClick={() => document.getElementById("folder-input")?.click()}>
+              <FolderOpen className="mr-2 h-4 w-4" /> Selecionar pasta
+            </Button>
+          </div>
+
+          <div className="rounded-lg border-2 border-dashed border-border bg-surface p-8 text-center">
+            <FileArchive className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="mb-1 text-sm font-medium">Enviar ZIP da pasta</p>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Use quando a pasta foi compactada para envio ou backup. O conteúdo interno é igual ao da pasta original.
+            </p>
+            <input id="zip-input" type="file" accept=".zip" className="hidden"
+              onChange={(e) => e.target.files?.[0] && lerZip(e.target.files[0])} />
+            <Button variant="outline" onClick={() => document.getElementById("zip-input")?.click()}>
+              <Upload className="mr-2 h-4 w-4" /> Selecionar ZIP
+            </Button>
+          </div>
         </div>
       )}
 
-      {arquivo && resumo && (
+      {origemNome && resumo && (
         <>
           <div className="flex items-center justify-between rounded border border-border bg-surface p-3">
             <div className="flex items-center gap-2">
-              <FileArchive className="h-5 w-5 text-primary" />
-              <span className="font-medium">{arquivo.name}</span>
-              <Badge variant="secondary">{(arquivo.size / 1024 / 1024).toFixed(2)} MB</Badge>
+              {origemTipo === "folder" ? <FolderOpen className="h-5 w-5 text-primary" /> : <FileArchive className="h-5 w-5 text-primary" />}
+              <span className="font-medium">{origemNome}</span>
+              <Badge variant="secondary">{entries.length} arquivos</Badge>
+              <Badge variant="outline">{(tamanhoTotal / 1024 / 1024).toFixed(2)} MB</Badge>
+              <Badge>{origemTipo === "folder" ? "Pasta" : "ZIP"}</Badge>
             </div>
             <Button size="sm" variant="ghost" onClick={limpar} disabled={importando}>
-              <X className="mr-1 h-4 w-4" /> Trocar arquivo
+              <X className="mr-1 h-4 w-4" /> Trocar origem
             </Button>
           </div>
 
