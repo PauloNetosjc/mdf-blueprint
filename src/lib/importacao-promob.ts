@@ -235,9 +235,179 @@ export type PecaListaCorte = {
   descricao: string;
   largura: number;
   altura: number;
+  espessura?: number | null;
   borda: string | null;
   modulo: string | null;
 };
+
+export type ChapaListaCorte = {
+  numero: number;
+  acabamento: string | null;
+  descricao: string | null;
+  material: string | null;
+  codigo_material: string | null;
+  largura: number | null;
+  altura: number | null;
+  espessura: number | null;
+  aproveitamento: number | null;
+  pecas: number | null;
+};
+
+export type ListaCorteCoordinateResult = {
+  paginas_lidas: number;
+  pecas: PecaListaCorte[];
+  chapas: ChapaListaCorte[];
+  logs: string[];
+};
+
+function numeroPtBr(valor: string): number {
+  const limpo = valor.trim().replace(/\s/g, "");
+  const normalizado = limpo.includes(",")
+    ? limpo.replace(/\./g, "").replace(",", ".")
+    : limpo;
+  return Number(normalizado);
+}
+
+function textAfterColon(linha: string): string | null {
+  const idx = linha.indexOf(":");
+  return idx >= 0 ? linha.slice(idx + 1).trim() : null;
+}
+
+function parseDimensaoCompleta(texto: string): { largura: number; altura: number; espessura: number } | null {
+  const m = texto.match(/([\d,.]+)\s*x\s*([\d,.]+)\s*x\s*([\d,.]+)/i);
+  if (!m) return null;
+  const a = numeroPtBr(m[1]);
+  const b = numeroPtBr(m[2]);
+  const espessura = numeroPtBr(m[3]);
+  if (![a, b, espessura].every(Number.isFinite)) return null;
+  return { largura: Math.max(a, b), altura: Math.min(a, b), espessura };
+}
+
+export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<ListaCorteCoordinateResult> {
+  const pdfjs = await loadPdfJs();
+  const buf = await blob.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const pecas: PecaListaCorte[] = [];
+  const chapas: ChapaListaCorte[] = [];
+  const logs: string[] = [`Páginas lidas da ListaCorte: ${doc.numPages}`];
+  let chapaAtual: ChapaListaCorte | null = null;
+  let colunas: { item: number; descricao: number; dimensao: number; borda: number; pai: number; projeto: number } | null = null;
+
+  type TextItem = { texto: string; x: number; y: number; pagina: number };
+  type Linha = { pagina: number; y: number; items: TextItem[]; texto: string };
+
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const raw = (content.items as Array<{ str: string; transform: number[] }>)
+      .map((it) => ({ texto: it.str.trim(), x: it.transform[4], y: it.transform[5], pagina: p }))
+      .filter((it) => it.texto);
+    raw.sort((a, b) => b.y - a.y || a.x - b.x);
+
+    const linhas: Linha[] = [];
+    for (const item of raw) {
+      const existente = linhas.find((l) => Math.abs(l.y - item.y) <= 2.5);
+      if (existente) existente.items.push(item);
+      else linhas.push({ pagina: p, y: item.y, items: [item], texto: "" });
+    }
+    for (const linha of linhas) {
+      linha.items.sort((a, b) => a.x - b.x);
+      linha.texto = linha.items.map((i) => i.texto).join(" ").replace(/\s+/g, " ").trim();
+    }
+
+    for (const linha of linhas) {
+      const lower = linha.texto.toLowerCase();
+
+      if (lower.includes("item") && lower.includes("dimens")) {
+        const xOf = (needle: RegExp, fallback: number) => linha.items.find((i) => needle.test(i.texto.toLowerCase()))?.x ?? fallback;
+        colunas = {
+          item: xOf(/^item$/, 0),
+          descricao: xOf(/descri|c[oó]digo/, 80),
+          dimensao: xOf(/dimens/, 300),
+          borda: xOf(/borda/, 410),
+          pai: xOf(/pai/, 520),
+          projeto: xOf(/projeto|cliente/, 650),
+        };
+        logs.push(`Cabeçalho de colunas detectado na página ${p}`);
+        continue;
+      }
+
+      const chapaMatch = linha.texto.match(/\bChapa\s+(\d+)\b/i);
+      if (chapaMatch) {
+        chapaAtual = {
+          numero: Number(chapaMatch[1]),
+          acabamento: null,
+          descricao: null,
+          material: null,
+          codigo_material: null,
+          largura: null,
+          altura: null,
+          espessura: null,
+          aproveitamento: null,
+          pecas: null,
+        };
+        chapas.push(chapaAtual);
+      }
+      if (chapaAtual) {
+        if (/acabamento\s*:/i.test(linha.texto)) chapaAtual.acabamento = textAfterColon(linha.texto);
+        if (/descri[cç][aã]o\s*:/i.test(linha.texto)) {
+          chapaAtual.descricao = textAfterColon(linha.texto);
+          chapaAtual.codigo_material = linha.texto.match(/Cod\.?:\s*([\w.-]+)/i)?.[1] ?? chapaAtual.codigo_material;
+        }
+        if (/material\s*:/i.test(linha.texto)) chapaAtual.material = textAfterColon(linha.texto);
+        if (/dimens[aã]o\s*:/i.test(linha.texto)) {
+          const dim = parseDimensaoCompleta(linha.texto);
+          if (dim) Object.assign(chapaAtual, dim);
+        }
+        if (/pe[cç]as\s*:/i.test(linha.texto)) chapaAtual.pecas = Number(linha.texto.match(/pe[cç]as\s*:\s*(\d+)/i)?.[1] ?? NaN) || null;
+        if (/aproveitamento\s*:/i.test(linha.texto)) {
+          const ap = linha.texto.match(/aproveitamento\s*:\s*([\d,.]+)/i)?.[1];
+          chapaAtual.aproveitamento = ap ? numeroPtBr(ap) / 100 : null;
+        }
+      }
+
+      const textoLinha = linha.texto;
+      const itemNoInicio = textoLinha.match(/^(\d+\.[A-Z]{1,3})\b/);
+      let item = itemNoInicio?.[1] ?? "";
+      let descricaoColuna = textoLinha;
+      let dimensaoColuna = textoLinha;
+      let bordaColuna = "";
+
+      if (colunas) {
+        const textoEntre = (ini: number, fim: number) => linha.items
+          .filter((i) => i.x >= ini - 4 && i.x < fim - 4)
+          .map((i) => i.texto)
+          .join(" ")
+          .trim();
+        item = textoEntre(colunas.item, colunas.descricao).match(/\d+\.[A-Z]{1,3}/)?.[0] ?? item;
+        descricaoColuna = textoEntre(colunas.descricao, colunas.dimensao) || textoLinha;
+        dimensaoColuna = textoEntre(colunas.dimensao, colunas.borda) || textoLinha;
+        bordaColuna = textoEntre(colunas.borda, colunas.pai);
+      }
+
+      if (!/^\d+\.[A-Z]{1,3}$/.test(item)) continue;
+      const codigoDesc = descricaoColuna.match(/^(\d+)-(.+)$/) ?? textoLinha.match(/\b(\d+)-([^\s].*?)(?=\s+[\d,.]+\s*x\s*[\d,.]+\s*x\s*[\d,.]+)/i);
+      const dim = parseDimensaoCompleta(dimensaoColuna) ?? parseDimensaoCompleta(textoLinha);
+      if (!codigoDesc || !dim) continue;
+      const borda = (bordaColuna.match(/@[1-8]+/) ?? textoLinha.match(/@[1-8]+/))?.[0] ?? null;
+      pecas.push({
+        chapa_numero: chapaAtual?.numero ?? null,
+        indice: item,
+        codigo: codigoDesc[1],
+        descricao: codigoDesc[2].trim().replace(/_/g, " ").slice(0, 200),
+        largura: dim.largura,
+        altura: dim.altura,
+        espessura: dim.espessura,
+        borda,
+        modulo: null,
+      });
+    }
+  }
+
+  logs.push(`Chapas detectadas na ListaCorte: ${chapas.length}`);
+  logs.push(`Peças detectadas na ListaCorte: ${pecas.length}`);
+  return { paginas_lidas: doc.numPages, pecas, chapas, logs };
+}
 
 /**
  * Parser heurístico para ListaCorte.pdf.
