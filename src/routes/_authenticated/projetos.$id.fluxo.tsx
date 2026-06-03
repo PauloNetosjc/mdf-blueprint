@@ -7,7 +7,7 @@ import {
   ArrowLeft, Package, Layers, QrCode, Boxes, FileCode2, ShieldCheck,
   Send, Factory, CheckCircle2, ChevronRight, FileArchive, History,
 } from "lucide-react";
-import type { StatusTone } from "@/lib/status";
+import { STATUS_DOT_CLASS, type StatusTone } from "@/lib/status";
 import { ProjetoNav } from "@/components/projeto-nav";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id/fluxo")({
