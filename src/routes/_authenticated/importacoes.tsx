@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import {
   classificarArquivo, resumirArquivos, parseNomeChapa, parseNomeEtiqueta,
-  extrairTextoPdf, parseListaCorte, parseAlmoxarifado,
+  extrairTextoPdf, parseListaCorte, parseAlmoxarifado, parseListaCortePdfByCoordinates,
   CHAPA_PADRAO_ALTURA, CHAPA_PADRAO_LARGURA, CATEGORIA_LABEL,
   type ArquivoClassificado, type ResumoImportacao,
 } from "@/lib/importacao-promob";
@@ -118,6 +118,90 @@ function detectarPastaRaiz(paths: string[]): string {
   if (!primeiros.length) return "";
   const ref = primeiros[0];
   return primeiros.every((x) => x === ref) ? ref : "";
+}
+
+type ChapaImportada = {
+  numero: number;
+  material: string;
+  cor: string;
+  espessura: number;
+  largura: number;
+  altura: number;
+  codigoMaterial: string | null;
+  ncFile: string | null;
+  cycFile: string | null;
+  largePreview: string | null;
+  smallPreview: string | null;
+  aproveitamento: number | null;
+};
+
+type EtiquetaCyc = {
+  chapaNumero: number | null;
+  labelName: string;
+  x: number | null;
+  y: number | null;
+  r: number | null;
+};
+
+function campoXml(cycle: Element, name: string): string | null {
+  for (const field of Array.from(cycle.querySelectorAll("Field"))) {
+    if ((field.getAttribute("Name") ?? "").toLowerCase() === name.toLowerCase()) {
+      return field.getAttribute("Value") ?? field.getAttribute("value") ?? null;
+    }
+  }
+  return null;
+}
+
+function numeroArquivoChapa(nome: string | null | undefined): number | null {
+  const n = nome?.match(/^(\d{1,3})[\s_-]/)?.[1] ?? nome?.match(/Chapa\s+(\d+)/i)?.[1];
+  return n ? Number(n) : null;
+}
+
+function parseListXml(texto: string): ChapaImportada[] {
+  const doc = new DOMParser().parseFromString(texto, "text/xml");
+  const ciclos = Array.from(doc.querySelectorAll("Cycle"));
+  const out: ChapaImportada[] = [];
+  for (const ciclo of ciclos) {
+    const plateId = campoXml(ciclo, "PlateID");
+    const labelName = campoXml(ciclo, "LabelName");
+    if (!plateId && !labelName) continue;
+    const numero = numeroArquivoChapa(plateId) ?? numeroArquivoChapa(labelName) ?? out.length + 1;
+    const base = (plateId ?? labelName ?? "").replace(/\.[^.]+$/, "");
+    const partes = base.split("_");
+    const espessura = Number(campoXml(ciclo, "Thickness") ?? partes.at(-1) ?? 15);
+    const material = partes[1] || "MDP";
+    const cor = campoXml(ciclo, "Color") ?? (partes.slice(2, -1).join(" ") || "Importada");
+    out.push({
+      numero,
+      material,
+      cor,
+      espessura: Number.isFinite(espessura) ? espessura : 15,
+      largura: CHAPA_PADRAO_LARGURA,
+      altura: CHAPA_PADRAO_ALTURA,
+      codigoMaterial: null,
+      ncFile: plateId,
+      cycFile: labelName,
+      largePreview: campoXml(ciclo, "LargeImage"),
+      smallPreview: campoXml(ciclo, "SmallImage"),
+      aproveitamento: null,
+    });
+  }
+  return out.sort((a, b) => a.numero - b.numero);
+}
+
+function parseCycLabels(texto: string, arquivo: string): EtiquetaCyc[] {
+  const doc = new DOMParser().parseFromString(texto, "text/xml");
+  const chapaNumero = numeroArquivoChapa(arquivo);
+  return Array.from(doc.querySelectorAll("Cycle"))
+    .filter((c) => (c.getAttribute("Name") ?? "").toLowerCase().includes("label"))
+    .map((c) => ({
+      chapaNumero,
+      labelName: campoXml(c, "LabelName") ?? "",
+      x: campoXml(c, "X") ? Number(campoXml(c, "X")) : null,
+      y: campoXml(c, "Y") ? Number(campoXml(c, "Y")) : null,
+      r: campoXml(c, "R") ? Number(campoXml(c, "R")) : null,
+    }))
+    .filter((x) => x.labelName);
 }
 
 // ============================================================
@@ -231,6 +315,7 @@ function NovaImportacao() {
   const [ambiente, setAmbiente] = useState("");
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState("");
+  const [logs, setLogs] = useState<string[]>([]);
 
   function aplicarEntries(novas: ImportFileEntry[], origem: "folder" | "zip", nomeOrigem: string) {
     setOrigemTipo(origem);
@@ -240,7 +325,20 @@ function NovaImportacao() {
 
     const lista = novas.map((e) => classificarArquivo(e.relativePath, e.size));
     setArquivos(lista);
-    setResumo(resumirArquivos(lista));
+    const resumoAtual = resumirArquivos(lista);
+    setResumo(resumoAtual);
+    setLogs([
+      `${origem === "folder" ? "Pasta" : "ZIP"} lida com sucesso`,
+      `Arquivos encontrados: ${novas.length}`,
+      `List.xml encontrado: ${resumoAtual.tem_list ? "sim" : "não"}`,
+      `ListaCorte.pdf encontrada: ${resumoAtual.tem_lista_corte ? "sim" : "não"}`,
+      `PreviewCorte.pdf encontrado: ${resumoAtual.tem_preview_corte ? "sim" : "não"}`,
+      `ListaCompra/Almoxarifado encontrado: ${resumoAtual.tem_almoxarifado ? "sim" : "não"}`,
+      `NC de chapas encontrados: ${resumoAtual.por_categoria.nc_gcode ?? 0}`,
+      `CYC de chapas encontrados: ${(resumoAtual.por_categoria.nc_cyc ?? 0) + (resumoAtual.por_categoria.xml_cyc ?? 0)}`,
+      `Parts encontrados: ${(resumoAtual.por_categoria.parts_nc ?? 0) + (resumoAtual.por_categoria.parts_info ?? 0)}`,
+      `Profile encontrados: ${(resumoAtual.por_categoria.profile_nc ?? 0) + (resumoAtual.por_categoria.profile_info ?? 0)}`,
+    ]);
 
     // Nome do projeto = pasta raiz comum, com fallback para nome do arquivo
     const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || nomeOrigem;
@@ -309,9 +407,13 @@ function NovaImportacao() {
       return;
     }
     setImportando(true);
+    setLogs((prev) => [...prev, "Iniciando validação essencial antes do upload"]);
     const erros: Array<{ msg: string }> = [];
+    let importacaoIdCriada: string | null = null;
+    let projetoIdCriado: string | null = null;
+    const logsExec = [...logs, "Iniciando validação essencial antes do upload"];
 
-    // ---- helpers (escopo local) ----
+    const addLog = (msg: string) => { logsExec.push(msg); setLogs((prev) => [...prev, msg]); };
     const PRIORIDADE: Record<string, 1 | 2 | 3> = {
       list: 1, lista_corte_pdf: 1, preview_corte_pdf: 1, almoxarifado_pdf: 1,
       autolabel_pdf: 1, autolabel_large_preview: 1, autolabel_small_preview: 1,
@@ -320,6 +422,21 @@ function NovaImportacao() {
       autolabel_etiqueta: 3, nc_bmp: 3,
     };
     const pathSafe = (p: string) => p.replace(/[^a-zA-Z0-9._/-]/g, "_");
+    const acharEntryPorArquivo = (a: ArquivoClassificado | null) =>
+      a ? entries.find((e) => e.relativePath === a.caminho) ?? null : null;
+    const acharEntry = (cat: string) => acharEntryPorArquivo(arquivos.find((a) => a.categoria === cat) ?? null);
+    const insertBatch = async (tabela: string, rows: unknown[], label: string, lote = 200) => {
+      if (!rows.length) return [] as any[];
+      const inserted: any[] = [];
+      for (let k = 0; k < rows.length; k += lote) {
+        const { data, error } = await (supabase as any).from(tabela)
+          .insert(rows.slice(k, k + lote) as never)
+          .select();
+        if (error) throw new Error(`${label}: ${error.message}`);
+        inserted.push(...(data ?? []));
+      }
+      return inserted;
+    };
 
     try {
       setProgresso("Identificando usuário...");
@@ -327,22 +444,148 @@ function NovaImportacao() {
       if (!u.user) throw new Error("Usuário não autenticado");
       const userId = u.user.id;
 
+      setProgresso("Lendo arquivos essenciais localmente...");
+      addLog(`Arquivos encontrados: ${entries.length}`);
+      const listCandidates = arquivos.filter((a) => a.categoria === "list");
+      const listArquivo =
+        listCandidates.find((a) => !/\/NC\//i.test(a.caminho) && /setup/i.test(a.caminho)) ??
+        listCandidates.find((a) => !/\/NC\//i.test(a.caminho)) ??
+        listCandidates[0] ?? null;
+      const entryList = acharEntryPorArquivo(listArquivo);
+      const entryListaCorte = acharEntry("lista_corte_pdf");
+      const entryAlmox = acharEntry("almoxarifado_pdf");
+      const entryPreviewCorte = acharEntry("preview_corte_pdf");
+      addLog(`List.xml encontrado: ${entryList ? listArquivo?.caminho : "não"}`);
+      addLog(`ListaCorte.pdf encontrada: ${entryListaCorte ? "sim" : "não"}`);
+      addLog(`PreviewCorte.pdf encontrado: ${entryPreviewCorte ? "sim" : "não"}`);
+      addLog(`ListaCompra.pdf encontrada: ${entryAlmox ? "sim" : "não"}`);
+
+      let chapasBase: ChapaImportada[] = [];
+      if (entryList) {
+        try {
+          const xml = await (await entryList.load()).text();
+          chapasBase = parseListXml(xml);
+          addLog(`Chapas detectadas no List.xml: ${chapasBase.length}`);
+        } catch (e) {
+          erros.push({ msg: `Erro parser List.xml: ${(e as Error).message}` });
+          addLog(`Erro parser List.xml: ${(e as Error).message}`);
+        }
+      }
+      if (!chapasBase.length) {
+        chapasBase = resumo.chapas_detectadas.map((c) => ({
+          numero: c.ordem,
+          material: c.material,
+          cor: c.cor,
+          espessura: c.espessura,
+          largura: CHAPA_PADRAO_LARGURA,
+          altura: CHAPA_PADRAO_ALTURA,
+          codigoMaterial: null,
+          ncFile: null,
+          cycFile: c.nome_arquivo,
+          largePreview: null,
+          smallPreview: null,
+          aproveitamento: null,
+        }));
+        addLog(`Chapas detectadas por fallback CYC/XML: ${chapasBase.length}`);
+      }
+
+      if (!entryListaCorte) {
+        throw new Error("ListaCorte.pdf não encontrada. A importação foi interrompida antes de criar projeto vazio.");
+      }
+
+      setProgresso("Interpretando ListaCorte.pdf por coordenadas...");
+      const listaBlob = await entryListaCorte.load();
+      const listaCoord = await parseListaCortePdfByCoordinates(listaBlob);
+      listaCoord.logs.forEach(addLog);
+      let pecasLista = listaCoord.pecas;
+      if (!pecasLista.length) {
+        addLog("Parser por coordenadas não detectou peças; tentando fallback textual controlado.");
+        const paginas = await extrairTextoPdf(listaBlob);
+        pecasLista = parseListaCorte(paginas);
+        addLog(`Peças detectadas no fallback textual: ${pecasLista.length}`);
+      }
+      for (const chPdf of listaCoord.chapas) {
+        const target = chapasBase.find((c) => c.numero === chPdf.numero);
+        if (!target) continue;
+        target.cor = chPdf.acabamento ?? target.cor;
+        target.material = chPdf.material ?? target.material;
+        target.codigoMaterial = chPdf.codigo_material ?? target.codigoMaterial;
+        target.largura = chPdf.largura ?? target.largura;
+        target.altura = chPdf.altura ?? target.altura;
+        target.espessura = chPdf.espessura ?? target.espessura;
+        target.aproveitamento = chPdf.aproveitamento ?? target.aproveitamento;
+      }
+      addLog(`Peças detectadas na ListaCorte: ${pecasLista.length}`);
+
+      if (pecasLista.length === 0) {
+        const mensagem = "ListaCorte.pdf encontrada, mas nenhuma peça foi criada. O parser da ListaCorte falhou.";
+        const { data: impErro } = await supabase.from("importacoes").insert({
+          nome_arquivo: origemNome ?? "(pasta)",
+          tipo: origemTipo === "folder" ? "promob_pasta" : "promob_zip",
+          status: "erro_parser_pecas",
+          projeto_detectado: nomeProjeto,
+          cliente_detectado: cliente || null,
+          ambiente_detectado: ambiente || null,
+          resumo_json: { ...resumo, logs_importacao: [...logs, mensagem], pecas_detectadas: 0 } as unknown as never,
+          erros_json: [{ msg: mensagem }] as unknown as never,
+        }).select("id").single();
+        if (impErro?.id) importacaoIdCriada = impErro.id;
+        setLogs((prev) => [...prev, mensagem]);
+        toast.error(mensagem, { duration: 9000 });
+        return;
+      }
+      if (!chapasBase.length) {
+        throw new Error("Nenhuma chapa foi detectada no List.xml/CYC. A importação foi interrompida antes de criar projeto vazio.");
+      }
+
+      const moduloMaisComum = pecasLista.reduce<Record<string, number>>((acc, p) => {
+        if (p.modulo) acc[p.modulo] = (acc[p.modulo] ?? 0) + 1;
+        return acc;
+      }, {});
+      const ambienteDetectado = ambiente || (Object.entries(moduloMaisComum).sort((a, b) => b[1] - a[1])[0]?.[0] || null);
+      addLog(`Projeto detectado: ${nomeProjeto}`);
+      addLog(`Cliente detectado: ${cliente || "—"}`);
+      addLog(`Ambiente detectado: ${ambienteDetectado || "—"}`);
+
+      setProgresso("Lendo CYC de etiquetas localmente...");
+      const etiquetasCyc: EtiquetaCyc[] = [];
+      for (const cyc of arquivos.filter((a) => a.categoria === "nc_cyc" || a.categoria === "xml_cyc")) {
+        const entry = acharEntryPorArquivo(cyc);
+        if (!entry) continue;
+        try {
+          etiquetasCyc.push(...parseCycLabels(await (await entry.load()).text(), cyc.nome));
+        } catch (e) {
+          erros.push({ msg: `Erro parser CYC ${cyc.nome}: ${(e as Error).message}` });
+        }
+      }
+      addLog(`Etiquetas detectadas em CYC: ${etiquetasCyc.length}`);
+
       setProgresso("Criando importação...");
+      const resumoEssencial = {
+        ...resumo,
+        chapas_detectadas_list_xml: chapasBase.length,
+        chapas_detectadas_lista_corte: listaCoord.chapas.length,
+        pecas_detectadas: pecasLista.length,
+        paginas_lista_corte: listaCoord.paginas_lidas,
+        etiquetas_cyc_detectadas: etiquetasCyc.length,
+        logs_importacao: logsExec,
+      };
       const { data: imp, error: e0 } = await supabase
         .from("importacoes")
         .insert({
           nome_arquivo: origemNome ?? "(pasta)",
-          tipo: "promob_zip",
+          tipo: origemTipo === "folder" ? "promob_pasta" : "promob_zip",
           status: "processando",
           projeto_detectado: nomeProjeto,
           cliente_detectado: cliente || null,
-          ambiente_detectado: ambiente || null,
-          resumo_json: resumo as unknown as never,
+          ambiente_detectado: ambienteDetectado,
+          resumo_json: resumoEssencial as unknown as never,
         })
         .select("id")
         .single();
       if (e0 || !imp) throw e0 ?? new Error("Falha criando importação");
       const importacaoId = imp.id;
+      importacaoIdCriada = importacaoId;
 
       setProgresso("Criando projeto...");
       const { data: proj, error: e1 } = await supabase
@@ -350,92 +593,95 @@ function NovaImportacao() {
         .insert({
           nome: nomeProjeto,
           cliente: cliente || null,
-          ambiente: ambiente || null,
+          ambiente: ambienteDetectado,
           status: "ativo",
           observacao: `Importado de ${origemNome ?? "(pasta)"}`,
         })
         .select("id")
         .single();
-      if (e1 || !proj) throw e1 ?? new Error("Falha criando projeto");
+      if (e1 || !proj) throw e1 ?? new Error("Erro ao criar projeto");
       const projetoId = proj.id;
+      projetoIdCriado = projetoId;
+      addLog("Projeto criado no banco");
 
-      setProgresso("Criando chapas...");
-      const chapasInseridas = new Map<number, { id: string; espessura: number; material: string }>();
-      for (const c of resumo.chapas_detectadas) {
-        const { data: ch, error: ec } = await supabase
-          .from("chapas")
-          .insert({
-            nome: `${c.material} ${c.cor} ${c.espessura}mm (importada)`,
-            codigo: `IMP${c.ordem.toString().padStart(2, "0")}-${nomeProjeto.slice(0, 6).toUpperCase()}`,
-            tipo: c.material,
-            cor: "#d6c6a8",
-            espessura: c.espessura,
-            largura: CHAPA_PADRAO_LARGURA,
-            altura: CHAPA_PADRAO_ALTURA,
-            estoque: 1,
-          })
-          .select("id")
-          .single();
-        if (ec) erros.push({ msg: `Chapa ${c.nome_arquivo}: ${ec.message}` });
-        else if (ch) chapasInseridas.set(c.ordem, { id: ch.id, espessura: c.espessura, material: c.material });
-      }
+      setProgresso("Criando chapas em lote...");
+      const chapaRows = chapasBase.map((c) => ({
+        nome: `${c.material} ${c.cor} ${c.espessura}mm (importada)`,
+        codigo: `IMP${c.numero.toString().padStart(2, "0")}-${nomeProjeto.replace(/[^A-Z0-9]/gi, "").slice(0, 8).toUpperCase()}`,
+        tipo: c.material || "MDP",
+        cor: "#d6c6a8",
+        espessura: c.espessura,
+        largura: c.largura || CHAPA_PADRAO_LARGURA,
+        altura: c.altura || CHAPA_PADRAO_ALTURA,
+        estoque: 1,
+      }));
+      const chapasData = await insertBatch("chapas", chapaRows, "Erro ao inserir chapas");
+      const chapasInseridas = new Map<number, { id: string; espessura: number; material: string; largura: number; altura: number }>();
+      chapasBase.forEach((c, idx) => {
+        const row = chapasData[idx];
+        if (row?.id) chapasInseridas.set(c.numero, { id: row.id, espessura: c.espessura, material: c.material, largura: c.largura, altura: c.altura });
+      });
+      addLog(`Chapas criadas: ${chapasInseridas.size}`);
 
-      // -------- Fase A.2: Ler localmente os PDFs essenciais (sem upload) --------
-      setProgresso("Lendo PDFs essenciais (local)...");
-      const acharEntry = (cat: string) => {
-        const arq = arquivos.find((a) => a.categoria === cat);
-        if (!arq) return null;
-        return entries.find((e) => e.relativePath === arq.caminho) ?? null;
-      };
-      const entryListaCorte = acharEntry("lista_corte_pdf");
-      const entryAlmox = acharEntry("almoxarifado_pdf");
-      const entryPreviewCorte = acharEntry("preview_corte_pdf");
+      setProgresso("Criando plano de corte importado...");
+      const areaTotal = chapasBase.reduce((s, c) => s + c.largura * c.altura, 0);
+      const areaUsada = pecasLista.reduce((s, p) => s + p.largura * p.altura, 0);
+      const aproveitamentoMedio = areaTotal > 0 ? areaUsada / areaTotal : 0;
+      const { data: plano, error: ePlano } = await supabase.from("planos_corte").insert({
+        projeto_id: projetoId,
+        versao: 1,
+        total_chapas: chapasInseridas.size,
+        total_pecas: pecasLista.length,
+        aproveitamento_medio: aproveitamentoMedio,
+        status: "importado_referencia_visual",
+        origem_importacao: "Promob/Cut Pro/Nesting",
+        observacao: "Plano importado com referência visual. As posições originais estão no PreviewCorte/LargePreview. Coordenadas estruturadas ainda não foram extraídas.",
+      } as unknown as never).select("id").single();
+      if (ePlano || !plano) throw ePlano ?? new Error("Erro ao criar plano de corte importado");
 
-      // -------- Parse ListaCorte → peças --------
-      let pecasCriadas = 0;
-      if (entryListaCorte) {
-        try {
-          setProgresso("Interpretando ListaCorte.pdf...");
-          const blob = await entryListaCorte.load();
-          const paginas = await extrairTextoPdf(blob);
-          const pecas = parseListaCorte(paginas);
-          if (pecas.length) {
-            const rows = pecas.map((p, idx) => {
-              const chapa = p.chapa_numero ? chapasInseridas.get(p.chapa_numero) : undefined;
-              return {
-                projeto_id: projetoId,
-                descricao: p.descricao || `Peça ${idx + 1}`,
-                quantidade: 1,
-                largura: p.largura,
-                altura: p.altura,
-                espessura: chapa?.espessura ?? 15,
-                chapa_id: chapa?.id ?? null,
-                fita_codigo: p.borda,
-                modulo: p.modulo,
-                observacao: p.indice ? `Índice ${p.indice} • Código ${p.codigo ?? "—"}` : (p.codigo ?? null),
-                ordem: idx,
-              };
-            });
-            for (let k = 0; k < rows.length; k += 200) {
-              const { error: ep } = await supabase.from("projeto_pecas").insert(rows.slice(k, k + 200) as unknown as never);
-              if (ep) erros.push({ msg: `Peças (lote ${k}): ${ep.message}` });
-            }
-            pecasCriadas = rows.length;
-          } else {
-            erros.push({ msg: "ListaCorte: nenhuma peça reconhecida automaticamente." });
-          }
-        } catch (e) {
-          erros.push({ msg: `Falha lendo ListaCorte: ${(e as Error).message}` });
-        }
-      }
+      const planoChapaRows = chapasBase.map((c) => {
+        const chapa = chapasInseridas.get(c.numero);
+        const areaChapaUsada = pecasLista.filter((p) => p.chapa_numero === c.numero).reduce((s, p) => s + p.largura * p.altura, 0);
+        return {
+          plano_id: plano.id,
+          chapa_id: chapa?.id,
+          indice: c.numero,
+          area_usada: areaChapaUsada,
+          aproveitamento: c.aproveitamento ?? (c.largura * c.altura ? areaChapaUsada / (c.largura * c.altura) : 0),
+        };
+      }).filter((r) => r.chapa_id);
+      await insertBatch("plano_corte_chapas", planoChapaRows, "Erro ao inserir chapas do plano");
+      addLog("Plano de corte importado criado");
 
-      // -------- Parse Almoxarifado --------
+      setProgresso("Criando peças em lote...");
+      const pecaRows = pecasLista.map((p, idx) => {
+        const chapa = p.chapa_numero ? chapasInseridas.get(p.chapa_numero) : undefined;
+        return {
+          projeto_id: projetoId,
+          chapa_id: chapa?.id ?? null,
+          descricao: p.descricao || `Peça ${idx + 1}`,
+          codigo_peca: p.codigo,
+          indice_peca: p.indice,
+          quantidade: 1,
+          largura: p.largura,
+          altura: p.altura,
+          espessura: chapa?.espessura ?? p.espessura ?? 15,
+          fita_codigo: p.borda,
+          modulo: p.modulo,
+          observacao: `Origem ListaCorte${p.chapa_numero ? ` • Chapa ${p.chapa_numero}` : ""}`,
+          ordem: idx + 1,
+          origem_importacao: "ListaCorte",
+        };
+      });
+      const pecasData = await insertBatch("projeto_pecas", pecaRows, "Erro ao inserir peças");
+      if (pecasData.length === 0) throw new Error("Erro ao inserir peças: nenhum registro foi criado em projeto_pecas");
+      addLog(`Peças criadas: ${pecasData.length}`);
+
       let itensAlmox = 0;
       if (entryAlmox) {
         try {
-          setProgresso("Interpretando Almoxarifado.pdf...");
-          const blob = await entryAlmox.load();
-          const paginas = await extrairTextoPdf(blob);
+          setProgresso("Interpretando ListaCompra/Almoxarifado...");
+          const paginas = await extrairTextoPdf(await entryAlmox.load());
           const itens = parseAlmoxarifado(paginas);
           if (itens.length) {
             const rows = itens.map((it) => ({
@@ -448,16 +694,15 @@ function NovaImportacao() {
               origem: "importacao_promob",
               status: "pendente",
             }));
-            const { error: ea } = await supabase.from("projeto_almoxarifado_itens").insert(rows as unknown as never);
-            if (ea) erros.push({ msg: `Almoxarifado: ${ea.message}` });
-            else itensAlmox = rows.length;
+            await insertBatch("projeto_almoxarifado_itens", rows, "Erro ao inserir almoxarifado");
+            itensAlmox = rows.length;
           }
+          addLog(`Itens de almoxarifado criados: ${itensAlmox}`);
         } catch (e) {
-          erros.push({ msg: `Falha lendo Almoxarifado: ${(e as Error).message}` });
+          erros.push({ msg: `Erro parser ListaCompra/Almoxarifado: ${(e as Error).message}` });
         }
       }
 
-      // -------- Pre-insere TODOS os registros (metadados) com storage_url previsto --------
       setProgresso("Registrando metadados de arquivos...");
       type ImpArqRow = {
         importacao_id: string; nome_arquivo: string; caminho_original: string;
@@ -483,15 +728,26 @@ function NovaImportacao() {
         referencia: string | null; codigo_peca: string | null;
         sufixo: string | null; duplicidade: number | null;
         storage_url: string | null; status_vinculo: string;
+        projeto_peca_id?: string; pos_x?: number | null; pos_y?: number | null; rotacao?: number | null;
       };
       const arquivosImp: ImpArqRow[] = [];
       const arquivosTec: ArqTecRow[] = [];
       const previewsImp: PreviewRow[] = [];
       const etiquetasImp: EtiquetaRow[] = [];
+      const codigoParaPecaId = new Map<string, string>();
+      for (const pp of pecasData) if (pp.codigo_peca && pp.id) codigoParaPecaId.set(String(pp.codigo_peca), pp.id);
+      const chapaPorArquivo = (a: ArquivoClassificado) => {
+        const lowerNome = a.nome.toLowerCase();
+        const byList = chapasBase.find((c) => [c.ncFile, c.cycFile, c.largePreview, c.smallPreview]
+          .filter(Boolean).some((nome) => lowerNome === nome!.toLowerCase()));
+        const num = byList?.numero ?? parseNomeChapa(a.nome)?.ordem ?? numeroArquivoChapa(a.nome);
+        return num ? chapasInseridas.get(num)?.id ?? null : null;
+      };
 
       for (const a of arquivos) {
         const storagePath = `${userId}/${importacaoId}/${pathSafe(a.caminho)}`;
         const isUploadable = a.categoria !== "ignorado";
+        const chapaIdVinc = chapaPorArquivo(a);
         arquivosImp.push({
           importacao_id: importacaoId,
           nome_arquivo: a.nome,
@@ -500,17 +756,9 @@ function NovaImportacao() {
           origem_pasta: a.pasta || "raiz",
           status_leitura: isUploadable ? "pendente_upload" : "ignorado",
           storage_url: isUploadable ? storagePath : undefined,
-          metadados_json: {
-            categoria: a.categoria,
-            tamanho: a.tamanho,
-            prioridade: PRIORIDADE[a.categoria] ?? 3,
-          },
+          metadados_json: { categoria: a.categoria, tamanho: a.tamanho, prioridade: PRIORIDADE[a.categoria] ?? 3 },
         });
         if (!isUploadable) continue;
-
-        const chapaInfo = parseNomeChapa(a.nome);
-        const chapaIdVinc = chapaInfo ? chapasInseridas.get(chapaInfo.ordem)?.id ?? null : null;
-
         arquivosTec.push({
           projeto_id: projetoId, chapa_id: chapaIdVinc,
           importacao_id: importacaoId, origem_pasta: a.pasta || "raiz",
@@ -518,26 +766,22 @@ function NovaImportacao() {
           storage_url: storagePath,
           dados_extraidos_json: { categoria: a.categoria, tamanho: a.tamanho },
         });
-
-        if (a.categoria === "autolabel_large_preview" || a.categoria === "autolabel_small_preview") {
-          const mNum = a.nome.match(/(\d+)/);
-          const numChapa = mNum ? Number(mNum[1]) : null;
-          const chapaIdPrev = numChapa ? chapasInseridas.get(numChapa)?.id ?? null : null;
+        if (["autolabel_large_preview", "autolabel_small_preview"].includes(a.categoria)) {
+          const numChapa = numeroArquivoChapa(a.nome);
           previewsImp.push({
             importacao_id: importacaoId, projeto_id: projetoId,
-            chapa_id: chapaIdPrev, numero_chapa: numChapa,
+            chapa_id: chapaIdVinc, numero_chapa: numChapa,
             tipo_preview: a.categoria === "autolabel_large_preview" ? "large" : "small",
             arquivo_nome: a.nome, storage_url: storagePath,
             pagina_pdf: null, largura_chapa: null, altura_chapa: null,
             metadados_json: {},
           });
         }
-
         if (a.categoria === "autolabel_etiqueta" || a.categoria === "nc_bmp") {
           const info = parseNomeEtiqueta(a.nome);
+          const pecaId = info?.codigo ? codigoParaPecaId.get(info.codigo) : undefined;
           etiquetasImp.push({
-            importacao_id: importacaoId, projeto_id: projetoId,
-            chapa_id: chapaIdVinc,
+            importacao_id: importacaoId, projeto_id: projetoId, chapa_id: chapaIdVinc,
             nome_arquivo: a.nome,
             codigo_completo: info?.nome_base ?? a.nome.replace(/\.[^.]+$/, ""),
             referencia: info?.referencia ?? null,
@@ -545,29 +789,54 @@ function NovaImportacao() {
             sufixo: info?.sufixo ?? null,
             duplicidade: info?.duplicidade ?? null,
             storage_url: storagePath,
-            status_vinculo: "pendente_vinculo",
+            status_vinculo: pecaId ? "vinculado" : "pendente_vinculo",
+            projeto_peca_id: pecaId,
+          });
+        }
+      }
+      for (const cy of etiquetasCyc) {
+        const info = parseNomeEtiqueta(cy.labelName);
+        const jaExiste = etiquetasImp.find((e) => e.nome_arquivo.toLowerCase() === cy.labelName.toLowerCase());
+        const pecaId = info?.codigo ? codigoParaPecaId.get(info.codigo) : undefined;
+        if (jaExiste) {
+          jaExiste.pos_x = cy.x; jaExiste.pos_y = cy.y; jaExiste.rotacao = cy.r;
+          jaExiste.chapa_id = jaExiste.chapa_id ?? (cy.chapaNumero ? chapasInseridas.get(cy.chapaNumero)?.id ?? null : null);
+          if (pecaId) { jaExiste.projeto_peca_id = pecaId; jaExiste.status_vinculo = "vinculado"; }
+        } else {
+          etiquetasImp.push({
+            importacao_id: importacaoId, projeto_id: projetoId,
+            chapa_id: cy.chapaNumero ? chapasInseridas.get(cy.chapaNumero)?.id ?? null : null,
+            nome_arquivo: cy.labelName,
+            codigo_completo: info?.nome_base ?? cy.labelName.replace(/\.[^.]+$/, ""),
+            referencia: info?.referencia ?? null,
+            codigo_peca: info?.codigo ?? null,
+            sufixo: info?.sufixo ?? null,
+            duplicidade: info?.duplicidade ?? null,
+            storage_url: null,
+            status_vinculo: pecaId ? "vinculado" : "pendente_vinculo",
+            projeto_peca_id: pecaId,
+            pos_x: cy.x,
+            pos_y: cy.y,
+            rotacao: cy.r,
           });
         }
       }
 
-      // PreviewCorte → 1 página = 1 chapa (lê local, não bloqueia upload)
       if (entryPreviewCorte) {
         try {
-          const blob = await entryPreviewCorte.load();
-          const paginas = await extrairTextoPdf(blob);
-          const storagePathPreview = `${userId}/${importacaoId}/${pathSafe(
-            arquivos.find((a) => a.categoria === "preview_corte_pdf")?.caminho ?? "PreviewCorte.pdf",
-          )}`;
+          const paginas = await extrairTextoPdf(await entryPreviewCorte.load());
+          const storagePathPreview = `${userId}/${importacaoId}/${pathSafe(arquivos.find((a) => a.categoria === "preview_corte_pdf")?.caminho ?? "PreviewCorte.pdf")}`;
           for (const pg of paginas) {
-            const chapa = chapasInseridas.get(pg.pagina);
             previewsImp.push({
               importacao_id: importacaoId, projeto_id: projetoId,
-              chapa_id: chapa?.id ?? null, numero_chapa: pg.pagina,
+              chapa_id: chapasInseridas.get(pg.pagina)?.id ?? null,
+              numero_chapa: pg.pagina,
               tipo_preview: "preview_corte_pdf",
               arquivo_nome: `PreviewCorte p.${pg.pagina}`,
               storage_url: storagePathPreview,
               pagina_pdf: pg.pagina,
-              largura_chapa: null, altura_chapa: null,
+              largura_chapa: null,
+              altura_chapa: null,
               metadados_json: { linhas: pg.linhas.length },
             });
           }
@@ -576,42 +845,24 @@ function NovaImportacao() {
         }
       }
 
-      // Vínculo etiqueta → peça por código
-      if (etiquetasImp.length && pecasCriadas > 0) {
-        const { data: pjPecas } = await supabase
-          .from("projeto_pecas")
-          .select("id, observacao")
-          .eq("projeto_id", projetoId);
-        const mapaCodigo = new Map<string, string>();
-        for (const pp of pjPecas ?? []) {
-          const m = (pp as { observacao: string | null }).observacao?.match(/Código\s+(\d{3,6})/);
-          if (m) mapaCodigo.set(m[1], (pp as { id: string }).id);
-        }
-        for (const et of etiquetasImp) {
-          if (et.codigo_peca && mapaCodigo.has(et.codigo_peca)) {
-            (et as unknown as { projeto_peca_id: string }).projeto_peca_id = mapaCodigo.get(et.codigo_peca)!;
-            et.status_vinculo = "vinculado";
-          }
-        }
-      }
+      await insertBatch("importacao_arquivos", arquivosImp, "Erro ao registrar arquivos");
+      await insertBatch("arquivos_tecnicos", arquivosTec, "Erro ao registrar arquivos técnicos");
+      await insertBatch("importacao_preview_chapas", previewsImp, "Erro ao registrar previews");
+      await insertBatch("importacao_etiquetas", etiquetasImp, "Erro ao registrar etiquetas");
+      addLog("Metadados técnicos registrados");
 
-      setProgresso("Salvando registros...");
-      const lote = 200;
-      for (let k = 0; k < arquivosImp.length; k += lote) {
-        await supabase.from("importacao_arquivos").insert(arquivosImp.slice(k, k + lote) as unknown as never);
-      }
-      for (let k = 0; k < arquivosTec.length; k += lote) {
-        await supabase.from("arquivos_tecnicos").insert(arquivosTec.slice(k, k + lote) as unknown as never);
-      }
-      for (let k = 0; k < previewsImp.length; k += lote) {
-        await supabase.from("importacao_preview_chapas").insert(previewsImp.slice(k, k + lote) as unknown as never);
-      }
-      for (let k = 0; k < etiquetasImp.length; k += lote) {
-        await supabase.from("importacao_etiquetas").insert(etiquetasImp.slice(k, k + lote) as unknown as never);
-      }
-
-      // Marca importação como "projeto pronto, upload pendente"
       const totalUploadaveis = arquivos.filter((a) => a.categoria !== "ignorado").length;
+      const logsFinais = [
+        ...logsExec,
+        `Chapas detectadas no List.xml: ${chapasBase.length}`,
+        `Peças detectadas na ListaCorte: ${pecasLista.length}`,
+        `Peças criadas: ${pecasData.length}`,
+        `PreviewCorte.pdf encontrado: ${entryPreviewCorte ? "sim" : "não"}`,
+        `NC de chapas encontrados: ${resumo.por_categoria.nc_gcode ?? 0}`,
+        `CYC de chapas encontrados: ${(resumo.por_categoria.nc_cyc ?? 0) + (resumo.por_categoria.xml_cyc ?? 0)}`,
+        `Parts encontrados: ${(resumo.por_categoria.parts_nc ?? 0) + (resumo.por_categoria.parts_info ?? 0)}`,
+        `Profile encontrados: ${(resumo.por_categoria.profile_nc ?? 0) + (resumo.por_categoria.profile_info ?? 0)}`,
+      ];
       await supabase
         .from("importacoes")
         .update({
@@ -619,8 +870,9 @@ function NovaImportacao() {
           status: "concluido_com_upload_pendente",
           erros_json: erros as unknown as never,
           resumo_json: {
-            ...resumo,
-            pecas_criadas: pecasCriadas,
+            ...resumoEssencial,
+            logs_importacao: logsFinais,
+            pecas_criadas: pecasData.length,
             itens_almoxarifado: itensAlmox,
             etiquetas_importadas: etiquetasImp.length,
             previews_importados: previewsImp.length,
@@ -632,25 +884,26 @@ function NovaImportacao() {
         .eq("id", importacaoId);
 
       toast.success(
-        `Projeto criado: ${chapasInseridas.size} chapas, ${pecasCriadas} peças. Upload dos ${totalUploadaveis} arquivos rodando em segundo plano.`,
-        { duration: 6000 },
+        `Projeto criado: ${chapasInseridas.size} chapas, ${pecasData.length} peças. Upload dos ${totalUploadaveis} arquivos rodando em segundo plano.`,
+        { duration: 7000 },
       );
       qc.invalidateQueries({ queryKey: ["importacoes"] });
       qc.invalidateQueries({ queryKey: ["projetos"] });
-
-      // -------- Fase C: upload em segundo plano (não-bloqueante) --------
-      void uploadEmBackground({
-        importacaoId,
-        userId,
-        entries,
-        arquivos,
-        prioridade: PRIORIDADE,
-        pathSafe,
-      });
-
+      void uploadEmBackground({ importacaoId, userId, entries, arquivos, prioridade: PRIORIDADE, pathSafe });
       navigate({ to: "/projetos/importacoes/$id", params: { id: importacaoId } });
     } catch (e) {
-      toast.error(`Erro: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      setLogs((prev) => [...prev, msg]);
+      if (importacaoIdCriada) {
+        await supabase.from("importacoes").update({
+          status: msg.includes("ListaCorte") ? "erro_parser_pecas" : "erro",
+          erros_json: [{ msg }] as unknown as never,
+        }).eq("id", importacaoIdCriada);
+      }
+      if (projetoIdCriado) {
+        await supabase.from("projetos").update({ status: "erro_importacao", observacao: `Erro de importação: ${msg}` }).eq("id", projetoIdCriado);
+      }
+      toast.error(`Erro: ${msg}`);
     } finally {
       setImportando(false);
       setProgresso("");
@@ -661,6 +914,7 @@ function NovaImportacao() {
     setOrigemNome(null); setOrigemTipo(null); setEntries([]); setTamanhoTotal(0);
     setArquivos([]); setResumo(null);
     setNomeProjeto(""); setCliente(""); setAmbiente("");
+    setLogs([]);
   }
 
   return (
@@ -736,6 +990,15 @@ function NovaImportacao() {
                 label={`Parts (${(resumo.por_categoria["parts_nc"] ?? 0) + (resumo.por_categoria["parts_info"] ?? 0)})`} />
               <Estatus ok={(resumo.por_categoria["profile_nc"] ?? 0) + (resumo.por_categoria["profile_info"] ?? 0) > 0}
                 label={`Profile (${(resumo.por_categoria["profile_nc"] ?? 0) + (resumo.por_categoria["profile_info"] ?? 0)})`} />
+            </div>
+          </div>
+
+          <div className="rounded border border-border bg-surface p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Logs de leitura
+            </div>
+            <div className="max-h-44 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono text-[11px] leading-relaxed">
+              {logs.map((log, idx) => <div key={`${log}-${idx}`}>› {log}</div>)}
             </div>
           </div>
 
@@ -896,7 +1159,9 @@ function StatusBadge({ status }: { status: string }) {
     pendente: { label: "Pendente", variant: "outline" },
     processando: { label: "Processando", variant: "secondary" },
     concluido: { label: "Concluído", variant: "default" },
+    concluido_com_upload_pendente: { label: "Upload pendente", variant: "secondary" },
     concluido_com_erros: { label: "Com erros", variant: "destructive" },
+    erro_parser_pecas: { label: "Erro parser peças", variant: "destructive" },
     erro: { label: "Erro", variant: "destructive" },
   };
   const m = map[status] ?? { label: status, variant: "outline" as const };
@@ -909,7 +1174,7 @@ function ErrosImportacoes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("importacoes").select("*")
-        .in("status", ["concluido_com_erros", "erro"])
+        .in("status", ["concluido_com_erros", "erro", "erro_parser_pecas"])
         .order("criado_em", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Importacao[];
