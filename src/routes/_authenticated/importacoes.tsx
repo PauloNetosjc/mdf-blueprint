@@ -411,8 +411,9 @@ function NovaImportacao() {
     const erros: Array<{ msg: string }> = [];
     let importacaoIdCriada: string | null = null;
     let projetoIdCriado: string | null = null;
+    const logsExec = [...logs, "Iniciando validação essencial antes do upload"];
 
-    const addLog = (msg: string) => setLogs((prev) => [...prev, msg]);
+    const addLog = (msg: string) => { logsExec.push(msg); setLogs((prev) => [...prev, msg]); };
     const PRIORIDADE: Record<string, 1 | 2 | 3> = {
       list: 1, lista_corte_pdf: 1, preview_corte_pdf: 1, almoxarifado_pdf: 1,
       autolabel_pdf: 1, autolabel_large_preview: 1, autolabel_small_preview: 1,
@@ -541,7 +542,7 @@ function NovaImportacao() {
         if (p.modulo) acc[p.modulo] = (acc[p.modulo] ?? 0) + 1;
         return acc;
       }, {});
-      const ambienteDetectado = ambiente || Object.entries(moduloMaisComum).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const ambienteDetectado = ambiente || (Object.entries(moduloMaisComum).sort((a, b) => b[1] - a[1])[0]?.[0] || null);
       addLog(`Projeto detectado: ${nomeProjeto}`);
       addLog(`Cliente detectado: ${cliente || "—"}`);
       addLog(`Ambiente detectado: ${ambienteDetectado || "—"}`);
@@ -567,7 +568,7 @@ function NovaImportacao() {
         pecas_detectadas: pecasLista.length,
         paginas_lista_corte: listaCoord.paginas_lidas,
         etiquetas_cyc_detectadas: etiquetasCyc.length,
-        logs_importacao: logs,
+        logs_importacao: logsExec,
       };
       const { data: imp, error: e0 } = await supabase
         .from("importacoes")
@@ -852,7 +853,7 @@ function NovaImportacao() {
 
       const totalUploadaveis = arquivos.filter((a) => a.categoria !== "ignorado").length;
       const logsFinais = [
-        ...logs,
+        ...logsExec,
         `Chapas detectadas no List.xml: ${chapasBase.length}`,
         `Peças detectadas na ListaCorte: ${pecasLista.length}`,
         `Peças criadas: ${pecasData.length}`,
