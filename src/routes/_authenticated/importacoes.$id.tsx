@@ -52,11 +52,17 @@ export function ImportacaoDetalhe() {
     queryKey: ["imp", id, "chapas"],
     enabled: !!projetoId,
     queryFn: async () => {
+      const { data: planos, error: ep } = await supabase
+        .from("planos_corte")
+        .select("id")
+        .eq("projeto_id", projetoId!);
+      if (ep) throw ep;
+      const planoIds = (planos ?? []).map((p) => p.id);
+      if (!planoIds.length) return [];
       const { data, error } = await supabase
-        .from("arquivos_tecnicos")
-        .select("chapa_id, nome_arquivo")
-        .eq("importacao_id", id)
-        .eq("tipo_arquivo", "xml_cyc");
+        .from("plano_corte_chapas")
+        .select("chapa_id")
+        .in("plano_id", planoIds);
       if (error) throw error;
       const ids = [...new Set((data ?? []).map((x) => (x as { chapa_id: string }).chapa_id).filter(Boolean))];
       if (!ids.length) return [];
@@ -148,7 +154,10 @@ export function ImportacaoDetalhe() {
         <div className="flex items-center gap-3">
           <Link to="/projetos/importacoes"><Button size="icon" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div className="flex-1">
-            <h1 className="text-lg font-semibold">{imp.projeto_detectado ?? imp.nome_arquivo}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-semibold">{imp.projeto_detectado ?? imp.nome_arquivo}</h1>
+              <Badge variant={imp.status.includes("erro") ? "destructive" : imp.status.includes("pendente") ? "secondary" : "default"}>{imp.status}</Badge>
+            </div>
             <p className="text-xs text-muted-foreground">
               {imp.cliente_detectado ?? "—"} • {new Date(imp.criado_em).toLocaleString("pt-BR")} • {imp.nome_arquivo}
             </p>
@@ -176,13 +185,22 @@ export function ImportacaoDetalhe() {
         </TabsList>
 
         <TabsContent value="resumo" className="flex-1 overflow-auto p-6 pt-3">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {Object.entries(porCat).map(([k, v]) => (
-              <div key={k} className="rounded border border-border bg-surface p-3">
-                <div className="text-xs text-muted-foreground">{CATEGORIA_LABEL[k as CategoriaArquivo] ?? k}</div>
-                <div className="text-2xl font-bold">{v}</div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {Object.entries(porCat).map(([k, v]) => (
+                <div key={k} className="rounded border border-border bg-surface p-3">
+                  <div className="text-xs text-muted-foreground">{CATEGORIA_LABEL[k as CategoriaArquivo] ?? k}</div>
+                  <div className="text-2xl font-bold">{v}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded border border-border bg-surface p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Logs de leitura</div>
+              <div className="max-h-72 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono text-[11px] leading-relaxed">
+                {((resumo.logs_importacao as string[]) ?? []).map((log, idx) => <div key={`${log}-${idx}`}>› {log}</div>)}
+                {!((resumo.logs_importacao as string[]) ?? []).length && <div className="text-muted-foreground">Nenhum log registrado.</div>}
               </div>
-            ))}
+            </div>
           </div>
         </TabsContent>
 
