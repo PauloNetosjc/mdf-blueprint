@@ -128,6 +128,8 @@ function ChapaCNCPage() {
   const [resultado, setResultado] = useState<SheetGenResult | null>(null);
   const [responsavel, setResponsavel] = useState("");
   const [confirmou, setConfirmou] = useState(false);
+  const [checklist, setChecklist] = useState<Checklist>({});
+  const [observacao, setObservacao] = useState("");
 
   const pecasSheet: SheetPiece[] = useMemo(() => {
     if (!pecasPlano || !projetoPecas) return [];
