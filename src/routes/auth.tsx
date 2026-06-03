@@ -27,13 +27,24 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/", replace: true });
-    });
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate({ to: "/", replace: true });
+        return;
+      }
+      const { ensureDevSession } = await import("@/lib/dev-auth");
+      const ok = await ensureDevSession();
+      if (ok && !cancelled) navigate({ to: "/", replace: true });
+    })();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session) navigate({ to: "/", replace: true });
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
