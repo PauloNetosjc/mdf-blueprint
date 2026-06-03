@@ -1,13 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ensureDemoAuthUser } from "@/lib/demo-auth.functions";
-import {
-  DEMO_USER_EMAIL,
-  DEMO_USER_ID,
-  DEMO_USER_PASSWORD,
-  getStoredDemoUser,
-  isDemoMode,
-  persistDemoUser,
-} from "@/lib/demo-mode";
+import { DEMO_USER_EMAIL, DEMO_USER_PASSWORD, getStoredDemoUser, isDemoMode, persistDemoUser } from "@/lib/demo-mode";
 
 export const DEV_USER_EMAIL = DEMO_USER_EMAIL;
 export const DEV_USER_PASSWORD = DEMO_USER_PASSWORD;
@@ -61,7 +54,14 @@ async function ensureDemoSession(): Promise<boolean> {
   persistDemoUser(getStoredDemoUser());
 
   const { data } = await supabase.auth.getSession();
-  if (data.session?.user.id === DEMO_USER_ID) return true;
+  if (data.session?.user.email === DEMO_USER_EMAIL) {
+    persistDemoUser({
+      id: data.session.user.id,
+      email: data.session.user.email,
+      name: data.session.user.user_metadata?.name ?? "Usuário Demo",
+    });
+    return true;
+  }
 
   if (inflight) return inflight;
 
@@ -73,13 +73,28 @@ async function ensureDemoSession(): Promise<boolean> {
         email: DEMO_USER_EMAIL,
         password: DEMO_USER_PASSWORD,
       });
-      if (!signIn.error && signIn.data.session?.user.id === DEMO_USER_ID) return true;
+      if (!signIn.error && signIn.data.session?.user.email === DEMO_USER_EMAIL) {
+        persistDemoUser({
+          id: signIn.data.session.user.id,
+          email: signIn.data.session.user.email,
+          name: signIn.data.session.user.user_metadata?.name ?? "Usuário Demo",
+        });
+        return true;
+      }
 
       const retry = await supabase.auth.signInWithPassword({
         email: DEMO_USER_EMAIL,
         password: DEMO_USER_PASSWORD,
       });
-      return !retry.error && retry.data.session?.user.id === DEMO_USER_ID;
+      if (!retry.error && retry.data.session?.user.email === DEMO_USER_EMAIL) {
+        persistDemoUser({
+          id: retry.data.session.user.id,
+          email: retry.data.session.user.email,
+          name: retry.data.session.user.user_metadata?.name ?? "Usuário Demo",
+        });
+        return true;
+      }
+      return false;
     } catch {
       return false;
     } finally {
