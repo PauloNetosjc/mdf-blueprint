@@ -228,6 +228,11 @@ function PlanoPage() {
           <Button size="sm" variant="outline" onClick={calcular}>
             <RefreshCw className="mr-1 h-4 w-4" />Recalcular
           </Button>
+          <Link to="/etiquetas" search={{ projeto: id }}>
+            <Button size="sm" variant="outline">
+              <Tag className="mr-1 h-4 w-4" />Etiquetas
+            </Button>
+          </Link>
           <Button size="sm" onClick={() => salvar.mutate()} disabled={!resultado || salvar.isPending || colisao}>
             <Save className="mr-1 h-4 w-4" />Salvar plano
           </Button>
@@ -345,9 +350,11 @@ function PlanoPage() {
                 <Button size="sm" variant="outline" onClick={rotacionarSelecionada}><RotateCw className="mr-1 h-3.5 w-3.5" />Girar (R)</Button>
                 <Button size="sm" variant="outline" onClick={removerSelecionada}><Trash2 className="mr-1 h-3.5 w-3.5" />Remover</Button>
               </div>
-              <Button size="sm" variant="outline" className="w-full" onClick={() => toast.info("Etiquetas: disponível na próxima fase")}>
-                <Tag className="mr-1 h-3.5 w-3.5" />Gerar etiqueta
-              </Button>
+              <Link to="/etiquetas" search={{ projeto: id, peca: projPeca.id }} className="block">
+                <Button size="sm" variant="outline" className="w-full">
+                  <Tag className="mr-1 h-3.5 w-3.5" />Ver etiqueta
+                </Button>
+              </Link>
               <Button
                 size="sm"
                 className="w-full"

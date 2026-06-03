@@ -112,6 +112,111 @@ export type Database = {
         }
         Relationships: []
       }
+      etiqueta_config: {
+        Row: {
+          altura_mm: number
+          campos_visiveis: Json
+          colunas: number
+          espacamento_h_mm: number
+          espacamento_v_mm: number
+          id: string
+          largura_mm: number
+          linhas: number
+          margem_mm: number
+          orientacao: string
+          preset: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          altura_mm?: number
+          campos_visiveis?: Json
+          colunas?: number
+          espacamento_h_mm?: number
+          espacamento_v_mm?: number
+          id?: string
+          largura_mm?: number
+          linhas?: number
+          margem_mm?: number
+          orientacao?: string
+          preset?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          altura_mm?: number
+          campos_visiveis?: Json
+          colunas?: number
+          espacamento_h_mm?: number
+          espacamento_v_mm?: number
+          id?: string
+          largura_mm?: number
+          linhas?: number
+          margem_mm?: number
+          orientacao?: string
+          preset?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      etiquetas: {
+        Row: {
+          codigo_barras: string
+          conteudo_json: Json
+          criado_em: string
+          id: string
+          impresso_em: string | null
+          indice_peca: string
+          numero_chapa: number
+          plano_chapa_id: string | null
+          plano_corte_peca_id: string | null
+          plano_id: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          qr_code: string | null
+          quantidade_impressoes: number
+          status_impressao: string
+          user_id: string
+        }
+        Insert: {
+          codigo_barras: string
+          conteudo_json?: Json
+          criado_em?: string
+          id?: string
+          impresso_em?: string | null
+          indice_peca?: string
+          numero_chapa?: number
+          plano_chapa_id?: string | null
+          plano_corte_peca_id?: string | null
+          plano_id?: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          qr_code?: string | null
+          quantidade_impressoes?: number
+          status_impressao?: string
+          user_id?: string
+        }
+        Update: {
+          codigo_barras?: string
+          conteudo_json?: Json
+          criado_em?: string
+          id?: string
+          impresso_em?: string | null
+          indice_peca?: string
+          numero_chapa?: number
+          plano_chapa_id?: string | null
+          plano_corte_peca_id?: string | null
+          plano_id?: string | null
+          projeto_id?: string
+          projeto_peca_id?: string
+          qr_code?: string | null
+          quantidade_impressoes?: number
+          status_impressao?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       faces: {
         Row: {
           eixo_x_mapeado: string | null
