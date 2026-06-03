@@ -212,6 +212,11 @@ function ProjetosPage() {
                   <Button size="sm" variant="ghost" onClick={() => { if (confirm(`Excluir "${p.nome}"? Esta ação remove todas as peças do projeto.`)) excluir.mutate(p.id); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
+                  <Link to="/projetos/$id/fluxo" params={{ id: p.id }}>
+                    <Button size="sm" variant="outline" title="Fluxo do projeto">
+                      <GitBranch className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                   <Link to="/projetos/$id/plano" params={{ id: p.id }}>
                     <Button size="sm" variant="outline" title="Abrir plano de corte">
                       <Cpu className="h-3.5 w-3.5" />
