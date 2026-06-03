@@ -170,7 +170,7 @@ function parseListXml(texto: string): ChapaImportada[] {
     const partes = base.split("_");
     const espessura = Number(campoXml(ciclo, "Thickness") ?? partes.at(-1) ?? 15);
     const material = partes[1] || "MDP";
-    const cor = campoXml(ciclo, "Color") ?? partes.slice(2, -1).join(" ") || "Importada";
+    const cor = campoXml(ciclo, "Color") ?? (partes.slice(2, -1).join(" ") || "Importada");
     out.push({
       numero,
       material,
