@@ -241,6 +241,13 @@ export function AnaliseTecnicaTab({ importacaoId, projetoId }: { importacaoId: s
                     >
                       <Play className="mr-1 h-3 w-3" /> Analisar
                     </Button>
+                    {a.peca_id && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link to="/comparador" search={{ peca_id: a.peca_id, projeto_id: a.projeto_id ?? undefined }}>
+                          <GitCompare className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    )}
                   </td>
                 </tr>
               );
