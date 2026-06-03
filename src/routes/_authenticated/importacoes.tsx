@@ -994,6 +994,15 @@ function NovaImportacao() {
           </div>
 
           <div className="rounded border border-border bg-surface p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Logs de leitura
+            </div>
+            <div className="max-h-44 overflow-auto rounded border border-border bg-surface-2 p-2 font-mono text-[11px] leading-relaxed">
+              {logs.map((log, idx) => <div key={`${log}-${idx}`}>› {log}</div>)}
+            </div>
+          </div>
+
+          <div className="rounded border border-border bg-surface p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Layers className="h-4 w-4" />
               Chapas detectadas ({resumo.chapas_detectadas.length})
