@@ -261,7 +261,6 @@ function PecaCadastradaDetalhe() {
           {p.motivo_status && (
             <p className="mt-1 text-xs text-muted-foreground">{p.motivo_status}</p>
           )}
-          </div>
           <h1 className="mt-1 font-mono text-2xl font-semibold">{p.codigo_completo}</h1>
           <p className="text-sm text-muted-foreground">
             {p.nome_peca ?? "—"} {p.modulo_origem ? `• módulo ${p.modulo_origem}` : ""}
