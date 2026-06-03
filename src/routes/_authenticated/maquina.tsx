@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Maquina } from "@/lib/db";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, GitCompare } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/maquina")({
   head: () => ({ meta: [{ title: "Máquina — Visualizador CNC" }] }),
