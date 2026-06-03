@@ -440,14 +440,28 @@ function extrairMedidas(linhas: Linha[]): {
 }
 
 function extrairNomePeca(linhas: Linha[], codigo: CodigoPecaTecnica | null): string | null {
-  // "7537-Base Inferior"
-  if (codigo) {
+  if (!codigo) return null;
+  // 1) "7537-Base Inferior" ou "7537 - Base Inferior" ou "7537: Base"
+  for (const l of linhas) {
+    const m = l.texto.match(new RegExp(`${codigo.codigo_principal}\\s*[-–:]\\s*([A-Za-zÀ-ÿ][^|]+)`));
+    if (m) return m[1].trim().slice(0, 120);
+  }
+  // 2) Linha que começa com o tipo amigável (ex: "Afastador Esquerdo")
+  const tipoBase = codigo.tipo_peca.split(/[\s/]/)[0];
+  if (tipoBase && tipoBase.length >= 3) {
+    const re = new RegExp(`^${tipoBase}\\b[^0-9]{2,80}$`, "i");
     for (const l of linhas) {
-      const m = l.texto.match(new RegExp(`${codigo.codigo_principal}\\s*[-–:]\\s*(.+)`));
-      if (m) return m[1].trim().slice(0, 120);
+      if (l.texto.length > 80) continue;
+      if (re.test(l.texto.trim())) return l.texto.trim().slice(0, 120);
     }
   }
-  return null;
+  // 3) Linha com "Descrição: ..."
+  for (const l of linhas) {
+    const m = l.texto.match(/Descri[cç][aã]o\s*[:\-]\s*(.+)/i);
+    if (m) return m[1].trim().slice(0, 120);
+  }
+  // 4) Fallback: tipo amigável + código principal+sufixo
+  return `${codigo.tipo_peca} ${codigo.codigo_principal}${codigo.sufixo}`.trim();
 }
 
 export async function parseTechnicalDrawingPdf(
