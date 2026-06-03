@@ -152,6 +152,8 @@ function EditorPeca() {
               <div className="p-4 text-center text-xs text-muted-foreground">Sem operações nesta face.</div>
             )}
           </div>
+
+          <OperacoesImportadas pecaId={id} nextOrdem={operacoes.length + 1} />
         </aside>
 
         {/* Centro: viewer */}
