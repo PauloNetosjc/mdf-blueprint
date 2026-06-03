@@ -306,6 +306,20 @@ function PlanoPage() {
               </>
             );
           })()}
+          {planoSalvo && chapasSalvas && chapaAtual && (() => {
+            const chapaSalva = chapasSalvas.find(
+              (c) => c.chapa_id === chapaAtual.chapa.id && c.indice === chapaAtual.indice,
+            ) ?? chapasSalvas[chapaIndex];
+            if (!chapaSalva) return null;
+            return (
+              <Link
+                to="/projetos/$id/plano/$planoId/chapa/$chapaId/cnc"
+                params={{ id, planoId: planoSalvo.id, chapaId: chapaSalva.id }}
+              >
+                <Button size="sm" variant="outline"><Cpu className="mr-1 h-4 w-4" />G-code da Chapa</Button>
+              </Link>
+            );
+          })()}
           <Button size="sm" onClick={() => salvar.mutate()} disabled={!resultado || salvar.isPending || colisao}>
             <Save className="mr-1 h-4 w-4" />Salvar plano
           </Button>
