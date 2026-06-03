@@ -74,7 +74,7 @@ type Borda = {
   cor: string | null;
 };
 
-const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem", "outro"];
+const TIPOS_OP = ["furo", "rasgo", "rebaixo", "friso", "cava", "contorno", "usinagem", "outro"];
 const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseira", "desconhecido"];
 
 function PecaCadastradaDetalhe() {
@@ -405,29 +405,40 @@ function OpRow({
   useEffect(() => setLocal(op), [op]);
   const dirty = JSON.stringify(local) !== JSON.stringify(op);
   return (
-    <div className="grid grid-cols-[80px_60px_repeat(4,1fr)_auto_auto] items-center gap-1 rounded bg-surface-2 p-1 text-xs">
-      <Select value={local.tipo_operacao} onValueChange={(v) => setLocal({ ...local, tipo_operacao: v })}>
-        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>{TIPOS_OP.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-      </Select>
-      <Select value={String(local.face ?? "0")} onValueChange={(v) => setLocal({ ...local, face: v })}>
-        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {Object.entries(FACE_LABELS).map(([f, n]) => (
-            <SelectItem key={f} value={f}>{f} — {n}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <NumCell label="X" v={local.x} on={(v) => setLocal({ ...local, x: v })} />
-      <NumCell label="Y" v={local.y} on={(v) => setLocal({ ...local, y: v })} />
-      <NumCell label="Ø" v={local.diametro} on={(v) => setLocal({ ...local, diametro: v })} />
-      <NumCell label="P" v={local.profundidade} on={(v) => setLocal({ ...local, profundidade: v })} />
-      <Button size="sm" variant="ghost" disabled={!dirty} onClick={() => onSave(local)} className="h-7 w-7 p-0">
-        <Save className="h-3 w-3" />
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive">
-        <Trash2 className="h-3 w-3" />
-      </Button>
+    <div className="rounded bg-surface-2 p-1 text-xs">
+      <div className="grid grid-cols-[90px_70px_repeat(4,1fr)_auto_auto] items-center gap-1">
+        <Select value={local.tipo_operacao} onValueChange={(v) => setLocal({ ...local, tipo_operacao: v })}>
+          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>{TIPOS_OP.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select value={String(local.face ?? "0")} onValueChange={(v) => setLocal({ ...local, face: v })}>
+          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(FACE_LABELS).map(([f, n]) => (
+              <SelectItem key={f} value={f}>{f} — {n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <NumCell label="X" v={local.x} on={(v) => setLocal({ ...local, x: v })} />
+        <NumCell label="Y" v={local.y} on={(v) => setLocal({ ...local, y: v })} />
+        <NumCell label="Ø" v={local.diametro} on={(v) => setLocal({ ...local, diametro: v })} />
+        <NumCell label="P" v={local.profundidade} on={(v) => setLocal({ ...local, profundidade: v })} />
+        <Button size="sm" variant="ghost" disabled={!dirty} onClick={() => onSave(local)} className="h-7 w-7 p-0">
+          <Save className="h-3 w-3" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive">
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-[10px] text-muted-foreground">
+        {local.largura != null && <span>L: {local.largura}</span>}
+        {local.comprimento != null && <span>C: {local.comprimento}</span>}
+        {local.x1 != null && <span>X1: {local.x1}</span>}
+        {local.x2 != null && <span>X2: {local.x2}</span>}
+        {local.ancora_x && <span>↔ {local.ancora_x}{local.offset_x != null ? ` (${local.offset_x})` : ""}</span>}
+        {local.ancora_y && <span>↕ {local.ancora_y}{local.offset_y != null ? ` (${local.offset_y})` : ""}</span>}
+        <span>conf: {local.confianca_parser}</span>
+      </div>
     </div>
   );
 }

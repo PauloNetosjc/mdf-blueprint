@@ -28,24 +28,38 @@ export type CodigoPecaTecnica = {
 };
 
 const PREFIXO_TIPO: Record<string, string> = {
-  DIV: "Divisória",
+  AFA: "Afastador",
+  ARM: "Armário / Módulo",
   BAS: "Base",
-  LAT: "Lateral",
-  FUN: "Fundo",
-  PAI: "Painel",
-  PRA: "Prateleira",
-  TRA: "Travessa",
-  GAV: "Gaveta",
-  TAM: "Tampo",
-  PRT: "Porta",
-  POR: "Porta",
-  FRE: "Frente",
+  CAB: "Cabeceira",
   COS: "Costa",
-  TES: "Testeira",
-  ZOC: "Zócalo",
-  REG: "Régua",
+  DIV: "Divisória",
+  FRE: "Frente",
+  FRT: "Frente",
+  FUN: "Fundo",
+  GAV: "Gaveta",
+  LAT: "Lateral",
+  PAI: "Painel",
+  PIL: "Pilar",
+  POR: "Porta",
+  PRA: "Prateleira",
+  PRF: "Perfil",
+  PRT: "Porta",
   REF: "Reforço",
+  REG: "Régua",
+  RIP: "Ripado",
+  ROD: "Rodapé",
+  SUP: "Suporte",
+  TAM: "Tampo",
+  TES: "Testeira",
+  TRA: "Travessa",
+  ZOC: "Zócalo",
 };
+
+export function getTipoPecaPorPrefixo(prefixo: string | null | undefined): string {
+  if (!prefixo) return "Outro";
+  return PREFIXO_TIPO[prefixo.toUpperCase()] ?? "Outro";
+}
 
 export function parseTechnicalPartCode(fileName: string): CodigoPecaTecnica | null {
   const base = fileName.replace(/\.[^.]+$/, "").trim();
@@ -54,7 +68,7 @@ export function parseTechnicalPartCode(fileName: string): CodigoPecaTecnica | nu
   const prefixo = m[1].toUpperCase();
   const codigo_principal = m[2];
   const sufixo = (m[3] || "").toUpperCase();
-  const tipo_peca = PREFIXO_TIPO[prefixo] ?? prefixo;
+  const tipo_peca = getTipoPecaPorPrefixo(prefixo);
   return {
     codigo_completo: `${prefixo}${codigo_principal}${sufixo}`,
     prefixo,
@@ -350,24 +364,45 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
     const m = l.texto.match(/\b(FTABS[A-Z0-9.\-_]*)\b/i);
     if (!m) continue;
     const codigo = m[1].toUpperCase();
+    // Padrões: FTABS.0.45.19.100 (esp.larg.cor) ou FTABS.1.19.100
+    const partes = codigo.split(".").slice(1); // remove "FTABS"
+    let espessura: number | null = null;
+    let largura: number | null = null;
+    let corCodigo: string | null = null;
+    if (partes.length >= 4) {
+      // ex: 0, 45, 19, 100 → 0.45, 19, 100
+      espessura = toNum(`${partes[0]}.${partes[1]}`);
+      largura = toNum(partes[2]);
+      corCodigo = partes[3];
+    } else if (partes.length === 3) {
+      espessura = toNum(partes[0]);
+      largura = toNum(partes[1]);
+      corCodigo = partes[2];
+    }
     const descMatch = l.texto.match(/Fita\s+de\s+Borda[^\n]*/i);
-    const descricao = descMatch ? descMatch[0] : null;
+    let descricao = descMatch ? descMatch[0].trim() : null;
     const dim = l.texto.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
-    const espessura = dim ? toNum(dim[1]) : null;
-    const largura = dim ? toNum(dim[2]) : null;
-    const corMatch = l.texto.match(/\b(Branco|Preto|Bege|Cinza|Carvalho|Nogueira|Cerejeira|Cerrado|Beige|Matt)\b/i);
+    if (dim && espessura == null) espessura = toNum(dim[1]);
+    if (dim && largura == null) largura = toNum(dim[2]);
+    const corMatch = l.texto.match(/\b(Branco|Preto|Bege|Cinza|Carvalho|Nogueira|Cerejeira|Cerrado|Beige|Matt|Off\s*White|Carvalho\s*\w+)\b/i);
+    const cor = corMatch ? corMatch[1] : null;
+    if (!descricao) {
+      const partesDesc = ["Fita de Borda ABS"];
+      if (espessura != null && largura != null) partesDesc.push(`Espessura ${espessura}x${largura}mm`);
+      if (cor) partesDesc.push(cor);
+      descricao = partesDesc.join(" ");
+    }
     bordas.push({
       lado: "desconhecido",
       codigo_borda: codigo,
       descricao_borda: descricao,
       espessura,
       largura,
-      cor: corMatch ? corMatch[1] : null,
+      cor: cor ?? corCodigo,
       indicador_desenho: null,
-      confianca_parser: dim ? "media" : "baixa",
+      confianca_parser: espessura != null && largura != null ? "alta" : "media",
     });
   }
-  // dedup por código
   const seen = new Set<string>();
   return bordas.filter((b) => {
     const k = b.codigo_borda ?? "";
@@ -405,14 +440,28 @@ function extrairMedidas(linhas: Linha[]): {
 }
 
 function extrairNomePeca(linhas: Linha[], codigo: CodigoPecaTecnica | null): string | null {
-  // "7537-Base Inferior"
-  if (codigo) {
+  if (!codigo) return null;
+  // 1) "7537-Base Inferior" ou "7537 - Base Inferior" ou "7537: Base"
+  for (const l of linhas) {
+    const m = l.texto.match(new RegExp(`${codigo.codigo_principal}\\s*[-–:]\\s*([A-Za-zÀ-ÿ][^|]+)`));
+    if (m) return m[1].trim().slice(0, 120);
+  }
+  // 2) Linha que começa com o tipo amigável (ex: "Afastador Esquerdo")
+  const tipoBase = codigo.tipo_peca.split(/[\s/]/)[0];
+  if (tipoBase && tipoBase.length >= 3) {
+    const re = new RegExp(`^${tipoBase}\\b[^0-9]{2,80}$`, "i");
     for (const l of linhas) {
-      const m = l.texto.match(new RegExp(`${codigo.codigo_principal}\\s*[-–:]\\s*(.+)`));
-      if (m) return m[1].trim().slice(0, 120);
+      if (l.texto.length > 80) continue;
+      if (re.test(l.texto.trim())) return l.texto.trim().slice(0, 120);
     }
   }
-  return null;
+  // 3) Linha com "Descrição: ..."
+  for (const l of linhas) {
+    const m = l.texto.match(/Descri[cç][aã]o\s*[:\-]\s*(.+)/i);
+    if (m) return m[1].trim().slice(0, 120);
+  }
+  // 4) Fallback: tipo amigável + código principal+sufixo
+  return `${codigo.tipo_peca} ${codigo.codigo_principal}${codigo.sufixo}`.trim();
 }
 
 export async function parseTechnicalDrawingPdf(
