@@ -148,7 +148,7 @@ function NovaImportacao() {
           projeto_detectado: nomeProjeto,
           cliente_detectado: cliente || null,
           ambiente_detectado: ambiente || null,
-          resumo_json: resumo as any,
+          resumo_json: resumo as unknown as never,
         })
         .select("id")
         .single();
