@@ -374,6 +374,7 @@ export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<Lista
       let descricaoColuna = textoLinha;
       let dimensaoColuna = textoLinha;
       let bordaColuna = "";
+      let projetoColuna = "";
 
       if (colunas) {
         const textoEntre = (ini: number, fim: number) => linha.items
@@ -385,6 +386,7 @@ export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<Lista
         descricaoColuna = textoEntre(colunas.descricao, colunas.dimensao) || textoLinha;
         dimensaoColuna = textoEntre(colunas.dimensao, colunas.borda) || textoLinha;
         bordaColuna = textoEntre(colunas.borda, colunas.pai);
+        projetoColuna = textoEntre(colunas.projeto, Number.POSITIVE_INFINITY);
       }
 
       if (!/^\d+\.[A-Z]{1,3}$/.test(item)) continue;
@@ -401,7 +403,7 @@ export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<Lista
         altura: dim.altura,
         espessura: dim.espessura,
         borda,
-        modulo: null,
+        modulo: projetoColuna || null,
       });
     }
   }
