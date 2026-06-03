@@ -299,7 +299,7 @@ function NovaImportacao() {
         .update({
           projeto_id: projetoId,
           status: erros.length ? "concluido_com_erros" : "concluido",
-          erros_json: erros,
+          erros_json: erros as unknown as never,
         })
         .eq("id", importacaoId);
 
