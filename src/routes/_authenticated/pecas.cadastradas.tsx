@@ -283,7 +283,7 @@ function PecasCadastradasPage() {
       setArquivosComErro(failedFiles);
 
       const pecaRows = parsed.map(({ result, fileName, storagePath, modulo }) => {
-        const status = result.erros.length > 0 ? "com_erros" : "ok";
+        const { status, motivo } = classificarStatusParser(result);
         return {
           user_id: userId,
           codigo: result.codigo.codigo_completo,
@@ -305,7 +305,10 @@ function PecasCadastradasPage() {
           pdf_nome_arquivo: fileName,
           origem: "TECNICO FURACOES CADASTRO",
           status_parser: status,
+          motivo_status: motivo,
           erros_parser: result.erros,
+          parser_alertas_json: result.alertas,
+          resumo_parser_json: result.resumo,
           logs_parser: result.logs,
           metadados_json: { modo_importacao: modo, modulo_origem: modulo },
           dados_brutos_json: result.dados_brutos,
