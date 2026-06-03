@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Wrench, Cog, FileCode2, AlertTriangle } from "lucide-react";
+import {
+  Package, Wrench, Cog, FileCode2, AlertTriangle, FolderKanban,
+  Layers, Grid3x3, Gauge,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -18,16 +21,22 @@ function Dashboard() {
   const { data } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const [pecas, ferramentas, previews, maquinas] = await Promise.all([
+      const [pecas, ferramentas, previews, maquinas, projetos, planos, chapas] = await Promise.all([
         supabase.from("pecas").select("id,status,largura,altura,espessura"),
         supabase.from("ferramentas").select("id,ativa"),
         supabase.from("previews_cnc").select("id,validado"),
         supabase.from("maquinas").select("id,area_x,area_y,area_z").eq("ativa", true),
+        supabase.from("projetos").select("id,status"),
+        supabase.from("planos_corte").select("id,aproveitamento_medio"),
+        supabase.from("chapas").select("id,ativa"),
       ]);
       const m = maquinas.data?.[0];
       const foraLimite = (pecas.data ?? []).filter(
         (p) => m && (p.largura > m.area_x || p.altura > m.area_y || p.espessura > m.area_z),
       );
+      const aprovMedio = (planos.data ?? []).length
+        ? (planos.data ?? []).reduce((s: number, p: any) => s + (p.aproveitamento_medio ?? 0), 0) / (planos.data ?? []).length
+        : 0;
       return {
         pecasTotal: pecas.data?.length ?? 0,
         pecasPendentes: pecas.data?.filter((p) => p.status !== "aprovada").length ?? 0,
@@ -35,11 +44,19 @@ function Dashboard() {
         previews: previews.data?.length ?? 0,
         foraLimite: foraLimite.length,
         maquina: m,
+        projetosAtivos: (projetos.data ?? []).filter((p: any) => !["arquivado", "concluido"].includes(p.status)).length,
+        planosGerados: planos.data?.length ?? 0,
+        chapasCadastradas: chapas.data?.length ?? 0,
+        aproveitamentoMedio: aprovMedio,
       };
     },
   });
 
   const cards = [
+    { label: "Projetos ativos", value: data?.projetosAtivos ?? 0, icon: FolderKanban, link: "/projetos" },
+    { label: "Planos gerados", value: data?.planosGerados ?? 0, icon: Layers, link: "/projetos" },
+    { label: "Chapas cadastradas", value: data?.chapasCadastradas ?? 0, icon: Grid3x3, link: "/chapas" },
+    { label: "Aproveitamento médio", value: data ? `${Math.round((data.aproveitamentoMedio ?? 0) * 100)}%` : "—", icon: Gauge, link: "/projetos" },
     { label: "Peças cadastradas", value: data?.pecasTotal ?? 0, icon: Package, link: "/pecas" },
     { label: "Pendentes de validação", value: data?.pecasPendentes ?? 0, icon: AlertTriangle, link: "/pecas" },
     { label: "G-codes gerados", value: data?.previews ?? 0, icon: FileCode2, link: "/pecas" },
@@ -53,7 +70,7 @@ function Dashboard() {
         <p className="text-sm text-muted-foreground">Visão geral do sistema.</p>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {cards.map((c) => {
           const Icon = c.icon;
           return (
