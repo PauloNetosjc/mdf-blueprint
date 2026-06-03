@@ -798,11 +798,64 @@ function PecasCadastradasPage() {
   );
 }
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone?: "warn" }) {
+function StatCard({ label, value, tone }: { label: string; value: number; tone?: "warn" | "ok" | "error" }) {
+  const border =
+    tone === "warn" ? "border-amber-500/40"
+    : tone === "error" ? "border-destructive/50"
+    : tone === "ok" ? "border-emerald-500/40"
+    : "";
   return (
-    <div className={`rounded border border-border bg-surface p-3 ${tone === "warn" ? "border-amber-500/40" : ""}`}>
+    <div className={`rounded border border-border bg-surface p-3 ${border}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
     </div>
+  );
+}
+
+const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+  ok: { label: "OK", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", icon: null },
+  com_alertas: { label: "Alertas", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
+  pendente_revisao: { label: "Revisão", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
+  com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
+};
+
+function StatusBadge({ peca }: { peca: PecaRow }) {
+  const status = peca.status_parser || "ok";
+  const v = STATUS_VARIANT[status] ?? STATUS_VARIANT.ok;
+  const erros = Array.isArray(peca.erros_parser) ? (peca.erros_parser as string[]) : [];
+  const alertas = Array.isArray(peca.parser_alertas_json) ? (peca.parser_alertas_json as string[]) : [];
+  const resumo = (peca.resumo_parser_json ?? {}) as Record<string, unknown>;
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex cursor-help items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${v.cls}`}>
+            {v.icon}
+            {v.label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-sm space-y-2 text-xs">
+          {peca.motivo_status && <div className="font-medium">{peca.motivo_status}</div>}
+          {erros.length > 0 && (
+            <div>
+              <div className="font-semibold text-destructive">Erros</div>
+              <ul className="list-disc pl-4">{erros.slice(0, 5).map((e, i) => <li key={i}>{String(e)}</li>)}</ul>
+            </div>
+          )}
+          {alertas.length > 0 && (
+            <div>
+              <div className="font-semibold text-amber-500">Alertas</div>
+              <ul className="list-disc pl-4">{alertas.slice(0, 5).map((a, i) => <li key={i}>{String(a)}</li>)}</ul>
+            </div>
+          )}
+          {Object.keys(resumo).length > 0 && (
+            <div className="border-t border-border pt-1 font-mono text-[10px] text-muted-foreground">
+              furos {String(resumo.furos_detectados ?? 0)} · rasgos {String(resumo.rasgos_detectados ?? 0)} · bordas {String(resumo.bordas_detectadas ?? 0)}
+              {resumo.face_5_detectada ? " · Face 5" : ""}
+            </div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
