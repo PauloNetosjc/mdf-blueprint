@@ -30,6 +30,7 @@ import { Route as AuthenticatedImportacoesIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedProjetosIdPlanoRouteImport } from './routes/_authenticated/projetos.$id.plano'
 import { Route as AuthenticatedPecasIdCompararRouteImport } from './routes/_authenticated/pecas.$id.comparar'
 import { Route as AuthenticatedPecasIdCncRouteImport } from './routes/_authenticated/pecas.$id.cnc'
+import { Route as AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRouteImport } from './routes/_authenticated/projetos.$id.plano.$planoId.chapa.$chapaId.cnc'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -143,6 +144,12 @@ const AuthenticatedPecasIdCncRoute = AuthenticatedPecasIdCncRouteImport.update({
   path: '/cnc',
   getParentRoute: () => AuthenticatedPecasIdRoute,
 } as any)
+const AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute =
+  AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRouteImport.update({
+    id: '/$planoId/chapa/$chapaId/cnc',
+    path: '/$planoId/chapa/$chapaId/cnc',
+    getParentRoute: () => AuthenticatedProjetosIdPlanoRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -164,7 +171,8 @@ export interface FileRoutesByFullPath {
   '/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
-  '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRoute
+  '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -186,7 +194,8 @@ export interface FileRoutesByTo {
   '/projetos': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
-  '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRoute
+  '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -210,7 +219,8 @@ export interface FileRoutesById {
   '/_authenticated/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/_authenticated/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/_authenticated/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
-  '/_authenticated/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRoute
+  '/_authenticated/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/pecas/$id/cnc'
     | '/pecas/$id/comparar'
     | '/projetos/$id/plano'
+    | '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/pecas/$id/cnc'
     | '/pecas/$id/comparar'
     | '/projetos/$id/plano'
+    | '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   id:
     | '__root__'
     | '/_authenticated'
@@ -280,6 +292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pecas/$id/cnc'
     | '/_authenticated/pecas/$id/comparar'
     | '/_authenticated/projetos/$id/plano'
+    | '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -436,6 +449,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPecasIdCncRouteImport
       parentRoute: typeof AuthenticatedPecasIdRoute
     }
+    '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': {
+      id: '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
+      path: '/$planoId/chapa/$chapaId/cnc'
+      fullPath: '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
+      preLoaderRoute: typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRouteImport
+      parentRoute: typeof AuthenticatedProjetosIdPlanoRoute
+    }
   }
 }
 
@@ -466,13 +486,29 @@ const AuthenticatedPecasIdRouteChildren: AuthenticatedPecasIdRouteChildren = {
 const AuthenticatedPecasIdRouteWithChildren =
   AuthenticatedPecasIdRoute._addFileChildren(AuthenticatedPecasIdRouteChildren)
 
+interface AuthenticatedProjetosIdPlanoRouteChildren {
+  AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute: typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
+}
+
+const AuthenticatedProjetosIdPlanoRouteChildren: AuthenticatedProjetosIdPlanoRouteChildren =
+  {
+    AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute:
+      AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute,
+  }
+
+const AuthenticatedProjetosIdPlanoRouteWithChildren =
+  AuthenticatedProjetosIdPlanoRoute._addFileChildren(
+    AuthenticatedProjetosIdPlanoRouteChildren,
+  )
+
 interface AuthenticatedProjetosIdRouteChildren {
-  AuthenticatedProjetosIdPlanoRoute: typeof AuthenticatedProjetosIdPlanoRoute
+  AuthenticatedProjetosIdPlanoRoute: typeof AuthenticatedProjetosIdPlanoRouteWithChildren
 }
 
 const AuthenticatedProjetosIdRouteChildren: AuthenticatedProjetosIdRouteChildren =
   {
-    AuthenticatedProjetosIdPlanoRoute: AuthenticatedProjetosIdPlanoRoute,
+    AuthenticatedProjetosIdPlanoRoute:
+      AuthenticatedProjetosIdPlanoRouteWithChildren,
   }
 
 const AuthenticatedProjetosIdRouteWithChildren =
@@ -526,3 +562,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
