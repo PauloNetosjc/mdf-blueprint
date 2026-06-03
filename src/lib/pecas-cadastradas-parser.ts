@@ -28,24 +28,38 @@ export type CodigoPecaTecnica = {
 };
 
 const PREFIXO_TIPO: Record<string, string> = {
-  DIV: "Divisória",
+  AFA: "Afastador",
+  ARM: "Armário / Módulo",
   BAS: "Base",
-  LAT: "Lateral",
-  FUN: "Fundo",
-  PAI: "Painel",
-  PRA: "Prateleira",
-  TRA: "Travessa",
-  GAV: "Gaveta",
-  TAM: "Tampo",
-  PRT: "Porta",
-  POR: "Porta",
-  FRE: "Frente",
+  CAB: "Cabeceira",
   COS: "Costa",
-  TES: "Testeira",
-  ZOC: "Zócalo",
-  REG: "Régua",
+  DIV: "Divisória",
+  FRE: "Frente",
+  FRT: "Frente",
+  FUN: "Fundo",
+  GAV: "Gaveta",
+  LAT: "Lateral",
+  PAI: "Painel",
+  PIL: "Pilar",
+  POR: "Porta",
+  PRA: "Prateleira",
+  PRF: "Perfil",
+  PRT: "Porta",
   REF: "Reforço",
+  REG: "Régua",
+  RIP: "Ripado",
+  ROD: "Rodapé",
+  SUP: "Suporte",
+  TAM: "Tampo",
+  TES: "Testeira",
+  TRA: "Travessa",
+  ZOC: "Zócalo",
 };
+
+export function getTipoPecaPorPrefixo(prefixo: string | null | undefined): string {
+  if (!prefixo) return "Outro";
+  return PREFIXO_TIPO[prefixo.toUpperCase()] ?? "Outro";
+}
 
 export function parseTechnicalPartCode(fileName: string): CodigoPecaTecnica | null {
   const base = fileName.replace(/\.[^.]+$/, "").trim();
@@ -54,7 +68,7 @@ export function parseTechnicalPartCode(fileName: string): CodigoPecaTecnica | nu
   const prefixo = m[1].toUpperCase();
   const codigo_principal = m[2];
   const sufixo = (m[3] || "").toUpperCase();
-  const tipo_peca = PREFIXO_TIPO[prefixo] ?? prefixo;
+  const tipo_peca = getTipoPecaPorPrefixo(prefixo);
   return {
     codigo_completo: `${prefixo}${codigo_principal}${sufixo}`,
     prefixo,
