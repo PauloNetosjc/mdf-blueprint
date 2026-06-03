@@ -1174,7 +1174,7 @@ function ErrosImportacoes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("importacoes").select("*")
-        .in("status", ["concluido_com_erros", "erro"])
+        .in("status", ["concluido_com_erros", "erro", "erro_parser_pecas"])
         .order("criado_em", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Importacao[];
