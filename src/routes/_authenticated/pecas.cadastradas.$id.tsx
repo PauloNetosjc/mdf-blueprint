@@ -40,7 +40,10 @@ type Peca = {
   pdf_url: string | null;
   pdf_nome_arquivo: string | null;
   status_parser: string;
+  motivo_status: string | null;
   erros_parser: string[];
+  parser_alertas_json: string[] | null;
+  resumo_parser_json: Record<string, unknown> | null;
   logs_parser: string[];
 };
 
@@ -253,8 +256,11 @@ function PecaCadastradaDetalhe() {
               <Link to="/pecas/cadastradas">← Biblioteca</Link>
             </Button>
             {ehDiv && <Badge>Divisória</Badge>}
-            <Badge variant="outline">{p.status_parser}</Badge>
+            <StatusBadgeDetalhe status={p.status_parser} motivo={p.motivo_status} />
           </div>
+          {p.motivo_status && (
+            <p className="mt-1 text-xs text-muted-foreground">{p.motivo_status}</p>
+          )}
           <h1 className="mt-1 font-mono text-2xl font-semibold">{p.codigo_completo}</h1>
           <p className="text-sm text-muted-foreground">
             {p.nome_peca ?? "—"} {p.modulo_origem ? `• módulo ${p.modulo_origem}` : ""}
@@ -267,14 +273,23 @@ function PecaCadastradaDetalhe() {
       </header>
 
       {p.erros_parser?.length > 0 && (
+        <div className="mb-4 rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
+          <div className="mb-1 flex items-center gap-2 font-medium text-destructive">
+            <AlertTriangle className="h-4 w-4" /> Erros do parser
+          </div>
+          <ul className="ml-5 list-disc text-muted-foreground">
+            {p.erros_parser.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {Array.isArray(p.parser_alertas_json) && p.parser_alertas_json.length > 0 && (
         <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
           <div className="mb-1 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4" /> Alertas do parser
           </div>
           <ul className="ml-5 list-disc text-muted-foreground">
-            {p.erros_parser.map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
+            {p.parser_alertas_json.map((a, i) => <li key={i}>{String(a)}</li>)}
           </ul>
         </div>
       )}
@@ -506,5 +521,23 @@ function BordaRow({
         />
       </div>
     </div>
+  );
+}
+
+function StatusBadgeDetalhe({ status, motivo }: { status: string; motivo: string | null }) {
+  const cls =
+    status === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    : status === "com_erros" ? "border-destructive/50 bg-destructive/10 text-destructive"
+    : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+  const label =
+    status === "ok" ? "OK"
+    : status === "com_alertas" ? "Com alertas"
+    : status === "pendente_revisao" ? "Pendente revisão"
+    : status === "com_erros" ? "Com erros"
+    : status;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${cls}`} title={motivo ?? undefined}>
+      {label}
+    </span>
   );
 }

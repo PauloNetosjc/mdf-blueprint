@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,15 @@ import {
   parseTechnicalDrawingPdf,
   parseTechnicalPartCode,
   getTipoPecaPorPrefixo,
+  classificarStatusParser,
   type ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -51,7 +58,10 @@ type PecaRow = {
   espessura_ref: number | null;
   fita_ref: string | null;
   status_parser: string;
+  motivo_status: string | null;
   erros_parser: unknown[];
+  parser_alertas_json: unknown[];
+  resumo_parser_json: Record<string, unknown> | null;
   pdf_url: string | null;
   pdf_nome_arquivo: string | null;
   atualizado_em: string;
@@ -273,7 +283,7 @@ function PecasCadastradasPage() {
       setArquivosComErro(failedFiles);
 
       const pecaRows = parsed.map(({ result, fileName, storagePath, modulo }) => {
-        const status = result.erros.length > 0 ? "com_erros" : "ok";
+        const { status, motivo } = classificarStatusParser(result);
         return {
           user_id: userId,
           codigo: result.codigo.codigo_completo,
@@ -295,7 +305,10 @@ function PecasCadastradasPage() {
           pdf_nome_arquivo: fileName,
           origem: "TECNICO FURACOES CADASTRO",
           status_parser: status,
+          motivo_status: motivo,
           erros_parser: result.erros,
+          parser_alertas_json: result.alertas,
+          resumo_parser_json: result.resumo,
           logs_parser: result.logs,
           metadados_json: { modo_importacao: modo, modulo_origem: modulo },
           dados_brutos_json: result.dados_brutos,
@@ -561,7 +574,10 @@ function PecasCadastradasPage() {
     if (filtro === "sem_nome" && p.nome_peca) return false;
     if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
     if (filtro === "sem_bordas" && c.bordas > 0) return false;
-    if (filtro === "com_erro" && p.status_parser === "ok") return false;
+    if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
+    if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
+    if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+    if (filtro === "ok" && p.status_parser !== "ok") return false;
     if (!busca) return true;
     const q = busca.toLowerCase();
     return (
@@ -576,11 +592,12 @@ function PecasCadastradasPage() {
 
   const stats = {
     total: pecas.length,
+    ok: pecas.filter((p) => p.status_parser === "ok").length,
+    com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
     com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
+    pendente_revisao: pecas.filter((p) => p.status_parser === "pendente_revisao").length,
     divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
     com_fita: pecas.filter((p) => p.fita_ref).length,
-    com_furos: pecas.filter((p) => getCont(p.id).furos > 0).length,
-    com_rasgos: pecas.filter((p) => getCont(p.id).rasgos > 0).length,
     face5: pecas.filter((p) => getCont(p.id).face5).length,
   };
   const importando = importar.isPending || Boolean(progresso?.ativo);
@@ -649,14 +666,15 @@ function PecasCadastradasPage() {
         </div>
       </header>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-        <StatCard label="Peças cadastradas" value={stats.total} />
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
+        <StatCard label="Total" value={stats.total} />
+        <StatCard label="OK" value={stats.ok} tone={stats.ok ? "ok" : undefined} />
+        <StatCard label="Com alertas" value={stats.com_alerta} tone={stats.com_alerta ? "warn" : undefined} />
+        <StatCard label="Pendente revisão" value={stats.pendente_revisao} tone={stats.pendente_revisao ? "warn" : undefined} />
+        <StatCard label="Com erros" value={stats.com_erro} tone={stats.com_erro ? "error" : undefined} />
         <StatCard label="Divisórias" value={stats.divisorias} />
         <StatCard label="Com fita" value={stats.com_fita} />
-        <StatCard label="Com furos" value={stats.com_furos} />
-        <StatCard label="Com rasgos" value={stats.com_rasgos} />
         <StatCard label="Com Face 5" value={stats.face5} />
-        <StatCard label="Com alertas" value={stats.com_erro} tone={stats.com_erro ? "warn" : undefined} />
       </div>
 
       {progresso && (
@@ -698,6 +716,9 @@ function PecasCadastradasPage() {
             <SelectItem value="com_rasgos">Com rasgos</SelectItem>
             <SelectItem value="com_fita">Com fita</SelectItem>
             <SelectItem value="face5">Com Face 5</SelectItem>
+            <SelectItem value="ok">Status: OK</SelectItem>
+            <SelectItem value="com_alerta">Com alertas</SelectItem>
+            <SelectItem value="pendente_revisao">Pendente revisão</SelectItem>
             <SelectItem value="com_erro">Com erro</SelectItem>
             <SelectItem value="sem_nome">Sem nome</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
@@ -754,14 +775,8 @@ function PecasCadastradasPage() {
                   <td className="px-3 py-2 text-center">{c.rasgos || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.bordas || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {p.status_parser === "ok" ? (
-                        <Badge variant="outline">ok</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="h-3 w-3" /> {p.status_parser}
-                        </Badge>
-                      )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StatusBadge peca={p} />
                       {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
                     </div>
                   </td>
@@ -783,11 +798,64 @@ function PecasCadastradasPage() {
   );
 }
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone?: "warn" }) {
+function StatCard({ label, value, tone }: { label: string; value: number; tone?: "warn" | "ok" | "error" }) {
+  const border =
+    tone === "warn" ? "border-amber-500/40"
+    : tone === "error" ? "border-destructive/50"
+    : tone === "ok" ? "border-emerald-500/40"
+    : "";
   return (
-    <div className={`rounded border border-border bg-surface p-3 ${tone === "warn" ? "border-amber-500/40" : ""}`}>
+    <div className={`rounded border border-border bg-surface p-3 ${border}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
     </div>
+  );
+}
+
+const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNode }> = {
+  ok: { label: "OK", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", icon: null },
+  com_alertas: { label: "Alertas", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
+  pendente_revisao: { label: "Revisão", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
+  com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
+};
+
+function StatusBadge({ peca }: { peca: PecaRow }) {
+  const status = peca.status_parser || "ok";
+  const v = STATUS_VARIANT[status] ?? STATUS_VARIANT.ok;
+  const erros = Array.isArray(peca.erros_parser) ? (peca.erros_parser as string[]) : [];
+  const alertas = Array.isArray(peca.parser_alertas_json) ? (peca.parser_alertas_json as string[]) : [];
+  const resumo = (peca.resumo_parser_json ?? {}) as Record<string, unknown>;
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex cursor-help items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${v.cls}`}>
+            {v.icon}
+            {v.label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-sm space-y-2 text-xs">
+          {peca.motivo_status && <div className="font-medium">{peca.motivo_status}</div>}
+          {erros.length > 0 && (
+            <div>
+              <div className="font-semibold text-destructive">Erros</div>
+              <ul className="list-disc pl-4">{erros.slice(0, 5).map((e, i) => <li key={i}>{String(e)}</li>)}</ul>
+            </div>
+          )}
+          {alertas.length > 0 && (
+            <div>
+              <div className="font-semibold text-amber-500">Alertas</div>
+              <ul className="list-disc pl-4">{alertas.slice(0, 5).map((a, i) => <li key={i}>{String(a)}</li>)}</ul>
+            </div>
+          )}
+          {Object.keys(resumo).length > 0 && (
+            <div className="border-t border-border pt-1 font-mono text-[10px] text-muted-foreground">
+              furos {String(resumo.furos_detectados ?? 0)} · rasgos {String(resumo.rasgos_detectados ?? 0)} · bordas {String(resumo.bordas_detectadas ?? 0)}
+              {resumo.face_5_detectada ? " · Face 5" : ""}
+            </div>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
