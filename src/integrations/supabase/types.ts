@@ -196,6 +196,57 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria_eventos: {
+        Row: {
+          acao: string
+          chapa_id: string | null
+          criado_em: string
+          dados_antes_json: Json
+          dados_depois_json: Json
+          entidade_id: string | null
+          entidade_tipo: string
+          id: string
+          observacao: string | null
+          operador: string | null
+          peca_id: string | null
+          plano_id: string | null
+          projeto_id: string | null
+          user_id: string
+        }
+        Insert: {
+          acao: string
+          chapa_id?: string | null
+          criado_em?: string
+          dados_antes_json?: Json
+          dados_depois_json?: Json
+          entidade_id?: string | null
+          entidade_tipo: string
+          id?: string
+          observacao?: string | null
+          operador?: string | null
+          peca_id?: string | null
+          plano_id?: string | null
+          projeto_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          acao?: string
+          chapa_id?: string | null
+          criado_em?: string
+          dados_antes_json?: Json
+          dados_depois_json?: Json
+          entidade_id?: string | null
+          entidade_tipo?: string
+          id?: string
+          observacao?: string | null
+          operador?: string | null
+          peca_id?: string | null
+          plano_id?: string | null
+          projeto_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       centros_trabalho: {
         Row: {
           ativo: boolean
@@ -1269,37 +1320,67 @@ export type Database = {
       }
       previews_cnc: {
         Row: {
+          aprovado_em: string | null
           aprovado_por: string | null
+          checklist_json: Json
           conteudo: string
           created_at: string
+          enviado_maquina_em: string | null
+          enviado_maquina_por: string | null
+          exportado_em: string | null
+          exportado_por: string | null
           id: string
           maquina_id: string
           nome_arquivo: string
+          observacao_homologacao: string | null
           peca_id: string
+          reprovado_em: string | null
+          reprovado_por: string | null
+          status_homologacao: string
           user_id: string
           validado: boolean
           versao: number
         }
         Insert: {
+          aprovado_em?: string | null
           aprovado_por?: string | null
+          checklist_json?: Json
           conteudo: string
           created_at?: string
+          enviado_maquina_em?: string | null
+          enviado_maquina_por?: string | null
+          exportado_em?: string | null
+          exportado_por?: string | null
           id?: string
           maquina_id: string
           nome_arquivo: string
+          observacao_homologacao?: string | null
           peca_id: string
+          reprovado_em?: string | null
+          reprovado_por?: string | null
+          status_homologacao?: string
           user_id?: string
           validado?: boolean
           versao?: number
         }
         Update: {
+          aprovado_em?: string | null
           aprovado_por?: string | null
+          checklist_json?: Json
           conteudo?: string
           created_at?: string
+          enviado_maquina_em?: string | null
+          enviado_maquina_por?: string | null
+          exportado_em?: string | null
+          exportado_por?: string | null
           id?: string
           maquina_id?: string
           nome_arquivo?: string
+          observacao_homologacao?: string | null
           peca_id?: string
+          reprovado_em?: string | null
+          reprovado_por?: string | null
+          status_homologacao?: string
           user_id?: string
           validado?: boolean
           versao?: number
@@ -1323,17 +1404,28 @@ export type Database = {
       }
       previews_cnc_chapas: {
         Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
           chapa_id: string | null
+          checklist_json: Json
           conteudo: string
           criado_em: string
+          enviado_maquina_em: string | null
+          enviado_maquina_por: string | null
+          exportado_em: string | null
+          exportado_por: string | null
           id: string
           maquina_id: string | null
           nome_arquivo: string
+          observacao_homologacao: string | null
           parametros_json: Json
           plano_chapa_id: string | null
           plano_id: string | null
           projeto_id: string | null
+          reprovado_em: string | null
+          reprovado_por: string | null
           status: string
+          status_homologacao: string
           user_id: string
           validacoes_json: Json
           validado_em: string | null
@@ -1341,17 +1433,28 @@ export type Database = {
           versao: number
         }
         Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           chapa_id?: string | null
+          checklist_json?: Json
           conteudo: string
           criado_em?: string
+          enviado_maquina_em?: string | null
+          enviado_maquina_por?: string | null
+          exportado_em?: string | null
+          exportado_por?: string | null
           id?: string
           maquina_id?: string | null
           nome_arquivo: string
+          observacao_homologacao?: string | null
           parametros_json?: Json
           plano_chapa_id?: string | null
           plano_id?: string | null
           projeto_id?: string | null
+          reprovado_em?: string | null
+          reprovado_por?: string | null
           status?: string
+          status_homologacao?: string
           user_id?: string
           validacoes_json?: Json
           validado_em?: string | null
@@ -1359,17 +1462,28 @@ export type Database = {
           versao?: number
         }
         Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
           chapa_id?: string | null
+          checklist_json?: Json
           conteudo?: string
           criado_em?: string
+          enviado_maquina_em?: string | null
+          enviado_maquina_por?: string | null
+          exportado_em?: string | null
+          exportado_por?: string | null
           id?: string
           maquina_id?: string | null
           nome_arquivo?: string
+          observacao_homologacao?: string | null
           parametros_json?: Json
           plano_chapa_id?: string | null
           plano_id?: string | null
           projeto_id?: string | null
+          reprovado_em?: string | null
+          reprovado_por?: string | null
           status?: string
+          status_homologacao?: string
           user_id?: string
           validacoes_json?: Json
           validado_em?: string | null
