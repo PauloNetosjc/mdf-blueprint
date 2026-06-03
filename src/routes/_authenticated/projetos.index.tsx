@@ -118,16 +118,32 @@ function ProjetosPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["projetos"] }); toast.success("Excluído"); },
   });
 
-  const lista = (projetos ?? []).filter((p) => filtro === "todos" ? true : p.status === filtro);
+  const buscaLower = busca.trim().toLowerCase();
+  const lista = (projetos ?? [])
+    .filter((p) => filtro === "todos" ? true : p.status === filtro)
+    .filter((p) => !buscaLower ? true : (
+      p.nome.toLowerCase().includes(buscaLower) ||
+      (p.cliente ?? "").toLowerCase().includes(buscaLower) ||
+      (p.ambiente ?? "").toLowerCase().includes(buscaLower)
+    ));
 
   return (
     <div className="p-6">
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projetos</h1>
           <p className="text-sm text-muted-foreground">Painel de produção de ambientes e peças.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por projeto, cliente, ambiente…"
+              className="h-9 w-64 pl-8"
+            />
+          </div>
           <Select value={filtro} onValueChange={setFiltro}>
             <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
             <SelectContent>
