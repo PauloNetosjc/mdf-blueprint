@@ -148,7 +148,7 @@ function NovaImportacao() {
           projeto_detectado: nomeProjeto,
           cliente_detectado: cliente || null,
           ambiente_detectado: ambiente || null,
-          resumo_json: resumo as unknown as Record<string, unknown>,
+          resumo_json: resumo as any,
         })
         .select("id")
         .single();
@@ -196,8 +196,8 @@ function NovaImportacao() {
 
       // Faz upload dos arquivos e registra metadados
       setProgresso("Enviando arquivos técnicos...");
-      const arquivosImp: Array<Record<string, unknown>> = [];
-      const arquivosTec: Array<Record<string, unknown>> = [];
+      const arquivosImp: any[] = [];
+      const arquivosTec: any[] = [];
       let i = 0;
       for (const a of arquivos) {
         i += 1;
@@ -476,7 +476,7 @@ function ListaImportacoes() {
         .order("criado_em", { ascending: false })
         .limit(200);
       if (error) throw error;
-      return (data ?? []) as Importacao[];
+      return (data ?? []) as unknown as Importacao[];
     },
   });
 
@@ -561,7 +561,7 @@ function ErrosImportacoes() {
         .in("status", ["concluido_com_erros", "erro"])
         .order("criado_em", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Importacao[];
+      return (data ?? []) as unknown as Importacao[];
     },
   });
 
