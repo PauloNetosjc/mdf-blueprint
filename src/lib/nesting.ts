@@ -111,7 +111,7 @@ export function calcularPlanoCorte(
 
     let restantes = [...lote];
     while (restantes.length > 0) {
-      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa);
+      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, refilo);
       if (posicionadas.length === 0) {
         // peça maior que a chapa — pula para evitar loop
         const skip = restantes.shift();
