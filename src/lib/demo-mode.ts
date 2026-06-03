@@ -20,6 +20,7 @@ export function isPreviewHost(hostname: string): boolean {
     host.startsWith("id-preview--") ||
     host.includes("-preview-") ||
     host.includes("preview--") ||
+    host.endsWith(".lovableproject.com") ||
     host.endsWith("-dev.lovable.app")
   );
 }
