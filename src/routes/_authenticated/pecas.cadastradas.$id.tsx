@@ -523,3 +523,21 @@ function BordaRow({
     </div>
   );
 }
+
+function StatusBadgeDetalhe({ status, motivo }: { status: string; motivo: string | null }) {
+  const cls =
+    status === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+    : status === "com_erros" ? "border-destructive/50 bg-destructive/10 text-destructive"
+    : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+  const label =
+    status === "ok" ? "OK"
+    : status === "com_alertas" ? "Com alertas"
+    : status === "pendente_revisao" ? "Pendente revisão"
+    : status === "com_erros" ? "Com erros"
+    : status;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${cls}`} title={motivo ?? undefined}>
+      {label}
+    </span>
+  );
+}
