@@ -315,6 +315,7 @@ function NovaImportacao() {
   const [ambiente, setAmbiente] = useState("");
   const [importando, setImportando] = useState(false);
   const [progresso, setProgresso] = useState("");
+  const [logs, setLogs] = useState<string[]>([]);
 
   function aplicarEntries(novas: ImportFileEntry[], origem: "folder" | "zip", nomeOrigem: string) {
     setOrigemTipo(origem);
@@ -324,7 +325,20 @@ function NovaImportacao() {
 
     const lista = novas.map((e) => classificarArquivo(e.relativePath, e.size));
     setArquivos(lista);
-    setResumo(resumirArquivos(lista));
+    const resumoAtual = resumirArquivos(lista);
+    setResumo(resumoAtual);
+    setLogs([
+      `${origem === "folder" ? "Pasta" : "ZIP"} lida com sucesso`,
+      `Arquivos encontrados: ${novas.length}`,
+      `List.xml encontrado: ${resumoAtual.tem_list ? "sim" : "não"}`,
+      `ListaCorte.pdf encontrada: ${resumoAtual.tem_lista_corte ? "sim" : "não"}`,
+      `PreviewCorte.pdf encontrado: ${resumoAtual.tem_preview_corte ? "sim" : "não"}`,
+      `ListaCompra/Almoxarifado encontrado: ${resumoAtual.tem_almoxarifado ? "sim" : "não"}`,
+      `NC de chapas encontrados: ${resumoAtual.por_categoria.nc_gcode ?? 0}`,
+      `CYC de chapas encontrados: ${(resumoAtual.por_categoria.nc_cyc ?? 0) + (resumoAtual.por_categoria.xml_cyc ?? 0)}`,
+      `Parts encontrados: ${(resumoAtual.por_categoria.parts_nc ?? 0) + (resumoAtual.por_categoria.parts_info ?? 0)}`,
+      `Profile encontrados: ${(resumoAtual.por_categoria.profile_nc ?? 0) + (resumoAtual.por_categoria.profile_info ?? 0)}`,
+    ]);
 
     // Nome do projeto = pasta raiz comum, com fallback para nome do arquivo
     const raiz = detectarPastaRaiz(novas.map((e) => e.relativePath)) || nomeOrigem;
@@ -745,6 +759,7 @@ function NovaImportacao() {
     setOrigemNome(null); setOrigemTipo(null); setEntries([]); setTamanhoTotal(0);
     setArquivos([]); setResumo(null);
     setNomeProjeto(""); setCliente(""); setAmbiente("");
+    setLogs([]);
   }
 
   return (
