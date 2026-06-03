@@ -14,6 +14,7 @@ import {
   generateSheetGCode, validateSheetGCode,
   type SheetPiece, type SheetOperation, type SheetParams, type SheetGenResult,
 } from "@/lib/chapa-gcode";
+import { CHECKLIST_HOMOLOGACAO, checklistCompleto, registrarAuditoria, STATUS_HOMOLOGACAO_LABELS, type Checklist } from "@/lib/auditoria";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc")({
   head: () => ({ meta: [{ title: "G-code da Chapa — Visualizador CNC" }] }),
