@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
+import { ListaComprasTab } from "@/components/lista-compras-tab";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
