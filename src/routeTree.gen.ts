@@ -25,6 +25,7 @@ import { Route as AuthenticatedChapasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
 import { Route as AuthenticatedProjetosIndexRouteImport } from './routes/_authenticated/projetos.index'
 import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authenticated/pecas.index'
+import { Route as AuthenticatedProjetosImportacoesRouteImport } from './routes/_authenticated/projetos.importacoes'
 import { Route as AuthenticatedProjetosIdRouteImport } from './routes/_authenticated/projetos.$id'
 import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authenticated/pecas.importar'
 import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
@@ -119,6 +120,12 @@ const AuthenticatedPecasIndexRoute = AuthenticatedPecasIndexRouteImport.update({
   path: '/pecas/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProjetosImportacoesRoute =
+  AuthenticatedProjetosImportacoesRouteImport.update({
+    id: '/projetos/importacoes',
+    path: '/projetos/importacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProjetosIdRoute = AuthenticatedProjetosIdRouteImport.update({
   id: '/projetos/$id',
   path: '/projetos/$id',
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRoute
   '/pecas/': typeof AuthenticatedPecasIndexRoute
   '/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRoute
   '/pecas': typeof AuthenticatedPecasIndexRoute
   '/projetos': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
@@ -243,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/_authenticated/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/_authenticated/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRoute
   '/_authenticated/pecas/': typeof AuthenticatedPecasIndexRoute
   '/_authenticated/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/_authenticated/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
+    | '/projetos/importacoes'
     | '/pecas/'
     | '/projetos/'
     | '/pecas/$id/cnc'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
+    | '/projetos/importacoes'
     | '/pecas'
     | '/projetos'
     | '/pecas/$id/cnc'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pecas/$id'
     | '/_authenticated/pecas/importar'
     | '/_authenticated/projetos/$id'
+    | '/_authenticated/projetos/importacoes'
     | '/_authenticated/pecas/'
     | '/_authenticated/projetos/'
     | '/_authenticated/pecas/$id/cnc'
@@ -450,6 +463,13 @@ declare module '@tanstack/react-router' {
       path: '/pecas'
       fullPath: '/pecas/'
       preLoaderRoute: typeof AuthenticatedPecasIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projetos/importacoes': {
+      id: '/_authenticated/projetos/importacoes'
+      path: '/projetos/importacoes'
+      fullPath: '/projetos/importacoes'
+      preLoaderRoute: typeof AuthenticatedProjetosImportacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projetos/$id': {
@@ -593,6 +613,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPecasIdRoute: typeof AuthenticatedPecasIdRouteWithChildren
   AuthenticatedPecasImportarRoute: typeof AuthenticatedPecasImportarRoute
   AuthenticatedProjetosIdRoute: typeof AuthenticatedProjetosIdRouteWithChildren
+  AuthenticatedProjetosImportacoesRoute: typeof AuthenticatedProjetosImportacoesRoute
   AuthenticatedPecasIndexRoute: typeof AuthenticatedPecasIndexRoute
   AuthenticatedProjetosIndexRoute: typeof AuthenticatedProjetosIndexRoute
 }
@@ -613,6 +634,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPecasIdRoute: AuthenticatedPecasIdRouteWithChildren,
   AuthenticatedPecasImportarRoute: AuthenticatedPecasImportarRoute,
   AuthenticatedProjetosIdRoute: AuthenticatedProjetosIdRouteWithChildren,
+  AuthenticatedProjetosImportacoesRoute: AuthenticatedProjetosImportacoesRoute,
   AuthenticatedPecasIndexRoute: AuthenticatedPecasIndexRoute,
   AuthenticatedProjetosIndexRoute: AuthenticatedProjetosIndexRoute,
 }
@@ -627,3 +649,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
