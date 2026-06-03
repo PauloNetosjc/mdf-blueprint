@@ -162,7 +162,7 @@ function PecasList() {
                   {p.largura} × {p.altura} × {p.espessura}
                 </td>
                 <td className="px-3 py-2">
-                  <span className="rounded bg-muted px-2 py-0.5 text-xs">{p.status}</span>
+                  <StatusBadge status={p.status} />
                 </td>
               </tr>
             ))}
