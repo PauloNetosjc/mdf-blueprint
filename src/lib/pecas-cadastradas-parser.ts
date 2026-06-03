@@ -487,9 +487,23 @@ export async function parseTechnicalDrawingPdf(
 ): Promise<ResultadoParserPDF> {
   const logs: string[] = [];
   const erros: string[] = [];
+  const alertas: string[] = [];
   const codigo = parseTechnicalPartCode(fileName);
   if (!codigo) erros.push(`Não consegui extrair código do nome do arquivo: ${fileName}`);
   else logs.push(`Código identificado: ${codigo.codigo_completo} (tipo ${codigo.tipo_peca})`);
+
+  const baseResumo: ResumoParser = {
+    furos_detectados: 0,
+    rasgos_detectados: 0,
+    bordas_detectadas: 0,
+    fita_detectada: false,
+    nome_detectado: false,
+    medidas_detectadas: false,
+    face_5_detectada: false,
+    pdf_lido: false,
+    codigo_detectado: !!codigo,
+    total_operacoes: 0,
+  };
 
   let itens: Item[] = [];
   try {
@@ -510,28 +524,76 @@ export async function parseTechnicalDrawingPdf(
       bordas: [],
       logs,
       erros,
+      alertas,
+      resumo: baseResumo,
       dados_brutos: {},
     };
   }
 
+  baseResumo.pdf_lido = true;
   const linhas = agruparEmLinhas(itens);
   const medidas = extrairMedidas(linhas);
   if (medidas.largura) logs.push(`Medidas: ${medidas.largura} x ${medidas.altura} x ${medidas.espessura}`);
   const nome_peca = extrairNomePeca(linhas, codigo);
+  // Detecta se o nome veio de fallback (Tipo + código) ou do PDF de verdade
+  const nomeFallback = codigo
+    ? `${codigo.tipo_peca} ${codigo.codigo_principal}${codigo.sufixo}`.trim()
+    : null;
+  const nomeDeFato = !!nome_peca && nome_peca !== nomeFallback;
+
   let operacoes = extrairOperacoes(linhas);
   logs.push(`Operações detectadas: ${operacoes.length}`);
-
-  // Inferir âncoras
   operacoes = operacoes.map((op) => inferOperationAnchors(op, medidas.largura, medidas.altura));
-
   const bordas = extrairBordas(linhas);
   if (bordas.length) logs.push(`Bordas detectadas: ${bordas.map((b) => b.codigo_borda).join(", ")}`);
 
-  // Validação Face 5 fora de Divisória
+  const furos = operacoes.filter((o) => o.tipo_operacao === "furo").length;
+  const rasgos = operacoes.filter((o) => o.tipo_operacao === "rasgo").length;
   const temFace5 = operacoes.some((o) => o.face === "5");
-  if (temFace5 && codigo && !ehDivisoria(codigo.prefixo)) {
-    erros.push(`Operação na Face 5 detectada em peça do tipo ${codigo.tipo_peca}. Face 5 normalmente é usada apenas em Divisórias.`);
+  const medidasOk = medidas.largura != null && medidas.altura != null && medidas.espessura != null;
+
+  // Medidas mínimas: pelo menos largura + altura (espessura pode ser inferida depois)
+  const medidasMinimas = medidas.largura != null && medidas.altura != null;
+  if (!medidasMinimas) {
+    erros.push("Não consegui extrair as medidas mínimas (largura × altura) do PDF.");
+  } else if (!medidasOk) {
+    alertas.push("Medidas detectadas parcialmente (espessura não identificada).");
   }
+
+  if (!nomeDeFato) alertas.push("Nome da peça não encontrado no PDF (usando tipo + código).");
+  if (operacoes.length === 0) alertas.push("Nenhuma operação (furo/rasgo) detectada no PDF.");
+  if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
+
+  for (const b of bordas) {
+    if (b.lado === "desconhecido") {
+      alertas.push(`Fita ${b.codigo_borda ?? ""} detectada, mas lado não identificado.`);
+      break;
+    }
+  }
+
+  const opsBaixaConfianca = operacoes.filter((o) => o.confianca_parser === "baixa").length;
+  if (opsBaixaConfianca > 0) {
+    alertas.push(`${opsBaixaConfianca} operação(ões) com confiança baixa.`);
+  }
+
+  if (temFace5 && codigo && !ehDivisoria(codigo.prefixo)) {
+    alertas.push(
+      `Operação na Face 5 detectada em peça do tipo ${codigo.tipo_peca}. Face 5 normalmente é usada apenas em Divisórias — operações foram preservadas.`,
+    );
+  }
+
+  const resumo: ResumoParser = {
+    furos_detectados: furos,
+    rasgos_detectados: rasgos,
+    bordas_detectadas: bordas.length,
+    fita_detectada: bordas.length > 0,
+    nome_detectado: nomeDeFato,
+    medidas_detectadas: medidasOk,
+    face_5_detectada: temFace5,
+    pdf_lido: true,
+    codigo_detectado: !!codigo,
+    total_operacoes: operacoes.length,
+  };
 
   return {
     codigo,
@@ -546,6 +608,32 @@ export async function parseTechnicalDrawingPdf(
     bordas,
     logs,
     erros,
+    alertas,
+    resumo,
     dados_brutos: { total_linhas: linhas.length },
   };
+}
+
+// ---------- Classificação de status para a UI ----------
+
+export type StatusParser = "ok" | "com_alertas" | "com_erros" | "pendente_revisao";
+
+export function classificarStatusParser(r: ResultadoParserPDF): {
+  status: StatusParser;
+  motivo: string;
+} {
+  if (r.erros.length > 0) {
+    return { status: "com_erros", motivo: r.erros[0] };
+  }
+  if (!r.codigo || !r.resumo.medidas_detectadas) {
+    // Sem código ou sem medidas mínimas detectadas → revisão manual
+    return {
+      status: "pendente_revisao",
+      motivo: !r.codigo ? "Código da peça não identificado" : "Medidas incompletas",
+    };
+  }
+  if (r.alertas.length > 0) {
+    return { status: "com_alertas", motivo: r.alertas[0] };
+  }
+  return { status: "ok", motivo: "PDF processado sem erros críticos" };
 }
