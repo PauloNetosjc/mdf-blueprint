@@ -120,6 +120,90 @@ function detectarPastaRaiz(paths: string[]): string {
   return primeiros.every((x) => x === ref) ? ref : "";
 }
 
+type ChapaImportada = {
+  numero: number;
+  material: string;
+  cor: string;
+  espessura: number;
+  largura: number;
+  altura: number;
+  codigoMaterial: string | null;
+  ncFile: string | null;
+  cycFile: string | null;
+  largePreview: string | null;
+  smallPreview: string | null;
+  aproveitamento: number | null;
+};
+
+type EtiquetaCyc = {
+  chapaNumero: number | null;
+  labelName: string;
+  x: number | null;
+  y: number | null;
+  r: number | null;
+};
+
+function campoXml(cycle: Element, name: string): string | null {
+  for (const field of Array.from(cycle.querySelectorAll("Field"))) {
+    if ((field.getAttribute("Name") ?? "").toLowerCase() === name.toLowerCase()) {
+      return field.getAttribute("Value") ?? field.getAttribute("value") ?? null;
+    }
+  }
+  return null;
+}
+
+function numeroArquivoChapa(nome: string | null | undefined): number | null {
+  const n = nome?.match(/^(\d{1,3})[\s_-]/)?.[1] ?? nome?.match(/Chapa\s+(\d+)/i)?.[1];
+  return n ? Number(n) : null;
+}
+
+function parseListXml(texto: string): ChapaImportada[] {
+  const doc = new DOMParser().parseFromString(texto, "text/xml");
+  const ciclos = Array.from(doc.querySelectorAll("Cycle"));
+  const out: ChapaImportada[] = [];
+  for (const ciclo of ciclos) {
+    const plateId = campoXml(ciclo, "PlateID");
+    const labelName = campoXml(ciclo, "LabelName");
+    if (!plateId && !labelName) continue;
+    const numero = numeroArquivoChapa(plateId) ?? numeroArquivoChapa(labelName) ?? out.length + 1;
+    const base = (plateId ?? labelName ?? "").replace(/\.[^.]+$/, "");
+    const partes = base.split("_");
+    const espessura = Number(campoXml(ciclo, "Thickness") ?? partes.at(-1) ?? 15);
+    const material = partes[1] || "MDP";
+    const cor = campoXml(ciclo, "Color") ?? partes.slice(2, -1).join(" ") || "Importada";
+    out.push({
+      numero,
+      material,
+      cor,
+      espessura: Number.isFinite(espessura) ? espessura : 15,
+      largura: CHAPA_PADRAO_LARGURA,
+      altura: CHAPA_PADRAO_ALTURA,
+      codigoMaterial: null,
+      ncFile: plateId,
+      cycFile: labelName,
+      largePreview: campoXml(ciclo, "LargeImage"),
+      smallPreview: campoXml(ciclo, "SmallImage"),
+      aproveitamento: null,
+    });
+  }
+  return out.sort((a, b) => a.numero - b.numero);
+}
+
+function parseCycLabels(texto: string, arquivo: string): EtiquetaCyc[] {
+  const doc = new DOMParser().parseFromString(texto, "text/xml");
+  const chapaNumero = numeroArquivoChapa(arquivo);
+  return Array.from(doc.querySelectorAll("Cycle"))
+    .filter((c) => (c.getAttribute("Name") ?? "").toLowerCase().includes("label"))
+    .map((c) => ({
+      chapaNumero,
+      labelName: campoXml(c, "LabelName") ?? "",
+      x: campoXml(c, "X") ? Number(campoXml(c, "X")) : null,
+      y: campoXml(c, "Y") ? Number(campoXml(c, "Y")) : null,
+      r: campoXml(c, "R") ? Number(campoXml(c, "R")) : null,
+    }))
+    .filter((x) => x.labelName);
+}
+
 // ============================================================
 // Fila de upload em segundo plano (concorrência limitada)
 // ============================================================
