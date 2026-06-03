@@ -29,8 +29,8 @@ async function abrir(path: string) {
   window.open(data.signedUrl, "_blank");
 }
 
-function ImportacaoDetalhe() {
-  const { id } = Route.useParams();
+export function ImportacaoDetalhe() {
+  const { id } = useParams({ strict: false }) as { id: string };
 
   const { data: imp } = useQuery({
     queryKey: ["importacao", id],
