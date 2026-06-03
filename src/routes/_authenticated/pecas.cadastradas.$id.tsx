@@ -256,7 +256,11 @@ function PecaCadastradaDetalhe() {
               <Link to="/pecas/cadastradas">← Biblioteca</Link>
             </Button>
             {ehDiv && <Badge>Divisória</Badge>}
-            <Badge variant="outline">{p.status_parser}</Badge>
+            <StatusBadgeDetalhe status={p.status_parser} motivo={p.motivo_status} />
+          </div>
+          {p.motivo_status && (
+            <p className="mt-1 text-xs text-muted-foreground">{p.motivo_status}</p>
+          )}
           </div>
           <h1 className="mt-1 font-mono text-2xl font-semibold">{p.codigo_completo}</h1>
           <p className="text-sm text-muted-foreground">
