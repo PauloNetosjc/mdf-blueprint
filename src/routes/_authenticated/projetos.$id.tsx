@@ -223,14 +223,11 @@ function PecasTab({
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  const totalPecas = pecas.reduce((s, p) => s + p.quantidade, 0);
-  const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * p.quantidade) / 1_000_000, 0);
+  const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
+  const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
   const semChapa = pecas.filter((p) => !p.chapa_id).length;
-  const espessuraMismatch = pecas.filter((p) => {
-    if (!p.chapa_id) return false;
-    const c = chapas.find((x) => x.id === p.chapa_id);
-    return c && Math.abs(c.espessura - p.espessura) > 0.01;
-  }).length;
+  const qtdInvalida = pecas.filter((p) => !p.quantidade || p.quantidade < 1).length;
+  const dimsInvalidas = pecas.filter((p) => !p.altura || !p.largura).length;
 
   function toggleRow(id: string) {
     setSelectedRows((s) => {
@@ -293,9 +290,14 @@ function PecasTab({
               <AlertTriangle className="h-3 w-3" />{semChapa} sem chapa
             </span>
           )}
-          {espessuraMismatch > 0 && (
+          {qtdInvalida > 0 && (
             <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
-              <AlertTriangle className="h-3 w-3" />{espessuraMismatch} espessura divergente
+              <AlertTriangle className="h-3 w-3" />{qtdInvalida} qtd inválida
+            </span>
+          )}
+          {dimsInvalidas > 0 && (
+            <span className="flex items-center gap-1 rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+              <AlertTriangle className="h-3 w-3" />{dimsInvalidas} sem dimensões
             </span>
           )}
         </div>
@@ -330,27 +332,52 @@ function PecasTab({
           <tbody>
             {pecas.map((p) => {
               const chapaSel = chapas.find((c) => c.id === p.chapa_id);
-              const mismatch = chapaSel && Math.abs(chapaSel.espessura - p.espessura) > 0.01;
               const semChapa = !p.chapa_id;
+              const qtdInval = !p.quantidade || p.quantidade < 1;
+              const espessuraMostrar = chapaSel ? chapaSel.espessura : null;
               return (
                 <tr key={p.id} className={`border-t border-border hover:bg-surface-2 ${selectedRows.has(p.id) ? "bg-primary/5" : ""}`}>
                   <td className="px-2 py-1 text-center">
                     <input type="checkbox" checked={selectedRows.has(p.id)} onChange={() => toggleRow(p.id)} />
                   </td>
                   <td className="p-1"><Inp value={p.descricao} onSave={(v) => onUpdate({ id: p.id, descricao: v })} /></td>
-                  <td className="p-1"><InpNum value={p.quantidade} onSave={(v) => onUpdate({ id: p.id, quantidade: v })} /></td>
+                  <td className="p-1">
+                    <InpInt
+                      value={p.quantidade}
+                      min={1}
+                      onSave={(v) => onUpdate({ id: p.id, quantidade: v })}
+                      invalid={qtdInval}
+                    />
+                  </td>
                   <td className="p-1"><InpNum value={p.altura} onSave={(v) => onUpdate({ id: p.id, altura: v })} /></td>
                   <td className="p-1"><InpNum value={p.largura} onSave={(v) => onUpdate({ id: p.id, largura: v })} /></td>
                   <td className="p-1">
-                    <div className="relative">
-                      <InpNum value={p.espessura} onSave={(v) => onUpdate({ id: p.id, espessura: v })} step="0.1" />
-                      {mismatch && (
-                        <AlertTriangle className="pointer-events-none absolute right-1 top-1/2 h-3 w-3 -translate-y-1/2 text-destructive" />
-                      )}
-                    </div>
+                    {espessuraMostrar != null ? (
+                      <span className="inline-flex h-8 w-full items-center justify-end rounded bg-surface-2 px-2 font-mono text-xs text-foreground" title="Espessura puxada da chapa selecionada">
+                        {espessuraMostrar} mm
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex h-8 w-full items-center justify-end rounded border border-dashed border-warning/60 px-2 font-mono text-xs text-warning"
+                        title="Selecione uma chapa para definir a espessura"
+                      >
+                        —
+                      </span>
+                    )}
                   </td>
                   <td className="p-1">
-                    <Select value={p.chapa_id ?? "_none"} onValueChange={(v) => onUpdate({ id: p.id, chapa_id: v === "_none" ? null : v })}>
+                    <Select
+                      value={p.chapa_id ?? "_none"}
+                      onValueChange={(v) => {
+                        const novaChapa = v === "_none" ? null : v;
+                        const c = chapas.find((x) => x.id === novaChapa);
+                        onUpdate({
+                          id: p.id,
+                          chapa_id: novaChapa,
+                          ...(c ? { espessura: c.espessura } : {}),
+                        });
+                      }}
+                    >
                       <SelectTrigger className={`h-8 text-xs ${semChapa ? "border-warning" : ""}`}><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none">—</SelectItem>
@@ -416,6 +443,26 @@ function PecasTab({
   );
 }
 
+function InpInt({ value, onSave, min, invalid }: { value: number; onSave: (v: number) => void; min?: number; invalid?: boolean }) {
+  const [v, setV] = useState(String(value));
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      step={1}
+      min={min ?? 0}
+      className={`h-8 w-full text-right font-mono text-xs ${invalid ? "border-destructive" : ""}`}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < (min ?? 0)) { setV(String(value)); return; }
+        if (n !== value) onSave(n);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+    />
+  );
+}
 
 function Inp({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [v, setV] = useState(value);
