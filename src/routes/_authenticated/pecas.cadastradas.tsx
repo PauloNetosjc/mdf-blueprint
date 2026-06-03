@@ -592,11 +592,12 @@ function PecasCadastradasPage() {
 
   const stats = {
     total: pecas.length,
+    ok: pecas.filter((p) => p.status_parser === "ok").length,
+    com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
     com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
+    pendente_revisao: pecas.filter((p) => p.status_parser === "pendente_revisao").length,
     divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
     com_fita: pecas.filter((p) => p.fita_ref).length,
-    com_furos: pecas.filter((p) => getCont(p.id).furos > 0).length,
-    com_rasgos: pecas.filter((p) => getCont(p.id).rasgos > 0).length,
     face5: pecas.filter((p) => getCont(p.id).face5).length,
   };
   const importando = importar.isPending || Boolean(progresso?.ativo);
