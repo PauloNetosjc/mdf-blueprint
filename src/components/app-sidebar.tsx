@@ -71,12 +71,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="border-t border-border-strong p-3">
-        <button
-          onClick={handleLogout}
-          className="mb-3 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-        >
-          <LogOut className="h-3.5 w-3.5" /> Sair
-        </button>
+
         <div className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
           <span>
