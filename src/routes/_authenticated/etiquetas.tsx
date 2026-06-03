@@ -90,7 +90,8 @@ function EtiquetasPage() {
         preset, largura_mm: largMm, altura_mm: altMm,
         colunas, linhas, orientacao,
         margem_mm: 5, espacamento_h_mm: 3, espacamento_v_mm: 3,
-        campos_visiveis: campos as unknown as Record<string, unknown>,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        campos_visiveis: campos as any,
       };
       if (configDb) {
         const { error } = await supabase.from("etiqueta_config").update(payload).eq("id", configDb.id);
