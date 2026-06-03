@@ -168,6 +168,8 @@ function ImportacaoDetalhe() {
           <TabsTrigger value="cnc"><Wrench className="mr-1 h-3 w-3" />Arquivos CNC ({arquivosCnc.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="previews"><ImageIcon className="mr-1 h-3 w-3" />Previews ({previews.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="almox">Almoxarifado ({almox.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="analise"><Cpu className="mr-1 h-3 w-3" />Análise Técnica</TabsTrigger>
+          <TabsTrigger value="pendencias">Pendências</TabsTrigger>
           <TabsTrigger value="erros"><AlertTriangle className="mr-1 h-3 w-3" />Erros ({imp.erros_json?.length ?? 0})</TabsTrigger>
         </TabsList>
 
