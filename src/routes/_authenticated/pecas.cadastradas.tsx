@@ -641,11 +641,11 @@ function PecasCadastradasPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Reprocessar erros{arquivosComErro.length ? ` (${arquivosComErro.length})` : ""}
           </Button>
-          {ultimoDebug && (
+          {ultimoDebug != null ? (
             <Button variant="ghost" size="sm" onClick={baixarDebugJson}>
               Baixar JSON de debug
             </Button>
-          )}
+          ) : null}
         </div>
       </header>
 
