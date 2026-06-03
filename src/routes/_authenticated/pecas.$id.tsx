@@ -9,6 +9,7 @@ import { TIPOS_OPERACAO, type Ferramenta, type Maquina, type Operacao, type Peca
 import { validarPecaMaquina, validarOperacoes } from "@/lib/validacoes";
 import { ArrowLeft, FileCode2, Plus, Trash2, Pencil, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { OperacoesImportadas } from "@/components/operacoes-importadas";
 
 export const Route = createFileRoute("/_authenticated/pecas/$id")({
   head: () => ({ meta: [{ title: "Editor da peça — Visualizador CNC" }] }),
@@ -151,6 +152,8 @@ function EditorPeca() {
               <div className="p-4 text-center text-xs text-muted-foreground">Sem operações nesta face.</div>
             )}
           </div>
+
+          <OperacoesImportadas pecaId={id} nextOrdem={operacoes.length + 1} />
         </aside>
 
         {/* Centro: viewer */}

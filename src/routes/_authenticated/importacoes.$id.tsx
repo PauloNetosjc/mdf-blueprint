@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileText, Layers, Package, Tag, Wrench, AlertTriangle, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Download, FileText, Layers, Package, Tag, Wrench, AlertTriangle, Image as ImageIcon, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORIA_LABEL, type CategoriaArquivo } from "@/lib/importacao-promob";
+import { AnaliseTecnicaTab, PendenciasTab } from "@/components/analise-tecnica-tab";
 
 export const Route = createFileRoute("/_authenticated/importacoes/$id")({
   head: () => ({ meta: [{ title: "Importação — Visualizador CNC" }] }),
@@ -167,6 +168,8 @@ function ImportacaoDetalhe() {
           <TabsTrigger value="cnc"><Wrench className="mr-1 h-3 w-3" />Arquivos CNC ({arquivosCnc.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="previews"><ImageIcon className="mr-1 h-3 w-3" />Previews ({previews.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="almox">Almoxarifado ({almox.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="analise"><Cpu className="mr-1 h-3 w-3" />Análise Técnica</TabsTrigger>
+          <TabsTrigger value="pendencias">Pendências</TabsTrigger>
           <TabsTrigger value="erros"><AlertTriangle className="mr-1 h-3 w-3" />Erros ({imp.erros_json?.length ?? 0})</TabsTrigger>
         </TabsList>
 
@@ -285,6 +288,14 @@ function ImportacaoDetalhe() {
         <TabsContent value="almox" className="flex-1 overflow-auto p-6 pt-3">
           <Tabela cols={["Ref.", "Descrição", "Qtd", "Un.", "Status"]}
             rows={(almox.data ?? []).map((a) => [a.referencia ?? "—", a.descricao, a.quantidade, a.unidade, a.status])} />
+        </TabsContent>
+
+        <TabsContent value="analise" className="flex-1 overflow-auto p-6 pt-3">
+          <AnaliseTecnicaTab importacaoId={id} projetoId={projetoId} />
+        </TabsContent>
+
+        <TabsContent value="pendencias" className="flex-1 overflow-auto p-6 pt-3">
+          <PendenciasTab importacaoId={id} projetoId={projetoId} />
         </TabsContent>
 
         <TabsContent value="erros" className="flex-1 overflow-auto p-6 pt-3">
