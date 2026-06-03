@@ -420,5 +420,3 @@ function AuditoriaList({ acoes }: { acoes?: string[] }) {
   );
 }
 
-// dummy to silence unused imports in some builds
-export const _icons = { Link, History, AlertTriangle };
