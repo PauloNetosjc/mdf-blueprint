@@ -71,6 +71,7 @@ type Item = {
 export function calcularPlanoCorte(
   pecas: PecaInput[],
   chapas: Chapa[],
+  refilo: number = KERF_DEFAULT,
 ): ResultadoPlano {
   // 1) Expandir por quantidade e filtrar peças com chapa atribuída
   const items: Item[] = [];
