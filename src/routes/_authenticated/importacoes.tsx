@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import {
   classificarArquivo, resumirArquivos, parseNomeChapa, parseNomeEtiqueta,
-  extrairTextoPdf, parseListaCorte, parseAlmoxarifado,
+  extrairTextoPdf, parseListaCorte, parseAlmoxarifado, parseListaCortePdfByCoordinates,
   CHAPA_PADRAO_ALTURA, CHAPA_PADRAO_LARGURA, CATEGORIA_LABEL,
   type ArquivoClassificado, type ResumoImportacao,
 } from "@/lib/importacao-promob";
