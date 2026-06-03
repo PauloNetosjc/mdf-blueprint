@@ -580,6 +580,114 @@ export type Database = {
         }
         Relationships: []
       }
+      importacao_etiquetas: {
+        Row: {
+          chapa_id: string | null
+          codigo_completo: string | null
+          codigo_peca: string | null
+          criado_em: string
+          duplicidade: number | null
+          id: string
+          importacao_id: string
+          nome_arquivo: string
+          peca_id: string | null
+          projeto_id: string | null
+          projeto_peca_id: string | null
+          referencia: string | null
+          status_vinculo: string
+          storage_url: string | null
+          sufixo: string | null
+          user_id: string
+        }
+        Insert: {
+          chapa_id?: string | null
+          codigo_completo?: string | null
+          codigo_peca?: string | null
+          criado_em?: string
+          duplicidade?: number | null
+          id?: string
+          importacao_id: string
+          nome_arquivo: string
+          peca_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          referencia?: string | null
+          status_vinculo?: string
+          storage_url?: string | null
+          sufixo?: string | null
+          user_id?: string
+        }
+        Update: {
+          chapa_id?: string | null
+          codigo_completo?: string | null
+          codigo_peca?: string | null
+          criado_em?: string
+          duplicidade?: number | null
+          id?: string
+          importacao_id?: string
+          nome_arquivo?: string
+          peca_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string | null
+          referencia?: string | null
+          status_vinculo?: string
+          storage_url?: string | null
+          sufixo?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      importacao_preview_chapas: {
+        Row: {
+          altura_chapa: number | null
+          arquivo_nome: string
+          chapa_id: string | null
+          criado_em: string
+          id: string
+          importacao_id: string
+          largura_chapa: number | null
+          metadados_json: Json
+          numero_chapa: number | null
+          pagina_pdf: number | null
+          projeto_id: string | null
+          storage_url: string | null
+          tipo_preview: string
+          user_id: string
+        }
+        Insert: {
+          altura_chapa?: number | null
+          arquivo_nome: string
+          chapa_id?: string | null
+          criado_em?: string
+          id?: string
+          importacao_id: string
+          largura_chapa?: number | null
+          metadados_json?: Json
+          numero_chapa?: number | null
+          pagina_pdf?: number | null
+          projeto_id?: string | null
+          storage_url?: string | null
+          tipo_preview?: string
+          user_id?: string
+        }
+        Update: {
+          altura_chapa?: number | null
+          arquivo_nome?: string
+          chapa_id?: string | null
+          criado_em?: string
+          id?: string
+          importacao_id?: string
+          largura_chapa?: number | null
+          metadados_json?: Json
+          numero_chapa?: number | null
+          pagina_pdf?: number | null
+          projeto_id?: string | null
+          storage_url?: string | null
+          tipo_preview?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       importacoes: {
         Row: {
           ambiente_detectado: string | null
