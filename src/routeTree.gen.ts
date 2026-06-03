@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedProducaoRouteImport } from './routes/_authenticated/producao'
 import { Route as AuthenticatedMaquinaRouteImport } from './routes/_authenticated/maquina'
+import { Route as AuthenticatedImportacoesRouteImport } from './routes/_authenticated/importacoes'
 import { Route as AuthenticatedFitasRouteImport } from './routes/_authenticated/fitas'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedEtiquetasRouteImport } from './routes/_authenticated/etiquetas'
@@ -52,6 +53,12 @@ const AuthenticatedMaquinaRoute = AuthenticatedMaquinaRouteImport.update({
   path: '/maquina',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImportacoesRoute =
+  AuthenticatedImportacoesRouteImport.update({
+    id: '/importacoes',
+    path: '/importacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFitasRoute = AuthenticatedFitasRouteImport.update({
   id: '/fitas',
   path: '/fitas',
@@ -132,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
+  '/importacoes': typeof AuthenticatedImportacoesRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
@@ -150,6 +158,7 @@ export interface FileRoutesByTo {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
+  '/importacoes': typeof AuthenticatedImportacoesRoute
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
   '/': typeof AuthenticatedIndexRoute
@@ -171,6 +180,7 @@ export interface FileRoutesById {
   '/_authenticated/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/fitas': typeof AuthenticatedFitasRoute
+  '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
   '/_authenticated/maquina': typeof AuthenticatedMaquinaRoute
   '/_authenticated/producao': typeof AuthenticatedProducaoRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
+    | '/importacoes'
     | '/maquina'
     | '/producao'
     | '/pecas/$id'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
+    | '/importacoes'
     | '/maquina'
     | '/producao'
     | '/'
@@ -231,6 +243,7 @@ export interface FileRouteTypes {
     | '/_authenticated/etiquetas'
     | '/_authenticated/ferramentas'
     | '/_authenticated/fitas'
+    | '/_authenticated/importacoes'
     | '/_authenticated/maquina'
     | '/_authenticated/producao'
     | '/_authenticated/'
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/maquina'
       fullPath: '/maquina'
       preLoaderRoute: typeof AuthenticatedMaquinaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/importacoes': {
+      id: '/_authenticated/importacoes'
+      path: '/importacoes'
+      fullPath: '/importacoes'
+      preLoaderRoute: typeof AuthenticatedImportacoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/fitas': {
@@ -413,6 +433,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEtiquetasRoute: typeof AuthenticatedEtiquetasRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFitasRoute: typeof AuthenticatedFitasRoute
+  AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRoute
   AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
   AuthenticatedProducaoRoute: typeof AuthenticatedProducaoRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -429,6 +450,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEtiquetasRoute: AuthenticatedEtiquetasRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFitasRoute: AuthenticatedFitasRoute,
+  AuthenticatedImportacoesRoute: AuthenticatedImportacoesRoute,
   AuthenticatedMaquinaRoute: AuthenticatedMaquinaRoute,
   AuthenticatedProducaoRoute: AuthenticatedProducaoRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

@@ -12,12 +12,14 @@ import {
   QrCode,
   Scan,
   Boxes,
+  FileArchive,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/projetos", label: "Projetos", icon: FolderKanban },
+  { to: "/importacoes", label: "Importações", icon: FileArchive },
   { to: "/pecas", label: "Peças", icon: Package },
   { to: "/chapas", label: "Chapas", icon: Layers },
   { to: "/fitas", label: "Fitas", icon: Tag },
