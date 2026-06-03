@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, FileText, Layers, Package, Tag, Wrench, AlertTriangle, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Download, FileText, Layers, Package, Tag, Wrench, AlertTriangle, Image as ImageIcon, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORIA_LABEL, type CategoriaArquivo } from "@/lib/importacao-promob";
+import { AnaliseTecnicaTab, PendenciasTab } from "@/components/analise-tecnica-tab";
 
 export const Route = createFileRoute("/_authenticated/importacoes/$id")({
   head: () => ({ meta: [{ title: "Importação — Visualizador CNC" }] }),
