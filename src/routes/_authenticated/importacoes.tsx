@@ -287,10 +287,10 @@ function NovaImportacao() {
       // Insere em lotes para evitar payload gigante
       const lote = 200;
       for (let k = 0; k < arquivosImp.length; k += lote) {
-        await supabase.from("importacao_arquivos").insert(arquivosImp.slice(k, k + lote));
+        await supabase.from("importacao_arquivos").insert(arquivosImp.slice(k, k + lote) as unknown as never);
       }
       for (let k = 0; k < arquivosTec.length; k += lote) {
-        await supabase.from("arquivos_tecnicos").insert(arquivosTec.slice(k, k + lote));
+        await supabase.from("arquivos_tecnicos").insert(arquivosTec.slice(k, k + lote) as unknown as never);
       }
 
       setProgresso("Finalizando...");
