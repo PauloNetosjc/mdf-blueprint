@@ -775,14 +775,8 @@ function PecasCadastradasPage() {
                   <td className="px-3 py-2 text-center">{c.rasgos || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.bordas || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {p.status_parser === "ok" ? (
-                        <Badge variant="outline">ok</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="gap-1">
-                          <AlertTriangle className="h-3 w-3" /> {p.status_parser}
-                        </Badge>
-                      )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StatusBadge peca={p} />
                       {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
                     </div>
                   </td>
