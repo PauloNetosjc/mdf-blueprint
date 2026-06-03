@@ -19,8 +19,15 @@ import {
   parseTechnicalDrawingPdf,
   parseTechnicalPartCode,
   getTipoPecaPorPrefixo,
+  classificarStatusParser,
   type ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
