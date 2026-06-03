@@ -450,26 +450,72 @@ function ChapaCNCPage() {
               deve validar o código, o pós-processador, a origem, as ferramentas, os avanços, a rotação
               e os limites da máquina conforme o manual técnico.
             </p>
+          <Card className="space-y-2 p-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Homologação</h3>
+            <p className="text-[10px] leading-tight text-muted-foreground">
+              Para exportar o .nc é obrigatório aprovar uma versão. O fluxo é: Gerar → Validar → (Comparar) → Aprovar → Exportar → Enviar p/ máquina.
+            </p>
             <div>
-              <Label className="text-[11px]">Responsável</Label>
+              <Label className="text-[11px]">Responsável técnico</Label>
               <Input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="h-8 text-xs" />
             </div>
+            <div>
+              <Label className="text-[11px]">Observação</Label>
+              <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} className="h-8 text-xs" />
+            </div>
+
+            <div className="rounded border border-border/60 p-2">
+              <h4 className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">Checklist técnico</h4>
+              {CHECKLIST_HOMOLOGACAO.map((item) => (
+                <label key={item.key} className="flex items-start gap-2 py-0.5 cursor-pointer">
+                  <Checkbox
+                    checked={!!checklist[item.key]}
+                    onCheckedChange={(v) => setChecklist((c) => ({ ...c, [item.key]: !!v }))}
+                  />
+                  <span className="text-[10px] leading-tight">{item.label}</span>
+                </label>
+              ))}
+            </div>
+
             <label className="flex cursor-pointer items-start gap-2 py-1">
               <Checkbox checked={confirmou} onCheckedChange={(v) => setConfirmou(!!v)} />
-              <span className="text-[11px]">Confirmo a validação técnica do G-code.</span>
+              <span className="text-[10px]">Confirmo a validação técnica deste G-code.</span>
             </label>
-            <Button
-              size="sm" className="w-full" onClick={baixar}
-              disabled={!resultado || !confirmou || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
-            >
-              <ShieldCheck className="mr-1 h-4 w-4" />Confirmar validação técnica
-            </Button>
-            <Button
-              size="sm" variant="outline" className="w-full" onClick={baixar}
-              disabled={!resultado || (validacaoStatus?.erros ?? 0) > 0}
-            >
-              <Download className="mr-1 h-4 w-4" />Baixar .nc
-            </Button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                size="sm" variant="outline"
+                onClick={() => salvar.mutate("rascunho")}
+                disabled={!resultado || salvar.isPending}
+              >
+                Salvar rascunho
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => salvar.mutate("aprovado")}
+                disabled={!resultado || salvar.isPending || !checklistCompleto(checklist) || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
+              >
+                <ShieldCheck className="mr-1 h-4 w-4" />Aprovar
+              </Button>
+              <Button
+                size="sm" variant="outline" className="text-destructive"
+                onClick={() => salvar.mutate("reprovado")}
+                disabled={!resultado || salvar.isPending || !responsavel.trim()}
+              >
+                Reprovar
+              </Button>
+              <Button
+                size="sm"
+                onClick={baixar}
+                disabled={!resultado || !ultimaAprovada || !confirmou || !responsavel.trim() || (validacaoStatus?.erros ?? 0) > 0}
+              >
+                <Download className="mr-1 h-4 w-4" />Exportar .nc
+              </Button>
+            </div>
+
+            {!ultimaAprovada && resultado && (
+              <p className="text-[10px] text-yellow-700">A exportação só é liberada após aprovação técnica.</p>
+            )}
           </Card>
         </aside>
       </div>
