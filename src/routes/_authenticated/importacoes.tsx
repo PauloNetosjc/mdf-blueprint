@@ -55,7 +55,7 @@ type ArquivoTecnico = {
   criado_em: string;
 };
 
-function ImportacoesPage() {
+export function ImportacoesPage() {
   const [tab, setTab] = useState("nova");
 
   return (
@@ -64,9 +64,9 @@ function ImportacoesPage() {
         <div className="flex items-center gap-3">
           <FileArchive className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-xl font-semibold">Importações Promob / Nesting / Cut Pro</h1>
+            <h1 className="text-xl font-semibold">Criar projeto por importação</h1>
             <p className="text-xs text-muted-foreground">
-              Faça upload do pacote ZIP e gere projeto, chapas, peças, etiquetas e almoxarifado automaticamente.
+              Importe um ZIP gerado pelo Promob/Nesting/Cut Pro para criar automaticamente projeto, chapas, peças, etiquetas, almoxarifado e arquivos técnicos.
             </p>
           </div>
         </div>
