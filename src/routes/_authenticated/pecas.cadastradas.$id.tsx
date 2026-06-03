@@ -273,14 +273,23 @@ function PecaCadastradaDetalhe() {
       </header>
 
       {p.erros_parser?.length > 0 && (
+        <div className="mb-4 rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
+          <div className="mb-1 flex items-center gap-2 font-medium text-destructive">
+            <AlertTriangle className="h-4 w-4" /> Erros do parser
+          </div>
+          <ul className="ml-5 list-disc text-muted-foreground">
+            {p.erros_parser.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {Array.isArray(p.parser_alertas_json) && p.parser_alertas_json.length > 0 && (
         <div className="mb-4 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
           <div className="mb-1 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4" /> Alertas do parser
           </div>
           <ul className="ml-5 list-disc text-muted-foreground">
-            {p.erros_parser.map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
+            {p.parser_alertas_json.map((a, i) => <li key={i}>{String(a)}</li>)}
           </ul>
         </div>
       )}
