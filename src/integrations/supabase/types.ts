@@ -144,6 +144,8 @@ export type Database = {
       }
       arquivos_tecnicos: {
         Row: {
+          analisado_em: string | null
+          analise_resumo_json: Json
           chapa_id: string | null
           criado_em: string
           dados_extraidos_json: Json
@@ -153,11 +155,14 @@ export type Database = {
           origem_pasta: string | null
           peca_id: string | null
           projeto_id: string | null
+          status_analise: string
           storage_url: string | null
           tipo_arquivo: string | null
           user_id: string
         }
         Insert: {
+          analisado_em?: string | null
+          analise_resumo_json?: Json
           chapa_id?: string | null
           criado_em?: string
           dados_extraidos_json?: Json
@@ -167,11 +172,14 @@ export type Database = {
           origem_pasta?: string | null
           peca_id?: string | null
           projeto_id?: string | null
+          status_analise?: string
           storage_url?: string | null
           tipo_arquivo?: string | null
           user_id?: string
         }
         Update: {
+          analisado_em?: string | null
+          analise_resumo_json?: Json
           chapa_id?: string | null
           criado_em?: string
           dados_extraidos_json?: Json
@@ -181,6 +189,7 @@ export type Database = {
           origem_pasta?: string | null
           peca_id?: string | null
           projeto_id?: string | null
+          status_analise?: string
           storage_url?: string | null
           tipo_arquivo?: string | null
           user_id?: string
@@ -933,16 +942,21 @@ export type Database = {
         Row: {
           arquivo_tecnico_id: string | null
           comprimento: number | null
+          confianca_parser: string
+          convertida_operacao_id: string | null
           criado_em: string
           dados_brutos: Json
           diametro: number | null
           face: string | null
+          ferramenta: string | null
           id: string
           largura: number | null
+          ordem: number | null
           origem: string | null
           peca_id: string | null
           profundidade: number | null
           projeto_id: string | null
+          status_vinculo: string
           tipo_operacao: string | null
           user_id: string
           x: number | null
@@ -952,16 +966,21 @@ export type Database = {
         Insert: {
           arquivo_tecnico_id?: string | null
           comprimento?: number | null
+          confianca_parser?: string
+          convertida_operacao_id?: string | null
           criado_em?: string
           dados_brutos?: Json
           diametro?: number | null
           face?: string | null
+          ferramenta?: string | null
           id?: string
           largura?: number | null
+          ordem?: number | null
           origem?: string | null
           peca_id?: string | null
           profundidade?: number | null
           projeto_id?: string | null
+          status_vinculo?: string
           tipo_operacao?: string | null
           user_id?: string
           x?: number | null
@@ -971,16 +990,21 @@ export type Database = {
         Update: {
           arquivo_tecnico_id?: string | null
           comprimento?: number | null
+          confianca_parser?: string
+          convertida_operacao_id?: string | null
           criado_em?: string
           dados_brutos?: Json
           diametro?: number | null
           face?: string | null
+          ferramenta?: string | null
           id?: string
           largura?: number | null
+          ordem?: number | null
           origem?: string | null
           peca_id?: string | null
           profundidade?: number | null
           projeto_id?: string | null
+          status_vinculo?: string
           tipo_operacao?: string | null
           user_id?: string
           x?: number | null
