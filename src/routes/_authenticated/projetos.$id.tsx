@@ -169,88 +169,16 @@ function ProjetoEditor() {
         </TabsList>
 
         <TabsContent value="pecas" className="flex-1 overflow-auto p-6 pt-3">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              {pecas?.length ?? 0} peças · {pecas?.reduce((s, p) => s + p.quantidade, 0) ?? 0} unidades
-            </div>
-            <Button size="sm" onClick={() => adicionar.mutate()}><Plus className="mr-1 h-4 w-4" />Adicionar peça</Button>
-          </div>
-
-          <div className="overflow-x-auto rounded border border-border bg-surface">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-2 py-2 text-left">Descrição</th>
-                  <th className="px-2 py-2 text-right w-16">Qtd</th>
-                  <th className="px-2 py-2 text-right w-20">Altura</th>
-                  <th className="px-2 py-2 text-right w-20">Largura</th>
-                  <th className="px-2 py-2 text-right w-16">Esp.</th>
-                  <th className="px-2 py-2 text-left w-40">Chapa</th>
-                  <th className="px-2 py-2 text-left w-20">Fita</th>
-                  <th className="px-2 py-2 text-left w-28">Módulo</th>
-                  <th className="px-2 py-2 text-left">Observação</th>
-                  <th className="px-2 py-2 w-32"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {pecas?.map((p) => (
-                  <tr key={p.id} className="border-t border-border hover:bg-surface-2">
-                    <td className="p-1"><Inp value={p.descricao} onSave={(v) => atualizar.mutate({ id: p.id, descricao: v })} /></td>
-                    <td className="p-1"><InpNum value={p.quantidade} onSave={(v) => atualizar.mutate({ id: p.id, quantidade: v })} /></td>
-                    <td className="p-1"><InpNum value={p.altura} onSave={(v) => atualizar.mutate({ id: p.id, altura: v })} /></td>
-                    <td className="p-1"><InpNum value={p.largura} onSave={(v) => atualizar.mutate({ id: p.id, largura: v })} /></td>
-                    <td className="p-1"><InpNum value={p.espessura} onSave={(v) => atualizar.mutate({ id: p.id, espessura: v })} step="0.1" /></td>
-                    <td className="p-1">
-                      <Select value={p.chapa_id ?? "_none"} onValueChange={(v) => atualizar.mutate({ id: p.id, chapa_id: v === "_none" ? null : v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">—</SelectItem>
-                          {chapas?.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded border border-border" style={{ background: c.cor }} />
-                                <span>{c.nome}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-1">
-                      <Select value={p.fita_codigo ?? "_none"} onValueChange={(v) => atualizar.mutate({ id: p.id, fita_codigo: v === "_none" ? null : v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">—</SelectItem>
-                          {LEGENDA_FITA.map((l) => (
-                            <SelectItem key={l.codigo} value={l.codigo}>
-                              <span className="font-mono">{l.codigo}</span>
-                              <span className="ml-2 text-xs text-muted-foreground">{l.desc}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-1"><Inp value={p.modulo ?? ""} onSave={(v) => atualizar.mutate({ id: p.id, modulo: v || null })} /></td>
-                    <td className="p-1"><Inp value={p.observacao ?? ""} onSave={(v) => atualizar.mutate({ id: p.id, observacao: v || null })} /></td>
-                    <td className="p-1 text-right">
-                      <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => abrirEngenharia.mutate(p)}>
-                        <Cpu className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" title="Duplicar" onClick={() => duplicar.mutate(p)}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" title="Excluir" onClick={() => { if (confirm(`Excluir "${p.descricao}"?`)) excluir.mutate(p.id); }}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {(!pecas || pecas.length === 0) && (
-                  <tr><td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">Nenhuma peça. Clique em "Adicionar peça".</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <PecasTab
+            pecas={pecas ?? []}
+            chapas={chapas ?? []}
+            onAdd={() => adicionar.mutate()}
+            onUpdate={(p) => atualizar.mutate(p)}
+            onDuplicate={(p) => duplicar.mutate(p)}
+            onDelete={(pid) => excluir.mutate(pid)}
+            onAbrirEngenharia={(p) => abrirEngenharia.mutate(p)}
+            projetoId={id}
+          />
         </TabsContent>
 
         <TabsContent value="identificacao" className="flex-1 overflow-auto p-6 pt-3">
