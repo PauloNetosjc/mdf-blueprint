@@ -800,7 +800,7 @@ function NovaImportacao() {
         if (jaExiste) {
           jaExiste.pos_x = cy.x; jaExiste.pos_y = cy.y; jaExiste.rotacao = cy.r;
           jaExiste.chapa_id = jaExiste.chapa_id ?? (cy.chapaNumero ? chapasInseridas.get(cy.chapaNumero)?.id ?? null : null);
-+          if (pecaId) { jaExiste.projeto_peca_id = pecaId; jaExiste.status_vinculo = "vinculado"; }
+          if (pecaId) { jaExiste.projeto_peca_id = pecaId; jaExiste.status_vinculo = "vinculado"; }
         } else {
           etiquetasImp.push({
             importacao_id: importacaoId, projeto_id: projetoId,
