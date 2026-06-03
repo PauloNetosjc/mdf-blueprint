@@ -29,6 +29,7 @@ const items = [
   { to: "/producao", label: "Produção", icon: Scan },
   { to: "/almoxarifado", label: "Almoxarifado", icon: Boxes },
   { to: "/comparador", label: "Comparador CNC", icon: GitCompare },
+  { to: "/homologacao", label: "Homologação", icon: ShieldCheck },
   { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/maquina", label: "Máquina", icon: Cog },
 ];
