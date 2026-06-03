@@ -45,7 +45,9 @@ export function classificarArquivo(caminho: string, tamanho = 0): ArquivoClassif
 
   let categoria: CategoriaArquivo = "ignorado";
 
-  if (pasta === "autolabel") {
+  if (/^list(\.|$)/i.test(nome) || lower === "list" || lower === "list.xml") {
+    categoria = "list";
+  } else if (pasta === "autolabel") {
     if (lower.includes("smallpreview")) categoria = "autolabel_small_preview";
     else if (lower.includes("largepreview")) categoria = "autolabel_large_preview";
     else if (ext === "pdf" && lower.includes("label")) categoria = "autolabel_pdf";
@@ -66,7 +68,7 @@ export function classificarArquivo(caminho: string, tamanho = 0): ArquivoClassif
     if (/^list(\.|$)/i.test(nome) || lower === "list") categoria = "list";
     else if (lower.startsWith("listacorte") && ext === "pdf") categoria = "lista_corte_pdf";
     else if (lower.startsWith("previewcorte") && ext === "pdf") categoria = "preview_corte_pdf";
-    else if (lower.includes("almoxarifado") && ext === "pdf") categoria = "almoxarifado_pdf";
+    else if ((lower.includes("almoxarifado") || lower.startsWith("listacompra")) && ext === "pdf") categoria = "almoxarifado_pdf";
   }
 
   return { caminho, nome, pasta, extensao: ext, categoria, tamanho };
