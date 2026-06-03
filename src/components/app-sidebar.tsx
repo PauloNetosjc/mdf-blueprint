@@ -13,6 +13,7 @@ import {
   Scan,
   Boxes,
   FileArchive,
+  GitCompare,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -26,6 +27,7 @@ const items = [
   { to: "/etiquetas", label: "Etiquetas", icon: QrCode },
   { to: "/producao", label: "Produção", icon: Scan },
   { to: "/almoxarifado", label: "Almoxarifado", icon: Boxes },
+  { to: "/comparador", label: "Comparador CNC", icon: GitCompare },
   { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
   { to: "/maquina", label: "Máquina", icon: Cog },
 ];
