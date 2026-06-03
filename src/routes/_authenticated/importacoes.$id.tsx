@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/importacoes/$id")({
   beforeLoad: ({ params }) => {
     throw redirect({ to: "/projetos/importacoes/$id", params: { id: params.id } });
   },
-  component: () => null,
+  component: ImportacaoDetalhe,
 });
 
 async function baixar(path: string, nome: string) {
