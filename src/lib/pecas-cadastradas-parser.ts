@@ -364,24 +364,45 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
     const m = l.texto.match(/\b(FTABS[A-Z0-9.\-_]*)\b/i);
     if (!m) continue;
     const codigo = m[1].toUpperCase();
+    // Padrões: FTABS.0.45.19.100 (esp.larg.cor) ou FTABS.1.19.100
+    const partes = codigo.split(".").slice(1); // remove "FTABS"
+    let espessura: number | null = null;
+    let largura: number | null = null;
+    let corCodigo: string | null = null;
+    if (partes.length >= 4) {
+      // ex: 0, 45, 19, 100 → 0.45, 19, 100
+      espessura = toNum(`${partes[0]}.${partes[1]}`);
+      largura = toNum(partes[2]);
+      corCodigo = partes[3];
+    } else if (partes.length === 3) {
+      espessura = toNum(partes[0]);
+      largura = toNum(partes[1]);
+      corCodigo = partes[2];
+    }
     const descMatch = l.texto.match(/Fita\s+de\s+Borda[^\n]*/i);
-    const descricao = descMatch ? descMatch[0] : null;
+    let descricao = descMatch ? descMatch[0].trim() : null;
     const dim = l.texto.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i);
-    const espessura = dim ? toNum(dim[1]) : null;
-    const largura = dim ? toNum(dim[2]) : null;
-    const corMatch = l.texto.match(/\b(Branco|Preto|Bege|Cinza|Carvalho|Nogueira|Cerejeira|Cerrado|Beige|Matt)\b/i);
+    if (dim && espessura == null) espessura = toNum(dim[1]);
+    if (dim && largura == null) largura = toNum(dim[2]);
+    const corMatch = l.texto.match(/\b(Branco|Preto|Bege|Cinza|Carvalho|Nogueira|Cerejeira|Cerrado|Beige|Matt|Off\s*White|Carvalho\s*\w+)\b/i);
+    const cor = corMatch ? corMatch[1] : null;
+    if (!descricao) {
+      const partesDesc = ["Fita de Borda ABS"];
+      if (espessura != null && largura != null) partesDesc.push(`Espessura ${espessura}x${largura}mm`);
+      if (cor) partesDesc.push(cor);
+      descricao = partesDesc.join(" ");
+    }
     bordas.push({
       lado: "desconhecido",
       codigo_borda: codigo,
       descricao_borda: descricao,
       espessura,
       largura,
-      cor: corMatch ? corMatch[1] : null,
+      cor: cor ?? corCodigo,
       indicador_desenho: null,
-      confianca_parser: dim ? "media" : "baixa",
+      confianca_parser: espessura != null && largura != null ? "alta" : "media",
     });
   }
-  // dedup por código
   const seen = new Set<string>();
   return bordas.filter((b) => {
     const k = b.codigo_borda ?? "";
