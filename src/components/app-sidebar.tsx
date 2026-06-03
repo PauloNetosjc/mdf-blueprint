@@ -11,7 +11,7 @@ import {
   Tag,
   QrCode,
   Scan,
-} from "lucide-react";
+  Boxes,
 import { supabase } from "@/integrations/supabase/client";
 
 const items = [
