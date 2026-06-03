@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Cpu, Maximize2, MousePointer2, Move, RotateCw, Trash2, Plus, Save,
-  AlertTriangle, RefreshCw, Tag,
+  AlertTriangle, RefreshCw, Tag, Image as ImageIcon, Download, FileArchive,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -65,6 +66,32 @@ function PlanoPage() {
       return (data ?? []) as ChapaT[];
     },
   });
+
+  // Recursos importados (Promob/Nesting)
+  const { data: previewsImp } = useQuery({
+    queryKey: ["plano-previews", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("importacao_preview_chapas")
+        .select("*").eq("projeto_id", id);
+      return (data ?? []) as Array<{
+        id: string; numero_chapa: number | null; chapa_id: string | null;
+        tipo_preview: string; storage_url: string | null; arquivo_nome: string;
+        pagina_pdf: number | null;
+      }>;
+    },
+  });
+  const { data: ncsImp } = useQuery({
+    queryKey: ["plano-ncs", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("arquivos_tecnicos")
+        .select("id, nome_arquivo, storage_url, chapa_id, tipo_arquivo")
+        .eq("projeto_id", id).eq("tipo_arquivo", "nc_gcode");
+      return (data ?? []) as Array<{ id: string; nome_arquivo: string; storage_url: string; chapa_id: string | null; tipo_arquivo: string }>;
+    },
+  });
+  const projetoImportado = (previewsImp?.length ?? 0) > 0 || (ncsImp?.length ?? 0) > 0;
 
   const calcular = useCallback(() => {
     if (!pecas || !chapas) return;
@@ -233,6 +260,34 @@ function PlanoPage() {
               <Tag className="mr-1 h-4 w-4" />Etiquetas
             </Button>
           </Link>
+          {projetoImportado && (() => {
+            const chapaAtualId = resultado?.chapas[chapaIndex]?.chapa.id;
+            const numAtual = (chapaIndex ?? 0) + 1;
+            const prev = previewsImp?.find((p) =>
+              (chapaAtualId && p.chapa_id === chapaAtualId) || p.numero_chapa === numAtual,
+            );
+            const nc = ncsImp?.find((n) => chapaAtualId && n.chapa_id === chapaAtualId);
+            const open = async (path: string) => {
+              const { data, error } = await supabase.storage.from("importacoes").createSignedUrl(path, 300);
+              if (error || !data) { toast.error("Falha"); return; }
+              window.open(data.signedUrl, "_blank");
+            };
+            return (
+              <>
+                <Badge variant="secondary" className="gap-1"><FileArchive className="h-3 w-3" />Importado</Badge>
+                {prev?.storage_url && (
+                  <Button size="sm" variant="outline" onClick={() => open(prev.storage_url!)}>
+                    <ImageIcon className="mr-1 h-4 w-4" />Preview original
+                  </Button>
+                )}
+                {nc?.storage_url && (
+                  <Button size="sm" variant="outline" onClick={() => open(nc.storage_url)}>
+                    <Download className="mr-1 h-4 w-4" />NC chapa
+                  </Button>
+                )}
+              </>
+            );
+          })()}
           <Button size="sm" onClick={() => salvar.mutate()} disabled={!resultado || salvar.isPending || colisao}>
             <Save className="mr-1 h-4 w-4" />Salvar plano
           </Button>

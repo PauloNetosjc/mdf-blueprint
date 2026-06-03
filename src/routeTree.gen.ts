@@ -25,6 +25,7 @@ import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedProjetosIdRouteImport } from './routes/_authenticated/projetos.$id'
 import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authenticated/pecas.importar'
 import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
+import { Route as AuthenticatedImportacoesIdRouteImport } from './routes/_authenticated/importacoes.$id'
 import { Route as AuthenticatedProjetosIdPlanoRouteImport } from './routes/_authenticated/projetos.$id.plano'
 import { Route as AuthenticatedPecasIdCompararRouteImport } from './routes/_authenticated/pecas.$id.comparar'
 import { Route as AuthenticatedPecasIdCncRouteImport } from './routes/_authenticated/pecas.$id.cnc'
@@ -113,6 +114,12 @@ const AuthenticatedPecasIdRoute = AuthenticatedPecasIdRouteImport.update({
   path: '/pecas/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImportacoesIdRoute =
+  AuthenticatedImportacoesIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedImportacoesRoute,
+  } as any)
 const AuthenticatedProjetosIdPlanoRoute =
   AuthenticatedProjetosIdPlanoRouteImport.update({
     id: '/plano',
@@ -139,9 +146,10 @@ export interface FileRoutesByFullPath {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
-  '/importacoes': typeof AuthenticatedImportacoesRoute
+  '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
+  '/importacoes/$id': typeof AuthenticatedImportacoesIdRoute
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
@@ -158,10 +166,11 @@ export interface FileRoutesByTo {
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
-  '/importacoes': typeof AuthenticatedImportacoesRoute
+  '/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/maquina': typeof AuthenticatedMaquinaRoute
   '/producao': typeof AuthenticatedProducaoRoute
   '/': typeof AuthenticatedIndexRoute
+  '/importacoes/$id': typeof AuthenticatedImportacoesIdRoute
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
@@ -180,10 +189,11 @@ export interface FileRoutesById {
   '/_authenticated/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/fitas': typeof AuthenticatedFitasRoute
-  '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
+  '/_authenticated/importacoes': typeof AuthenticatedImportacoesRouteWithChildren
   '/_authenticated/maquina': typeof AuthenticatedMaquinaRoute
   '/_authenticated/producao': typeof AuthenticatedProducaoRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/importacoes/$id': typeof AuthenticatedImportacoesIdRoute
   '/_authenticated/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/_authenticated/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/importacoes'
     | '/maquina'
     | '/producao'
+    | '/importacoes/$id'
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/maquina'
     | '/producao'
     | '/'
+    | '/importacoes/$id'
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/maquina'
     | '/_authenticated/producao'
     | '/_authenticated/'
+    | '/_authenticated/importacoes/$id'
     | '/_authenticated/pecas/$id'
     | '/_authenticated/pecas/importar'
     | '/_authenticated/projetos/$id'
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPecasIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/importacoes/$id': {
+      id: '/_authenticated/importacoes/$id'
+      path: '/$id'
+      fullPath: '/importacoes/$id'
+      preLoaderRoute: typeof AuthenticatedImportacoesIdRouteImport
+      parentRoute: typeof AuthenticatedImportacoesRoute
+    }
     '/_authenticated/projetos/$id/plano': {
       id: '/_authenticated/projetos/$id/plano'
       path: '/plano'
@@ -399,6 +419,20 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedImportacoesRouteChildren {
+  AuthenticatedImportacoesIdRoute: typeof AuthenticatedImportacoesIdRoute
+}
+
+const AuthenticatedImportacoesRouteChildren: AuthenticatedImportacoesRouteChildren =
+  {
+    AuthenticatedImportacoesIdRoute: AuthenticatedImportacoesIdRoute,
+  }
+
+const AuthenticatedImportacoesRouteWithChildren =
+  AuthenticatedImportacoesRoute._addFileChildren(
+    AuthenticatedImportacoesRouteChildren,
+  )
 
 interface AuthenticatedPecasIdRouteChildren {
   AuthenticatedPecasIdCncRoute: typeof AuthenticatedPecasIdCncRoute
@@ -433,7 +467,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEtiquetasRoute: typeof AuthenticatedEtiquetasRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFitasRoute: typeof AuthenticatedFitasRoute
-  AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRoute
+  AuthenticatedImportacoesRoute: typeof AuthenticatedImportacoesRouteWithChildren
   AuthenticatedMaquinaRoute: typeof AuthenticatedMaquinaRoute
   AuthenticatedProducaoRoute: typeof AuthenticatedProducaoRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -450,7 +484,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEtiquetasRoute: AuthenticatedEtiquetasRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFitasRoute: AuthenticatedFitasRoute,
-  AuthenticatedImportacoesRoute: AuthenticatedImportacoesRoute,
+  AuthenticatedImportacoesRoute: AuthenticatedImportacoesRouteWithChildren,
   AuthenticatedMaquinaRoute: AuthenticatedMaquinaRoute,
   AuthenticatedProducaoRoute: AuthenticatedProducaoRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
