@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
+import { ProjetoNav } from "@/components/projeto-nav";
+import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
