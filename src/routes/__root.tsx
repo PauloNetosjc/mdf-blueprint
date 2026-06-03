@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureDevSession } from "@/lib/dev-auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { Toaster } from "@/components/ui/sonner";
 
 
@@ -137,6 +139,13 @@ function AuthSync() {
   const queryClient = useQueryClient();
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (isDemoMode() && event === "SIGNED_OUT") {
+        void ensureDevSession().then(() => {
+          router.invalidate();
+          queryClient.invalidateQueries();
+        });
+        return;
+      }
       // Só invalida em login/logout — não em TOKEN_REFRESHED nem INITIAL_SESSION,
       // que disparam frequentemente e limpariam o cache sem necessidade.
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {

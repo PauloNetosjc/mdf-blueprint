@@ -19,6 +19,7 @@ import { Route as AuthenticatedHomologacaoRouteImport } from './routes/_authenti
 import { Route as AuthenticatedFitasRouteImport } from './routes/_authenticated/fitas'
 import { Route as AuthenticatedFerramentasRouteImport } from './routes/_authenticated/ferramentas'
 import { Route as AuthenticatedEtiquetasRouteImport } from './routes/_authenticated/etiquetas'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedComparadorRouteImport } from './routes/_authenticated/comparador'
 import { Route as AuthenticatedChapasRouteImport } from './routes/_authenticated/chapas'
 import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
@@ -84,6 +85,11 @@ const AuthenticatedFerramentasRoute =
 const AuthenticatedEtiquetasRoute = AuthenticatedEtiquetasRouteImport.update({
   id: '/etiquetas',
   path: '/etiquetas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedComparadorRoute = AuthenticatedComparadorRouteImport.update({
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/chapas': typeof AuthenticatedChapasRoute
   '/comparador': typeof AuthenticatedComparadorRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/chapas': typeof AuthenticatedChapasRoute
   '/comparador': typeof AuthenticatedComparadorRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/ferramentas': typeof AuthenticatedFerramentasRoute
   '/fitas': typeof AuthenticatedFitasRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/_authenticated/almoxarifado': typeof AuthenticatedAlmoxarifadoRoute
   '/_authenticated/chapas': typeof AuthenticatedChapasRoute
   '/_authenticated/comparador': typeof AuthenticatedComparadorRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/etiquetas': typeof AuthenticatedEtiquetasRoute
   '/_authenticated/ferramentas': typeof AuthenticatedFerramentasRoute
   '/_authenticated/fitas': typeof AuthenticatedFitasRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/chapas'
     | '/comparador'
+    | '/dashboard'
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/almoxarifado'
     | '/chapas'
     | '/comparador'
+    | '/dashboard'
     | '/etiquetas'
     | '/ferramentas'
     | '/fitas'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/_authenticated/almoxarifado'
     | '/_authenticated/chapas'
     | '/_authenticated/comparador'
+    | '/_authenticated/dashboard'
     | '/_authenticated/etiquetas'
     | '/_authenticated/ferramentas'
     | '/_authenticated/fitas'
@@ -396,6 +408,13 @@ declare module '@tanstack/react-router' {
       path: '/etiquetas'
       fullPath: '/etiquetas'
       preLoaderRoute: typeof AuthenticatedEtiquetasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/comparador': {
@@ -562,6 +581,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlmoxarifadoRoute: typeof AuthenticatedAlmoxarifadoRoute
   AuthenticatedChapasRoute: typeof AuthenticatedChapasRoute
   AuthenticatedComparadorRoute: typeof AuthenticatedComparadorRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEtiquetasRoute: typeof AuthenticatedEtiquetasRoute
   AuthenticatedFerramentasRoute: typeof AuthenticatedFerramentasRoute
   AuthenticatedFitasRoute: typeof AuthenticatedFitasRoute
@@ -581,6 +601,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAlmoxarifadoRoute: AuthenticatedAlmoxarifadoRoute,
   AuthenticatedChapasRoute: AuthenticatedChapasRoute,
   AuthenticatedComparadorRoute: AuthenticatedComparadorRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEtiquetasRoute: AuthenticatedEtiquetasRoute,
   AuthenticatedFerramentasRoute: AuthenticatedFerramentasRoute,
   AuthenticatedFitasRoute: AuthenticatedFitasRoute,
