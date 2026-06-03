@@ -120,7 +120,102 @@ function detectarPastaRaiz(paths: string[]): string {
   return primeiros.every((x) => x === ref) ? ref : "";
 }
 
-function NovaImportacao() {
+// ============================================================
+// Fila de upload em segundo plano (concorrência limitada)
+// ============================================================
+type UploadCtx = {
+  importacaoId: string;
+  userId: string;
+  entries: ImportFileEntry[];
+  arquivos: ArquivoClassificado[];
+  prioridade: Record<string, 1 | 2 | 3>;
+  pathSafe: (p: string) => string;
+};
+
+async function uploadEmBackground(ctx: UploadCtx) {
+  const { importacaoId, userId, entries, arquivos, prioridade, pathSafe } = ctx;
+  const fila = arquivos
+    .filter((a) => a.categoria !== "ignorado")
+    .map((a) => ({
+      a,
+      entry: entries.find((e) => e.relativePath === a.caminho) ?? null,
+      prio: prioridade[a.categoria] ?? 3,
+    }))
+    .filter((x) => x.entry)
+    .sort((x, y) => x.prio - y.prio);
+
+  const total = fila.length;
+  let enviados = 0;
+  let falhas = 0;
+  const CONCURRENCY = 4;
+  const toastId = `up-${importacaoId}`;
+  toast.loading(`Enviando arquivos... 0/${total}`, { id: toastId });
+
+  async function atualizaResumo() {
+    // Atualiza contador no resumo_json (best-effort, sem race-condition perfeita)
+    if (enviados % 25 === 0 || enviados + falhas === total) {
+      const { data } = await supabase
+        .from("importacoes").select("resumo_json").eq("id", importacaoId).single();
+      const resumoAtual = (data?.resumo_json ?? {}) as Record<string, unknown>;
+      await supabase.from("importacoes").update({
+        resumo_json: {
+          ...resumoAtual,
+          upload_enviados: enviados,
+          upload_erros: falhas,
+        } as unknown as never,
+        status: enviados + falhas === total
+          ? (falhas ? "concluido_com_erros" : "concluido")
+          : "concluido_com_upload_pendente",
+      }).eq("id", importacaoId);
+    }
+  }
+
+  async function processaUm(item: { a: ArquivoClassificado; entry: ImportFileEntry | null }) {
+    const { a, entry } = item;
+    if (!entry) return;
+    const storagePath = `${userId}/${importacaoId}/${pathSafe(a.caminho)}`;
+    try {
+      const blob = await entry.load();
+      const { error } = await supabase.storage
+        .from("importacoes")
+        .upload(storagePath, blob, { upsert: true });
+      if (error) throw error;
+      enviados += 1;
+      await supabase.from("importacao_arquivos")
+        .update({ status_leitura: "lido" })
+        .eq("importacao_id", importacaoId)
+        .eq("caminho_original", a.caminho);
+    } catch (e) {
+      falhas += 1;
+      await supabase.from("importacao_arquivos")
+        .update({
+          status_leitura: "erro",
+          metadados_json: { erro: (e as Error).message, categoria: a.categoria },
+        })
+        .eq("importacao_id", importacaoId)
+        .eq("caminho_original", a.caminho);
+    } finally {
+      toast.loading(`Enviando arquivos... ${enviados + falhas}/${total}${falhas ? ` (${falhas} falhas)` : ""}`, { id: toastId });
+      await atualizaResumo();
+    }
+  }
+
+  // Workers em paralelo consumindo a mesma fila
+  let idx = 0;
+  const workers = Array.from({ length: CONCURRENCY }, async () => {
+    while (idx < fila.length) {
+      const myIdx = idx++;
+      await processaUm(fila[myIdx]);
+    }
+  });
+  await Promise.all(workers);
+
+  if (falhas === 0) {
+    toast.success(`Upload concluído: ${enviados}/${total} arquivos enviados.`, { id: toastId, duration: 5000 });
+  } else {
+    toast.warning(`Upload finalizado com ${falhas} falhas de ${total}. Você pode reenviar pela tela da importação.`, { id: toastId, duration: 8000 });
+  }
+}
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [origemNome, setOrigemNome] = useState<string | null>(null);
