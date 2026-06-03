@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import JSZip from "jszip";
@@ -24,8 +24,10 @@ import {
 } from "@/lib/importacao-promob";
 
 export const Route = createFileRoute("/_authenticated/importacoes")({
-  head: () => ({ meta: [{ title: "Importações Promob — Visualizador CNC" }] }),
-  component: ImportacoesPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/projetos/importacoes" });
+  },
+  component: () => null,
 });
 
 type Importacao = {
