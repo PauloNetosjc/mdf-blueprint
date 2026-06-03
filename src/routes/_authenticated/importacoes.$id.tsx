@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,8 +10,10 @@ import { CATEGORIA_LABEL, type CategoriaArquivo } from "@/lib/importacao-promob"
 import { AnaliseTecnicaTab, PendenciasTab } from "@/components/analise-tecnica-tab";
 
 export const Route = createFileRoute("/_authenticated/importacoes/$id")({
-  head: () => ({ meta: [{ title: "Importação — Visualizador CNC" }] }),
-  component: ImportacaoDetalhe,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/projetos/importacoes/$id", params: { id: params.id } });
+  },
+  component: () => null,
 });
 
 async function baixar(path: string, nome: string) {
@@ -27,8 +29,8 @@ async function abrir(path: string) {
   window.open(data.signedUrl, "_blank");
 }
 
-function ImportacaoDetalhe() {
-  const { id } = Route.useParams();
+export function ImportacaoDetalhe() {
+  const { id } = useParams({ strict: false }) as { id: string };
 
   const { data: imp } = useQuery({
     queryKey: ["importacao", id],
@@ -144,7 +146,7 @@ function ImportacaoDetalhe() {
     <div className="flex h-full flex-col bg-background">
       <header className="border-b border-border-strong bg-panel px-6 py-4">
         <div className="flex items-center gap-3">
-          <Link to="/importacoes"><Button size="icon" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link to="/projetos/importacoes"><Button size="icon" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div className="flex-1">
             <h1 className="text-lg font-semibold">{imp.projeto_detectado ?? imp.nome_arquivo}</h1>
             <p className="text-xs text-muted-foreground">

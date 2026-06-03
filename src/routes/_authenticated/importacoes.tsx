@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import JSZip from "jszip";
@@ -24,8 +24,10 @@ import {
 } from "@/lib/importacao-promob";
 
 export const Route = createFileRoute("/_authenticated/importacoes")({
-  head: () => ({ meta: [{ title: "Importações Promob — Visualizador CNC" }] }),
-  component: ImportacoesPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/projetos/importacoes" });
+  },
+  component: () => null,
 });
 
 type Importacao = {
@@ -53,7 +55,7 @@ type ArquivoTecnico = {
   criado_em: string;
 };
 
-function ImportacoesPage() {
+export function ImportacoesPage() {
   const [tab, setTab] = useState("nova");
 
   return (
@@ -62,9 +64,9 @@ function ImportacoesPage() {
         <div className="flex items-center gap-3">
           <FileArchive className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-xl font-semibold">Importações Promob / Nesting / Cut Pro</h1>
+            <h1 className="text-xl font-semibold">Criar projeto por importação</h1>
             <p className="text-xs text-muted-foreground">
-              Faça upload do pacote ZIP e gere projeto, chapas, peças, etiquetas e almoxarifado automaticamente.
+              Importe um ZIP gerado pelo Promob/Nesting/Cut Pro para criar automaticamente projeto, chapas, peças, etiquetas, almoxarifado e arquivos técnicos.
             </p>
           </div>
         </div>
@@ -680,7 +682,7 @@ function ListaImportacoes() {
               <td className="p-2 text-xs">{i.cliente_detectado ?? "—"}</td>
               <td className="p-2"><StatusBadge status={i.status} /></td>
               <td className="p-2 text-right">
-                <Link to="/importacoes/$id" params={{ id: i.id }}>
+                <Link to="/projetos/importacoes/$id" params={{ id: i.id }}>
                   <Button size="sm" variant="ghost"><Eye className="h-4 w-4" /></Button>
                 </Link>
                 <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir importação? O projeto será preservado.")) remover.mutate(i.id); }}>

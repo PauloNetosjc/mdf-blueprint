@@ -11,7 +11,6 @@ import {
   QrCode,
   Scan,
   Boxes,
-  FileArchive,
   GitCompare,
   ShieldCheck,
 } from "lucide-react";
@@ -19,17 +18,16 @@ import {
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/projetos", label: "Projetos", icon: FolderKanban },
-  { to: "/importacoes", label: "Importações", icon: FileArchive },
   { to: "/pecas", label: "Peças", icon: Package },
   { to: "/chapas", label: "Chapas", icon: Layers },
   { to: "/fitas", label: "Fitas", icon: Tag },
+  { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
+  { to: "/maquina", label: "Máquina", icon: Cog },
   { to: "/etiquetas", label: "Etiquetas", icon: QrCode },
   { to: "/producao", label: "Produção", icon: Scan },
   { to: "/almoxarifado", label: "Almoxarifado", icon: Boxes },
-  { to: "/comparador", label: "Comparador CNC", icon: GitCompare },
   { to: "/homologacao", label: "Homologação", icon: ShieldCheck },
-  { to: "/ferramentas", label: "Ferramentas", icon: Wrench },
-  { to: "/maquina", label: "Máquina", icon: Cog },
+  { to: "/comparador", label: "Comparador CNC", icon: GitCompare },
 ];
 
 export function AppSidebar() {

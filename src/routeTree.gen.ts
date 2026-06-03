@@ -25,10 +25,13 @@ import { Route as AuthenticatedChapasRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAlmoxarifadoRouteImport } from './routes/_authenticated/almoxarifado'
 import { Route as AuthenticatedProjetosIndexRouteImport } from './routes/_authenticated/projetos.index'
 import { Route as AuthenticatedPecasIndexRouteImport } from './routes/_authenticated/pecas.index'
+import { Route as AuthenticatedProjetosImportarRouteImport } from './routes/_authenticated/projetos.importar'
+import { Route as AuthenticatedProjetosImportacoesRouteImport } from './routes/_authenticated/projetos.importacoes'
 import { Route as AuthenticatedProjetosIdRouteImport } from './routes/_authenticated/projetos.$id'
 import { Route as AuthenticatedPecasImportarRouteImport } from './routes/_authenticated/pecas.importar'
 import { Route as AuthenticatedPecasIdRouteImport } from './routes/_authenticated/pecas.$id'
 import { Route as AuthenticatedImportacoesIdRouteImport } from './routes/_authenticated/importacoes.$id'
+import { Route as AuthenticatedProjetosImportacoesIdRouteImport } from './routes/_authenticated/projetos.importacoes.$id'
 import { Route as AuthenticatedProjetosIdPlanoRouteImport } from './routes/_authenticated/projetos.$id.plano'
 import { Route as AuthenticatedProjetosIdFluxoRouteImport } from './routes/_authenticated/projetos.$id.fluxo'
 import { Route as AuthenticatedPecasIdCompararRouteImport } from './routes/_authenticated/pecas.$id.comparar'
@@ -119,6 +122,18 @@ const AuthenticatedPecasIndexRoute = AuthenticatedPecasIndexRouteImport.update({
   path: '/pecas/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProjetosImportarRoute =
+  AuthenticatedProjetosImportarRouteImport.update({
+    id: '/projetos/importar',
+    path: '/projetos/importar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProjetosImportacoesRoute =
+  AuthenticatedProjetosImportacoesRouteImport.update({
+    id: '/projetos/importacoes',
+    path: '/projetos/importacoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProjetosIdRoute = AuthenticatedProjetosIdRouteImport.update({
   id: '/projetos/$id',
   path: '/projetos/$id',
@@ -140,6 +155,12 @@ const AuthenticatedImportacoesIdRoute =
     id: '/$id',
     path: '/$id',
     getParentRoute: () => AuthenticatedImportacoesRoute,
+  } as any)
+const AuthenticatedProjetosImportacoesIdRoute =
+  AuthenticatedProjetosImportacoesIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedProjetosImportacoesRoute,
   } as any)
 const AuthenticatedProjetosIdPlanoRoute =
   AuthenticatedProjetosIdPlanoRouteImport.update({
@@ -189,12 +210,15 @@ export interface FileRoutesByFullPath {
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRouteWithChildren
+  '/projetos/importar': typeof AuthenticatedProjetosImportarRoute
   '/pecas/': typeof AuthenticatedPecasIndexRoute
   '/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
   '/projetos/$id/fluxo': typeof AuthenticatedProjetosIdFluxoRoute
   '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/projetos/importacoes/$id': typeof AuthenticatedProjetosImportacoesIdRoute
   '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRoutesByTo {
@@ -215,12 +239,15 @@ export interface FileRoutesByTo {
   '/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRouteWithChildren
+  '/projetos/importar': typeof AuthenticatedProjetosImportarRoute
   '/pecas': typeof AuthenticatedPecasIndexRoute
   '/projetos': typeof AuthenticatedProjetosIndexRoute
   '/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
   '/projetos/$id/fluxo': typeof AuthenticatedProjetosIdFluxoRoute
   '/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/projetos/importacoes/$id': typeof AuthenticatedProjetosImportacoesIdRoute
   '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRoutesById {
@@ -243,12 +270,15 @@ export interface FileRoutesById {
   '/_authenticated/pecas/$id': typeof AuthenticatedPecasIdRouteWithChildren
   '/_authenticated/pecas/importar': typeof AuthenticatedPecasImportarRoute
   '/_authenticated/projetos/$id': typeof AuthenticatedProjetosIdRouteWithChildren
+  '/_authenticated/projetos/importacoes': typeof AuthenticatedProjetosImportacoesRouteWithChildren
+  '/_authenticated/projetos/importar': typeof AuthenticatedProjetosImportarRoute
   '/_authenticated/pecas/': typeof AuthenticatedPecasIndexRoute
   '/_authenticated/projetos/': typeof AuthenticatedProjetosIndexRoute
   '/_authenticated/pecas/$id/cnc': typeof AuthenticatedPecasIdCncRoute
   '/_authenticated/pecas/$id/comparar': typeof AuthenticatedPecasIdCompararRoute
   '/_authenticated/projetos/$id/fluxo': typeof AuthenticatedProjetosIdFluxoRoute
   '/_authenticated/projetos/$id/plano': typeof AuthenticatedProjetosIdPlanoRouteWithChildren
+  '/_authenticated/projetos/importacoes/$id': typeof AuthenticatedProjetosImportacoesIdRoute
   '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc': typeof AuthenticatedProjetosIdPlanoPlanoIdChapaChapaIdCncRoute
 }
 export interface FileRouteTypes {
@@ -271,12 +301,15 @@ export interface FileRouteTypes {
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
+    | '/projetos/importacoes'
+    | '/projetos/importar'
     | '/pecas/'
     | '/projetos/'
     | '/pecas/$id/cnc'
     | '/pecas/$id/comparar'
     | '/projetos/$id/fluxo'
     | '/projetos/$id/plano'
+    | '/projetos/importacoes/$id'
     | '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -297,12 +330,15 @@ export interface FileRouteTypes {
     | '/pecas/$id'
     | '/pecas/importar'
     | '/projetos/$id'
+    | '/projetos/importacoes'
+    | '/projetos/importar'
     | '/pecas'
     | '/projetos'
     | '/pecas/$id/cnc'
     | '/pecas/$id/comparar'
     | '/projetos/$id/fluxo'
     | '/projetos/$id/plano'
+    | '/projetos/importacoes/$id'
     | '/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   id:
     | '__root__'
@@ -324,12 +360,15 @@ export interface FileRouteTypes {
     | '/_authenticated/pecas/$id'
     | '/_authenticated/pecas/importar'
     | '/_authenticated/projetos/$id'
+    | '/_authenticated/projetos/importacoes'
+    | '/_authenticated/projetos/importar'
     | '/_authenticated/pecas/'
     | '/_authenticated/projetos/'
     | '/_authenticated/pecas/$id/cnc'
     | '/_authenticated/pecas/$id/comparar'
     | '/_authenticated/projetos/$id/fluxo'
     | '/_authenticated/projetos/$id/plano'
+    | '/_authenticated/projetos/importacoes/$id'
     | '/_authenticated/projetos/$id/plano/$planoId/chapa/$chapaId/cnc'
   fileRoutesById: FileRoutesById
 }
@@ -452,6 +491,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPecasIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/projetos/importar': {
+      id: '/_authenticated/projetos/importar'
+      path: '/projetos/importar'
+      fullPath: '/projetos/importar'
+      preLoaderRoute: typeof AuthenticatedProjetosImportarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projetos/importacoes': {
+      id: '/_authenticated/projetos/importacoes'
+      path: '/projetos/importacoes'
+      fullPath: '/projetos/importacoes'
+      preLoaderRoute: typeof AuthenticatedProjetosImportacoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/projetos/$id': {
       id: '/_authenticated/projetos/$id'
       path: '/projetos/$id'
@@ -479,6 +532,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/importacoes/$id'
       preLoaderRoute: typeof AuthenticatedImportacoesIdRouteImport
       parentRoute: typeof AuthenticatedImportacoesRoute
+    }
+    '/_authenticated/projetos/importacoes/$id': {
+      id: '/_authenticated/projetos/importacoes/$id'
+      path: '/$id'
+      fullPath: '/projetos/importacoes/$id'
+      preLoaderRoute: typeof AuthenticatedProjetosImportacoesIdRouteImport
+      parentRoute: typeof AuthenticatedProjetosImportacoesRoute
     }
     '/_authenticated/projetos/$id/plano': {
       id: '/_authenticated/projetos/$id/plano'
@@ -577,6 +637,21 @@ const AuthenticatedProjetosIdRouteWithChildren =
     AuthenticatedProjetosIdRouteChildren,
   )
 
+interface AuthenticatedProjetosImportacoesRouteChildren {
+  AuthenticatedProjetosImportacoesIdRoute: typeof AuthenticatedProjetosImportacoesIdRoute
+}
+
+const AuthenticatedProjetosImportacoesRouteChildren: AuthenticatedProjetosImportacoesRouteChildren =
+  {
+    AuthenticatedProjetosImportacoesIdRoute:
+      AuthenticatedProjetosImportacoesIdRoute,
+  }
+
+const AuthenticatedProjetosImportacoesRouteWithChildren =
+  AuthenticatedProjetosImportacoesRoute._addFileChildren(
+    AuthenticatedProjetosImportacoesRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlmoxarifadoRoute: typeof AuthenticatedAlmoxarifadoRoute
   AuthenticatedChapasRoute: typeof AuthenticatedChapasRoute
@@ -593,6 +668,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPecasIdRoute: typeof AuthenticatedPecasIdRouteWithChildren
   AuthenticatedPecasImportarRoute: typeof AuthenticatedPecasImportarRoute
   AuthenticatedProjetosIdRoute: typeof AuthenticatedProjetosIdRouteWithChildren
+  AuthenticatedProjetosImportacoesRoute: typeof AuthenticatedProjetosImportacoesRouteWithChildren
+  AuthenticatedProjetosImportarRoute: typeof AuthenticatedProjetosImportarRoute
   AuthenticatedPecasIndexRoute: typeof AuthenticatedPecasIndexRoute
   AuthenticatedProjetosIndexRoute: typeof AuthenticatedProjetosIndexRoute
 }
@@ -613,6 +690,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPecasIdRoute: AuthenticatedPecasIdRouteWithChildren,
   AuthenticatedPecasImportarRoute: AuthenticatedPecasImportarRoute,
   AuthenticatedProjetosIdRoute: AuthenticatedProjetosIdRouteWithChildren,
+  AuthenticatedProjetosImportacoesRoute:
+    AuthenticatedProjetosImportacoesRouteWithChildren,
+  AuthenticatedProjetosImportarRoute: AuthenticatedProjetosImportarRoute,
   AuthenticatedPecasIndexRoute: AuthenticatedPecasIndexRoute,
   AuthenticatedProjetosIndexRoute: AuthenticatedProjetosIndexRoute,
 }
