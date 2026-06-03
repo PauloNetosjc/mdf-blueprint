@@ -136,6 +136,19 @@ export type BordaExtraida = {
   confianca_parser: "alta" | "media" | "baixa";
 };
 
+export type ResumoParser = {
+  furos_detectados: number;
+  rasgos_detectados: number;
+  bordas_detectadas: number;
+  fita_detectada: boolean;
+  nome_detectado: boolean;
+  medidas_detectadas: boolean;
+  face_5_detectada: boolean;
+  pdf_lido: boolean;
+  codigo_detectado: boolean;
+  total_operacoes: number;
+};
+
 export type ResultadoParserPDF = {
   codigo: CodigoPecaTecnica | null;
   nome_peca: string | null;
@@ -148,7 +161,11 @@ export type ResultadoParserPDF = {
   operacoes: OperacaoExtraida[];
   bordas: BordaExtraida[];
   logs: string[];
+  /** Erros críticos — impedem o cadastro útil da peça. */
   erros: string[];
+  /** Alertas — peça foi cadastrada, mas com observações não críticas. */
+  alertas: string[];
+  resumo: ResumoParser;
   dados_brutos: Record<string, unknown>;
 };
 
