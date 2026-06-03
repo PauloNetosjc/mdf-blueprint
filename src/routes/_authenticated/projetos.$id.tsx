@@ -443,6 +443,26 @@ function PecasTab({
   );
 }
 
+function InpInt({ value, onSave, min, invalid }: { value: number; onSave: (v: number) => void; min?: number; invalid?: boolean }) {
+  const [v, setV] = useState(String(value));
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      step={1}
+      min={min ?? 0}
+      className={`h-8 w-full text-right font-mono text-xs ${invalid ? "border-destructive" : ""}`}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < (min ?? 0)) { setV(String(value)); return; }
+        if (n !== value) onSave(n);
+      }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+    />
+  );
+}
 
 function Inp({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [v, setV] = useState(value);
