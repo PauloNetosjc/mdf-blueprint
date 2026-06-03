@@ -377,14 +377,22 @@ function ChapaCNCPage() {
 
           {versoes && versoes.length > 0 && (
             <Card className="p-3">
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Versões</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Histórico de versões</h3>
               <div className="space-y-1">
-                {versoes.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between border-b border-border/40 py-1 text-[11px]">
-                    <span>{v.nome_arquivo}</span>
-                    <Badge variant="outline">{v.status}</Badge>
-                  </div>
-                ))}
+                {versoes.map((v) => {
+                  const sh = (v as { status_homologacao?: string }).status_homologacao ?? v.status;
+                  return (
+                    <div key={v.id} className="border-b border-border/40 py-1 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono">v{v.versao} · {v.nome_arquivo}</span>
+                        <Badge variant="outline">{STATUS_HOMOLOGACAO_LABELS[sh] ?? sh}</Badge>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(v.criado_em).toLocaleString()} · {v.validado_por ?? "—"}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           )}
