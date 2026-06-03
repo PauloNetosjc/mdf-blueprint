@@ -144,7 +144,7 @@ function ImportacaoDetalhe() {
     <div className="flex h-full flex-col bg-background">
       <header className="border-b border-border-strong bg-panel px-6 py-4">
         <div className="flex items-center gap-3">
-          <Link to="/importacoes"><Button size="icon" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
+          <Link to="/projetos/importacoes"><Button size="icon" variant="ghost"><ArrowLeft className="h-4 w-4" /></Button></Link>
           <div className="flex-1">
             <h1 className="text-lg font-semibold">{imp.projeto_detectado ?? imp.nome_arquivo}</h1>
             <p className="text-xs text-muted-foreground">

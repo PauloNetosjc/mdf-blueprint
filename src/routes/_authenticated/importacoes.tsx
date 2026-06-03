@@ -682,7 +682,7 @@ function ListaImportacoes() {
               <td className="p-2 text-xs">{i.cliente_detectado ?? "—"}</td>
               <td className="p-2"><StatusBadge status={i.status} /></td>
               <td className="p-2 text-right">
-                <Link to="/importacoes/$id" params={{ id: i.id }}>
+                <Link to="/projetos/importacoes/$id" params={{ id: i.id }}>
                   <Button size="sm" variant="ghost"><Eye className="h-4 w-4" /></Button>
                 </Link>
                 <Button size="sm" variant="ghost" onClick={() => { if (confirm("Excluir importação? O projeto será preservado.")) remover.mutate(i.id); }}>
