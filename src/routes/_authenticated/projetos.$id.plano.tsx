@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   ArrowLeft, Cpu, Maximize2, MousePointer2, Move, RotateCw, Trash2, Plus, Save,
-  AlertTriangle, RefreshCw, Tag,
+  AlertTriangle, RefreshCw, Tag, Image as ImageIcon, Download, FileArchive,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
