@@ -509,6 +509,7 @@ function PecasCadastradasPage() {
     if (falhasUpload) toast.warning(`${falhasUpload} PDFs não foram enviados, mas os dados estruturados foram salvos.`);
     else toast.success("PDFs enviados em segundo plano.");
     qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+    qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
   }
 
   async function handleZip(zipFile: File) {
