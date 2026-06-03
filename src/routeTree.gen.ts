@@ -51,11 +51,6 @@ const AuthenticatedMaquinaRoute = AuthenticatedMaquinaRouteImport.update({
   path: '/maquina',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedProducaoRoute = AuthenticatedProducaoRouteImport.update({
-  id: '/producao',
-  path: '/producao',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedFitasRoute = AuthenticatedFitasRouteImport.update({
   id: '/fitas',
   path: '/fitas',
