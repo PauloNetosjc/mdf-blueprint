@@ -254,7 +254,8 @@ function EtiquetasPage() {
           numero_chapa: p.numero_chapa,
           indice_peca: p.indice,
           codigo_barras: p.codigo,
-          conteudo_json: p.conteudo as unknown as Record<string, unknown>,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          conteudo_json: p.conteudo as any,
           status_impressao: "gerada",
         }));
       if (novas.length === 0) return 0;
