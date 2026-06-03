@@ -147,7 +147,7 @@ export function calcularPlanoCorte(
   };
 }
 
-function empacotarShelf(items: Item[], chapa: Chapa) {
+function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT) {
   const W = chapa.largura;
   const H = chapa.altura;
   const posicionadas: PecaPosicionada[] = [];
