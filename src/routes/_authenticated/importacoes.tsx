@@ -196,8 +196,19 @@ function NovaImportacao() {
 
       // Faz upload dos arquivos e registra metadados
       setProgresso("Enviando arquivos técnicos...");
-      const arquivosImp: any[] = [];
-      const arquivosTec: any[] = [];
+      type ImpArqRow = {
+        importacao_id: string; nome_arquivo: string; caminho_original: string;
+        tipo_arquivo: string | null; origem_pasta: string | null;
+        status_leitura: string; storage_url?: string;
+        metadados_json: Record<string, unknown>;
+      };
+      type ArqTecRow = {
+        projeto_id: string; chapa_id: string | null; importacao_id: string;
+        origem_pasta: string; tipo_arquivo: string; nome_arquivo: string;
+        storage_url: string; dados_extraidos_json: Record<string, unknown>;
+      };
+      const arquivosImp: ImpArqRow[] = [];
+      const arquivosTec: ArqTecRow[] = [];
       let i = 0;
       for (const a of arquivos) {
         i += 1;
