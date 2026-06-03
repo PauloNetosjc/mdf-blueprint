@@ -239,7 +239,10 @@ function FluxoProjeto() {
         {projeto?.status && <StatusBadge status={projeto.status} />}
       </header>
 
+      <ProjetoNav projetoId={id} />
+
       <div className="flex-1 overflow-auto p-6">
+
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando fluxo…</p>
         ) : (
