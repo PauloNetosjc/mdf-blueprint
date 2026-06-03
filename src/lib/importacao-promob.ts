@@ -273,14 +273,16 @@ function textAfterColon(linha: string): string | null {
   return idx >= 0 ? linha.slice(idx + 1).trim() : null;
 }
 
-function parseDimensaoCompleta(texto: string): { largura: number; altura: number; espessura: number } | null {
+function parseDimensaoCompleta(texto: string, ordenarChapa = false): { largura: number; altura: number; espessura: number } | null {
   const m = texto.match(/([\d,.]+)\s*x\s*([\d,.]+)\s*x\s*([\d,.]+)/i);
   if (!m) return null;
   const a = numeroPtBr(m[1]);
   const b = numeroPtBr(m[2]);
   const espessura = numeroPtBr(m[3]);
   if (![a, b, espessura].every(Number.isFinite)) return null;
-  return { largura: Math.max(a, b), altura: Math.min(a, b), espessura };
+  return ordenarChapa
+    ? { largura: Math.max(a, b), altura: Math.min(a, b), espessura }
+    : { largura: a, altura: b, espessura };
 }
 
 export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<ListaCorteCoordinateResult> {
@@ -356,7 +358,7 @@ export async function parseListaCortePdfByCoordinates(blob: Blob): Promise<Lista
         }
         if (/material\s*:/i.test(linha.texto)) chapaAtual.material = textAfterColon(linha.texto);
         if (/dimens[aã]o\s*:/i.test(linha.texto)) {
-          const dim = parseDimensaoCompleta(linha.texto);
+          const dim = parseDimensaoCompleta(linha.texto, true);
           if (dim) Object.assign(chapaAtual, dim);
         }
         if (/pe[cç]as\s*:/i.test(linha.texto)) chapaAtual.pecas = Number(linha.texto.match(/pe[cç]as\s*:\s*(\d+)/i)?.[1] ?? NaN) || null;
