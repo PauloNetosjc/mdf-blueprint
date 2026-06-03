@@ -429,7 +429,7 @@ function NovaImportacao() {
       if (!rows.length) return [] as any[];
       const inserted: any[] = [];
       for (let k = 0; k < rows.length; k += lote) {
-        const { data, error } = await (supabase.from(tabela as never) as any)
+        const { data, error } = await (supabase as any).from(tabela)
           .insert(rows.slice(k, k + lote) as never)
           .select();
         if (error) throw new Error(`${label}: ${error.message}`);
