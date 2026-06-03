@@ -198,25 +198,6 @@ function ChapaCNCPage() {
     else toast.success(`G-code gerado (${v.avisos} aviso(s))`);
   };
 
-  const salvar = useMutation({
-    mutationFn: async (status: "rascunho" | "validado" | "exportado") => {
-      if (!resultado) throw new Error("Gere o G-code antes");
-      const { error } = await supabase.from("previews_cnc_chapas").insert({
-        projeto_id: id, plano_id: planoId, plano_chapa_id: chapaId,
-        chapa_id: planoChapa?.chapa_id, maquina_id: maquina?.id,
-        nome_arquivo: resultado.nome_arquivo, conteudo: resultado.codigo,
-        parametros_json: params as never,
-        validacoes_json: resultado.validacoes as never,
-        status,
-        validado_por: status !== "rascunho" ? responsavel : null,
-        validado_em: status !== "rascunho" ? new Date().toISOString() : null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => toast.success("Versão salva"),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const { data: versoes, refetch: refetchVersoes } = useQuery({
     queryKey: ["previews-cnc-chapa", chapaId],
     queryFn: async () => {
@@ -226,12 +207,66 @@ function ChapaCNCPage() {
     },
   });
 
+  const proximaVersao = (versoes?.[0]?.versao ?? 0) + 1;
+
+  const salvar = useMutation({
+    mutationFn: async (status_homologacao: "rascunho" | "gerado" | "em_analise" | "aprovado" | "reprovado" | "exportado") => {
+      if (!resultado) throw new Error("Gere o G-code antes");
+      if (status_homologacao === "aprovado") {
+        if (!responsavel.trim()) throw new Error("Informe o responsável técnico");
+        if (!checklistCompleto(checklist)) throw new Error("Complete o checklist técnico");
+      }
+      const now = new Date().toISOString();
+      const payload: Record<string, unknown> = {
+        projeto_id: id, plano_id: planoId, plano_chapa_id: chapaId,
+        chapa_id: planoChapa?.chapa_id, maquina_id: maquina?.id,
+        nome_arquivo: resultado.nome_arquivo, conteudo: resultado.codigo,
+        parametros_json: params as never,
+        validacoes_json: resultado.validacoes as never,
+        status: status_homologacao,
+        status_homologacao,
+        versao: proximaVersao,
+        checklist_json: checklist as never,
+        observacao_homologacao: observacao || null,
+        validado_por: status_homologacao !== "rascunho" ? responsavel || null : null,
+        validado_em: status_homologacao !== "rascunho" ? now : null,
+      };
+      if (status_homologacao === "aprovado") {
+        payload.aprovado_por = responsavel; payload.aprovado_em = now;
+      }
+      if (status_homologacao === "reprovado") {
+        payload.reprovado_por = responsavel; payload.reprovado_em = now;
+      }
+      const { data: ins, error } = await supabase.from("previews_cnc_chapas").insert(payload as never).select().single();
+      if (error) throw error;
+      await registrarAuditoria({
+        acao: `gcode_${status_homologacao}`, entidade_tipo: "previews_cnc_chapas",
+        entidade_id: ins?.id, projeto_id: id, chapa_id: planoChapa?.chapa_id, plano_id: planoId,
+        operador: responsavel || null, observacao,
+        dados_depois: { versao: proximaVersao, status: status_homologacao },
+      });
+    },
+    onSuccess: () => toast.success("Versão salva"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   useEffect(() => { if (!salvar.isPending) refetchVersoes(); }, [salvar.isPending, refetchVersoes]);
 
-  const baixar = () => {
+  const ultimaAprovada = useMemo(
+    () => (versoes ?? []).find((v) => ["aprovado", "exportado", "enviado_maquina"].includes((v as { status_homologacao?: string }).status_homologacao ?? "")),
+    [versoes],
+  );
+
+  const baixar = async () => {
     if (!resultado) return;
     const v = validateSheetGCode(resultado);
     if (v.erros > 0) { toast.error("Existem erros críticos"); return; }
+    if (!maquina) { toast.error("Selecione uma máquina"); return; }
+    if (!params.ferramenta_corte_id) { toast.error("Defina a ferramenta de corte"); return; }
+    if (!ultimaAprovada) {
+      toast.error("Esta chapa não tem versão aprovada. Aprove antes de exportar.");
+      return;
+    }
     if (!confirmou || !responsavel.trim()) { toast.error("Confirme a validação técnica e informe o responsável"); return; }
     const blob = new Blob([resultado.codigo], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
