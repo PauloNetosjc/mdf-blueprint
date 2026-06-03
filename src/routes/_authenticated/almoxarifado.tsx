@@ -652,8 +652,8 @@ function FaltasTab() {
           <tbody>
             {(faltas ?? []).map((f) => (
               <tr key={f.id} className="border-t border-border bg-destructive/5">
-                <td className="p-2">{f.projetos?.nome ?? "—"}</td>
-                <td className="p-2 text-xs text-muted-foreground">{f.projetos?.cliente ?? "—"}</td>
+                <td className="p-2">{f.projeto?.nome ?? "—"}</td>
+                <td className="p-2 text-xs text-muted-foreground">{f.projeto?.cliente ?? "—"}</td>
                 <td className="p-2 font-mono text-xs">{f.referencia ?? "—"}</td>
                 <td className="p-2">{f.descricao}</td>
                 <td className="p-2 text-right font-mono">{Number(f.quantidade).toFixed(2)} {f.unidade}</td>
