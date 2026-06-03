@@ -812,7 +812,7 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
   );
 }
 
-const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNode }> = {
   ok: { label: "OK", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", icon: null },
   com_alertas: { label: "Alertas", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
   pendente_revisao: { label: "Revisão", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
