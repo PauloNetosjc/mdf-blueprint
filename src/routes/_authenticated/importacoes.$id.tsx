@@ -290,6 +290,14 @@ function ImportacaoDetalhe() {
             rows={(almox.data ?? []).map((a) => [a.referencia ?? "—", a.descricao, a.quantidade, a.unidade, a.status])} />
         </TabsContent>
 
+        <TabsContent value="analise" className="flex-1 overflow-auto p-6 pt-3">
+          <AnaliseTecnicaTab importacaoId={id} projetoId={projetoId} />
+        </TabsContent>
+
+        <TabsContent value="pendencias" className="flex-1 overflow-auto p-6 pt-3">
+          <PendenciasTab importacaoId={id} projetoId={projetoId} />
+        </TabsContent>
+
         <TabsContent value="erros" className="flex-1 overflow-auto p-6 pt-3">
           {(imp.erros_json ?? []).length === 0 ? (
             <div className="rounded border border-dashed p-12 text-center text-muted-foreground">Nenhum erro.</div>
