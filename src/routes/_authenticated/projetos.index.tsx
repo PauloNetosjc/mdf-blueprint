@@ -43,6 +43,7 @@ function ProjetosPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [filtro, setFiltro] = useState<string>("todos");
+  const [busca, setBusca] = useState<string>("");
   const [form, setForm] = useState({ nome: "", cliente: "", ambiente: "", observacao: "" });
 
   const { data: projetos } = useQuery({
