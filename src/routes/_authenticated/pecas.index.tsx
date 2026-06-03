@@ -87,6 +87,12 @@ function PecasList() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
+            <Link to="/pecas/cadastradas">
+              <FileText className="mr-2 h-4 w-4" />
+              Peças Cadastradas
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link to="/pecas/importar">
               <Upload className="mr-2 h-4 w-4" />
               Importar PDF / imagem
