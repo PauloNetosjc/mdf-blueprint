@@ -1058,6 +1058,133 @@ export type Database = {
           },
         ]
       }
+      peca_cadastrada_bordas: {
+        Row: {
+          criado_em: string
+          espessura: number | null
+          fita_codigo: string | null
+          fita_descricao: string | null
+          id: string
+          lado: string
+          observacao: string | null
+          peca_cadastrada_id: string
+          tem_fita: boolean
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string
+          espessura?: number | null
+          fita_codigo?: string | null
+          fita_descricao?: string | null
+          id?: string
+          lado: string
+          observacao?: string | null
+          peca_cadastrada_id: string
+          tem_fita?: boolean
+          user_id?: string
+        }
+        Update: {
+          criado_em?: string
+          espessura?: number | null
+          fita_codigo?: string | null
+          fita_descricao?: string | null
+          id?: string
+          lado?: string
+          observacao?: string | null
+          peca_cadastrada_id?: string
+          tem_fita?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peca_cadastrada_bordas_peca_cadastrada_id_fkey"
+            columns: ["peca_cadastrada_id"]
+            isOneToOne: false
+            referencedRelation: "pecas_cadastradas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      peca_cadastrada_operacoes: {
+        Row: {
+          ancora_x: string | null
+          ancora_y: string | null
+          comprimento: number | null
+          confianca: string | null
+          criado_em: string
+          dados_brutos: Json
+          diametro: number | null
+          face: number
+          id: string
+          largura: number | null
+          observacao: string | null
+          offset_x: number | null
+          offset_y: number | null
+          ordem: number | null
+          peca_cadastrada_id: string
+          profundidade: number | null
+          tipo: string
+          user_id: string
+          x: number | null
+          y: number | null
+          z: number | null
+        }
+        Insert: {
+          ancora_x?: string | null
+          ancora_y?: string | null
+          comprimento?: number | null
+          confianca?: string | null
+          criado_em?: string
+          dados_brutos?: Json
+          diametro?: number | null
+          face?: number
+          id?: string
+          largura?: number | null
+          observacao?: string | null
+          offset_x?: number | null
+          offset_y?: number | null
+          ordem?: number | null
+          peca_cadastrada_id: string
+          profundidade?: number | null
+          tipo: string
+          user_id?: string
+          x?: number | null
+          y?: number | null
+          z?: number | null
+        }
+        Update: {
+          ancora_x?: string | null
+          ancora_y?: string | null
+          comprimento?: number | null
+          confianca?: string | null
+          criado_em?: string
+          dados_brutos?: Json
+          diametro?: number | null
+          face?: number
+          id?: string
+          largura?: number | null
+          observacao?: string | null
+          offset_x?: number | null
+          offset_y?: number | null
+          ordem?: number | null
+          peca_cadastrada_id?: string
+          profundidade?: number | null
+          tipo?: string
+          user_id?: string
+          x?: number | null
+          y?: number | null
+          z?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peca_cadastrada_operacoes_peca_cadastrada_id_fkey"
+            columns: ["peca_cadastrada_id"]
+            isOneToOne: false
+            referencedRelation: "pecas_cadastradas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       peca_operacoes_importadas: {
         Row: {
           arquivo_tecnico_id: string | null
@@ -1186,6 +1313,60 @@ export type Database = {
           nome?: string
           status?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pecas_cadastradas: {
+        Row: {
+          altura_ref: number | null
+          atualizado_em: string
+          codigo: string
+          criado_em: string
+          espessura_ref: number | null
+          id: string
+          largura_ref: number | null
+          metadados_json: Json
+          nome: string | null
+          observacao: string | null
+          origem: string | null
+          pdf_nome: string | null
+          pdf_url: string | null
+          tipo_peca: string | null
+          user_id: string
+        }
+        Insert: {
+          altura_ref?: number | null
+          atualizado_em?: string
+          codigo: string
+          criado_em?: string
+          espessura_ref?: number | null
+          id?: string
+          largura_ref?: number | null
+          metadados_json?: Json
+          nome?: string | null
+          observacao?: string | null
+          origem?: string | null
+          pdf_nome?: string | null
+          pdf_url?: string | null
+          tipo_peca?: string | null
+          user_id?: string
+        }
+        Update: {
+          altura_ref?: number | null
+          atualizado_em?: string
+          codigo?: string
+          criado_em?: string
+          espessura_ref?: number | null
+          id?: string
+          largura_ref?: number | null
+          metadados_json?: Json
+          nome?: string | null
+          observacao?: string | null
+          origem?: string | null
+          pdf_nome?: string | null
+          pdf_url?: string | null
+          tipo_peca?: string | null
           user_id?: string
         }
         Relationships: []
