@@ -169,7 +169,7 @@ export function ListaComprasTab({ projetoId }: { projetoId: string }) {
 
   const setStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const patch: Record<string, unknown> = { status };
+      const patch: { status: string; separado_em?: string } = { status };
       if (status === "separado") patch.separado_em = new Date().toISOString();
       const { error } = await supabase.from("projeto_almoxarifado_itens").update(patch).eq("id", id);
       if (error) throw error;
