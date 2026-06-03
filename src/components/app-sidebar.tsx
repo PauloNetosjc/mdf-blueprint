@@ -1,11 +1,10 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Package,
   Wrench,
   Cog,
   AlertTriangle,
-  LogOut,
   FolderKanban,
   Layers,
   Tag,
@@ -16,7 +15,6 @@ import {
   GitCompare,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -36,11 +34,8 @@ const items = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
-  };
+
+
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border-strong bg-panel">
@@ -76,12 +71,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="border-t border-border-strong p-3">
-        <button
-          onClick={handleLogout}
-          className="mb-3 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-        >
-          <LogOut className="h-3.5 w-3.5" /> Sair
-        </button>
+
         <div className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
           <span>
