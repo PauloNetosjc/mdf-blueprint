@@ -330,16 +330,69 @@ function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
 function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   const ops: OperacaoExtraida[] = [];
   const faceCtx = extrairFacesPorContexto(linhas);
-  let modo: "furo" | "rasgo" | null = null;
+  let modo: "furo" | "rasgo" | "usinagem" | null = null;
   let ordem = 0;
+  let usinagemAtual: OperacaoExtraida | null = null;
+  let ordemPonto = 0;
+
+  const flushUsinagem = () => {
+    if (usinagemAtual && usinagemAtual.pontos.length > 0) {
+      ops.push(usinagemAtual);
+    }
+    usinagemAtual = null;
+    ordemPonto = 0;
+  };
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const t = linha.texto.toLowerCase();
 
-    if (/\bfura(c|ç)(a|õ|o)e?s?\b/.test(t)) modo = "furo";
-    else if (/\brasgo?s?\b/.test(t)) modo = "rasgo";
-    else if (/\businage(m|ns)\b|\brebaixo\b|\bcanal\b/.test(t)) modo = "furo"; // tratado como op genérica abaixo
+    // Detecta cabeçalhos de seção
+    const mUsin = linha.texto.match(
+      /\b(usinagem\s*param[eé]trica\s*\d*|usinagem|contorno)\b\s*[-–:]?\s*([A-Za-zÀ-ÿ0-9 .\-]*)/i,
+    );
+    if (mUsin && /usinagem|contorno/i.test(linha.texto) && !isNumericCells(linha.cels)) {
+      flushUsinagem();
+      modo = "usinagem";
+      const face = faceCtx.get(i) || null;
+      const isContorno = /contorno/i.test(linha.texto);
+      usinagemAtual = {
+        tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
+        nome_operacao: linha.texto.replace(/\s+/g, " ").trim().slice(0, 120),
+        face,
+        x: null,
+        y: null,
+        z: null,
+        diametro: null,
+        profundidade: null,
+        largura: null,
+        comprimento: null,
+        x1: null,
+        x2: null,
+        y1: null,
+        y2: null,
+        ordem: ordem++,
+        ancora_x: null,
+        ancora_y: null,
+        offset_x: null,
+        offset_y: null,
+        pontos: [],
+        confianca_parser: "alta",
+        dados_brutos: { cabecalho: linha.texto },
+      };
+      continue;
+    }
+
+    if (/\bfura(c|ç)(a|õ|o)e?s?\b/.test(t)) {
+      flushUsinagem();
+      modo = "furo";
+      continue;
+    }
+    if (/\brasgo?s?\b/.test(t)) {
+      flushUsinagem();
+      modo = "rasgo";
+      continue;
+    }
 
     if (!modo) continue;
     if (!isNumericCells(linha.cels)) continue;
@@ -349,13 +402,13 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       .filter((v): v is number => v != null);
     if (valores.length < 2) continue;
 
-    const face = faceCtx.get(i) || null;
+    const face = faceCtx.get(i) || (usinagemAtual?.face ?? null);
 
     if (modo === "furo") {
-      // Esperado X Y Diam Prof (4 colunas); às vezes só 2 ou 3.
       const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
       ops.push({
         tipo_operacao: "furo",
+        nome_operacao: null,
         face,
         x,
         y,
@@ -373,11 +426,11 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         ancora_y: null,
         offset_x: null,
         offset_y: null,
+        pontos: [],
         confianca_parser: valores.length >= 4 ? "alta" : "media",
         dados_brutos: { linha: linha.texto, valores },
       });
     } else if (modo === "rasgo") {
-      // Y X1 X2 Larg Prof — 5 colunas
       if (valores.length < 4) continue;
       const [y, x1, x2, larg, prof] = [
         valores[0],
@@ -388,6 +441,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       ];
       ops.push({
         tipo_operacao: "rasgo",
+        nome_operacao: null,
         face,
         x: (x1 + x2) / 2,
         y,
@@ -405,11 +459,28 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         ancora_y: null,
         offset_x: null,
         offset_y: null,
+        pontos: [],
         confianca_parser: valores.length >= 5 ? "alta" : "media",
         dados_brutos: { linha: linha.texto, valores },
       });
+    } else if (modo === "usinagem" && usinagemAtual) {
+      // X, Y, Profundidade [+ rótulo "Ponto Inicial/Final" no texto]
+      const [x, y, prof] = [valores[0], valores[1], valores[2] ?? null];
+      const rotuloMatch = linha.texto.match(/ponto\s+(inicial|final|intermedi[aá]rio)/i);
+      usinagemAtual.pontos.push({
+        x,
+        y,
+        profundidade: prof,
+        tipo: rotuloMatch ? `Ponto ${rotuloMatch[1]}` : null,
+        ordem: ordemPonto++,
+      });
+      // Profundidade representativa: a mais profunda dos pontos
+      if (prof != null && (usinagemAtual.profundidade == null || prof > usinagemAtual.profundidade)) {
+        usinagemAtual.profundidade = prof;
+      }
     }
   }
+  flushUsinagem();
   return ops;
 }
 
