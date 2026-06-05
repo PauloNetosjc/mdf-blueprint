@@ -547,7 +547,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                     {o.tipo_operacao === "rasgo"
-                      ? `Y${o.y ?? "?"} X[${o.x1 ?? "?"}→${o.x2 ?? "?"}]`
+                      ? `Y${o.y ?? "?"} X1 ${o.x1 ?? "?"} X2 ${o.x2 ?? "?"} Larg ${o.largura ?? "?"} Prof ${o.profundidade ?? "?"}`
                       : `X${o.x ?? "?"} Y${o.y ?? "?"}${o.diametro ? ` Ø${o.diametro}` : ""}`}
                   </div>
                 </button>
