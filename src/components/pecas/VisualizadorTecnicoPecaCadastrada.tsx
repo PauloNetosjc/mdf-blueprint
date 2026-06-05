@@ -503,16 +503,26 @@ export function VisualizadorTecnicoPecaCadastrada({
                 ))}
               </g>
 
-              {/* Peça */}
-              <rect
-                x={margin}
-                y={margin}
-                width={partW}
-                height={partH}
-                fill="var(--color-surface)"
-                stroke="var(--color-foreground)"
-                strokeWidth={px(1.5)}
-              />
+              {/* Peça (com contornos externos integrados ao formato) */}
+              {piecePathD ? (
+                <path
+                  d={piecePathD}
+                  fill="var(--color-surface)"
+                  stroke="var(--color-foreground)"
+                  strokeWidth={px(1.5)}
+                  strokeLinejoin="miter"
+                />
+              ) : (
+                <rect
+                  x={margin}
+                  y={margin}
+                  width={partW}
+                  height={partH}
+                  fill="var(--color-surface)"
+                  stroke="var(--color-foreground)"
+                  strokeWidth={px(1.5)}
+                />
+              )}
 
               {/* Face de alinhamento */}
               {faceSel === "0" && faceAlinhamento && (
