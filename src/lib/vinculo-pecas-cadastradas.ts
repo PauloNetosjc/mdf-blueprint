@@ -13,6 +13,7 @@ import { parseTechnicalPartCode, getTipoPecaPorPrefixo } from "@/lib/pecas-cadas
 export type ProjetoPecaRow = {
   id: string;
   projeto_id: string;
+  peca_id: string | null;
   descricao: string;
   largura: number;
   altura: number;
