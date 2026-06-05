@@ -825,6 +825,11 @@ function PecasCadastradasPage() {
             <SelectItem value="com_usinagens">Com usinagens</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
             <SelectItem value="sem_bordas">Sem bordas</SelectItem>
+            <SelectItem value="geo_contorno">Geometria: contorno detectado</SelectItem>
+            <SelectItem value="geo_retangular">Geometria: retangular</SelectItem>
+            <SelectItem value="geo_fallback">Geometria: fallback 65×40</SelectItem>
+            <SelectItem value="geo_manual">Geometria: manual / mista</SelectItem>
+            <SelectItem value="geo_pendente">Geometria: pendente</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
