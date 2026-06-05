@@ -116,12 +116,9 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo }: Props) {
     return "indisponivel";
   }, [signed.isLoading, loadingBlob, blobUrl, blobError, url]);
 
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useEffect(() => {
-      console.log("[PDF] modo de exibição:", exibicao);
-    }, [exibicao]);
-  }
+  useEffect(() => {
+    if (import.meta.env.DEV) console.log("[PDF] modo de exibição:", exibicao);
+  }, [exibicao]);
 
   return (
     <div className="rounded border border-border bg-surface">
