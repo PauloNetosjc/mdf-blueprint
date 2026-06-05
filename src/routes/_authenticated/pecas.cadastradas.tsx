@@ -593,10 +593,21 @@ function PecasCadastradasPage() {
   // Debounce busca (~200ms) via useDeferredValue para não travar a digitação.
   const buscaDeferred = useDeferredValue(busca);
 
+  // Status que NÃO devem aparecer na visão padrão (peças ativas).
+  const STATUS_INATIVOS = new Set(["ignorado_modulo", "pendente_classificacao"]);
+
   const filtradas = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
     return pecas.filter((p) => {
       const c = getCont(p.id);
+      // Visão padrão (Todas/Divisórias/etc.) esconde módulos ignorados e pendentes
+      // de classificação — só aparecem nos filtros dedicados.
+      const filtrosInativos = new Set([
+        "ignorado_modulo",
+        "pendente_classificacao",
+      ]);
+      if (!filtrosInativos.has(filtro) && STATUS_INATIVOS.has(p.status_parser)) return false;
+
       if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
       if (filtro === "com_fita" && !p.fita_ref) return false;
       if (filtro === "com_furos" && c.furos === 0) return false;
@@ -608,6 +619,8 @@ function PecasCadastradasPage() {
       if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
       if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
       if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+      if (filtro === "ignorado_modulo" && p.status_parser !== "ignorado_modulo") return false;
+      if (filtro === "pendente_classificacao" && p.status_parser !== "pendente_classificacao") return false;
       if (filtro === "ok" && p.status_parser !== "ok") return false;
       if (!q) return true;
       return (
