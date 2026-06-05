@@ -130,70 +130,106 @@ function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): bool
   return pts.some((p) => edgeOf(p, W, H) !== null);
 }
 
-/**
- * Constrói o contorno real da peça a partir do retângulo base + entalhes (notches)
- * cujos pontos inicial e final tocam a mesma borda da peça.
- * Retorna pontos em coordenadas REAIS (Y para cima).
- */
-function buildPiecePolygon(W: number, H: number, notches: Pt[][]): Pt[] {
-  const byEdge: Record<"bottom" | "right" | "top" | "left", { order: number; pts: Pt[] }[]> = {
-    bottom: [], right: [], top: [], left: [],
-  };
-  for (const raw of notches) {
-    if (raw.length < 2) continue;
-    const a = raw[0];
-    const b = raw[raw.length - 1];
-    const ea = edgeOf(a, W, H);
-    const eb = edgeOf(b, W, H);
-    if (!ea || ea !== eb) continue;
-    let pts = raw.slice();
-    if (ea === "bottom") {
-      if (a.x > b.x) pts = pts.reverse();
-      byEdge.bottom.push({ order: pts[0].x, pts });
-    } else if (ea === "right") {
-      if (a.y > b.y) pts = pts.reverse();
-      byEdge.right.push({ order: pts[0].y, pts });
-    } else if (ea === "top") {
-      if (a.x < b.x) pts = pts.reverse();
-      byEdge.top.push({ order: -pts[0].x, pts });
-    } else {
-      if (a.y < b.y) pts = pts.reverse();
-      byEdge.left.push({ order: -pts[0].y, pts });
-    }
-  }
-  (Object.keys(byEdge) as Array<keyof typeof byEdge>).forEach((k) =>
-    byEdge[k].sort((x, y) => x.order - y.order),
-  );
-  const out: Pt[] = [];
-  out.push({ x: 0, y: 0 });
-  byEdge.bottom.forEach((n) => out.push(...n.pts));
-  out.push({ x: W, y: 0 });
-  byEdge.right.forEach((n) => out.push(...n.pts));
-  out.push({ x: W, y: H });
-  byEdge.top.forEach((n) => out.push(...n.pts));
-  out.push({ x: 0, y: H });
-  byEdge.left.forEach((n) => out.push(...n.pts));
-  return out;
+function samePoint(a: Pt | undefined, b: Pt) {
+  return !!a && Math.abs(a.x - b.x) < EDGE_EPS && Math.abs(a.y - b.y) < EDGE_EPS;
 }
 
-function getPecaOutlinePath({
+function pushPt(out: Pt[], p: Pt) {
+  if (!samePoint(out[out.length - 1], p)) out.push({ x: p.x, y: p.y });
+}
+
+function touchesSameEdge(raw: Pt[], W: number, H: number) {
+  const first = raw[0];
+  const last = raw[raw.length - 1];
+  if (!first || !last) return null;
+  const edge = edgeOf(first, W, H);
+  if (!edge || edgeOf(last, W, H) !== edge) return null;
+  const hasInwardPoint = raw.some((p) => {
+    if (edge === "top") return p.y < H - EDGE_EPS;
+    if (edge === "bottom") return p.y > EDGE_EPS;
+    if (edge === "left") return p.x > EDGE_EPS;
+    return p.x < W - EDGE_EPS;
+  });
+  return hasInwardPoint ? edge : null;
+}
+
+/**
+ * Gera o contorno real da peça em coordenadas técnicas (Y para cima).
+ * Recortes que começam e terminam na mesma borda entram no próprio outline;
+ * usinagens internas ficam fora daqui e continuam desenhadas como operação.
+ */
+function gerarOutlineDaPeca({
   largura,
   altura,
   margem,
-  contornosExternos,
+  operacoesContornoExterno,
 }: {
   largura: number;
   altura: number;
   margem: number;
-  contornosExternos: VisualizadorOperacao[];
+  operacoesContornoExterno: VisualizadorOperacao[];
 }) {
-  const notches = contornosExternos.map(pontosValidosDaOp);
-  const polygon = buildPiecePolygon(largura, altura, notches);
-  const path =
-    polygon
-      .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
-      .join(" ") + " Z";
-  return { path, polygon, temContornoExterno: contornosExternos.length > 0 };
+  type Edge = "bottom" | "right" | "top" | "left";
+  const byEdge: Record<Edge, { order: number; pts: Pt[]; opId: string }[]> = {
+    bottom: [],
+    right: [],
+    top: [],
+    left: [],
+  };
+  const contornoFalhouIds: string[] = [];
+
+  for (const op of operacoesContornoExterno) {
+    const raw = pontosValidosDaOp(op);
+    if (raw.length < 3) {
+      contornoFalhouIds.push(op.id);
+      continue;
+    }
+    const edge = touchesSameEdge(raw, largura, altura);
+    if (!edge) {
+      contornoFalhouIds.push(op.id);
+      continue;
+    }
+    let pts = raw.slice();
+    if (edge === "bottom") {
+      if (pts[0].x > pts[pts.length - 1].x) pts = pts.reverse();
+      byEdge.bottom.push({ order: pts[0].x, pts, opId: op.id });
+    } else if (edge === "right") {
+      if (pts[0].y > pts[pts.length - 1].y) pts = pts.reverse();
+      byEdge.right.push({ order: pts[0].y, pts, opId: op.id });
+    } else if (edge === "top") {
+      if (pts[0].x < pts[pts.length - 1].x) pts = pts.reverse();
+      byEdge.top.push({ order: -pts[0].x, pts, opId: op.id });
+    } else {
+      if (pts[0].y < pts[pts.length - 1].y) pts = pts.reverse();
+      byEdge.left.push({ order: -pts[0].y, pts, opId: op.id });
+    }
+  }
+
+  (Object.keys(byEdge) as Edge[]).forEach((k) => byEdge[k].sort((a, b) => a.order - b.order));
+
+  const polygon: Pt[] = [];
+  pushPt(polygon, { x: 0, y: 0 });
+  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: largura, y: 0 });
+  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: largura, y: altura });
+  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: 0, y: altura });
+  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+
+  const path = polygon
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
+    .join(" ") + " Z";
+  const contornoAplicadoIds = (Object.keys(byEdge) as Edge[]).flatMap((edge) => byEdge[edge].map((n) => n.opId));
+
+  return {
+    path,
+    polygon,
+    temContornoExterno: operacoesContornoExterno.length > 0,
+    temContornoAplicado: contornoAplicadoIds.length > 0,
+    contornoAplicadoIds,
+    contornoFalhouIds,
+  };
 }
 
 function fmt(v: number | string | null | undefined) {
@@ -387,9 +423,11 @@ export function VisualizadorTecnicoPecaCadastrada({
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
   const outline = useMemo(
-    () => getPecaOutlinePath({ largura: partW, altura: partH, margem: margin, contornosExternos }),
+    () => gerarOutlineDaPeca({ largura: partW, altura: partH, margem: margin, operacoesContornoExterno: contornosExternos }),
     [contornosExternos, partW, partH, margin],
   );
+  const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
+  const contornosComFalha = outline.contornoFalhouIds.length > 0;
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
@@ -521,7 +559,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               </g>
 
               {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoExterno ? (
+              {outline.temContornoAplicado ? (
                 <path
                   d={outline.path}
                   fill="var(--color-surface)"
@@ -539,6 +577,23 @@ export function VisualizadorTecnicoPecaCadastrada({
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
                 />
+              )}
+
+              {contornosComFalha && (
+                <g>
+                  <rect
+                    x={margin + px(10)}
+                    y={margin + px(10)}
+                    width={Math.min(px(440), partW - px(20))}
+                    height={px(34)}
+                    fill="var(--color-surface)"
+                    stroke="var(--color-warning)"
+                    strokeWidth={px(1)}
+                  />
+                  <text x={margin + px(20)} y={margin + px(31)} fontSize={px(11)} fill="var(--color-warning)" fontFamily="monospace">
+                    Contorno externo detectado, mas não foi possível aplicar ao formato da peça.
+                  </text>
+                </g>
               )}
 
               {/* Face de alinhamento */}
@@ -676,7 +731,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                     }
                     return null;
                   }
-                  const isContornoExt = contornosExternosIds.has(op.id);
+                  const isContornoExt = contornosAplicadosIds.has(op.id);
                   const d = pts
                     .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x!} ${margin + partH - p.y!}`)
                     .join(" ");
@@ -800,6 +855,10 @@ export function VisualizadorTecnicoPecaCadastrada({
                       <div className="my-1 inline-flex items-center rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                         Contorno externo
                       </div>
+                    )}
+                    {contornosExternosIds.has(opSelObj.id) && <Linha k="Afeta geometria" v="Sim" />}
+                    {Array.isArray(opSelObj.pontos_json) && opSelObj.pontos_json.length > 0 && (
+                      <Linha k="Pontos" v={String(opSelObj.pontos_json.length)} />
                     )}
                     {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
                     <Linha k="Face" v={String(opSelObj.face ?? "—")} />
@@ -1043,6 +1102,7 @@ function GrupoOperacoesFace({
                 <div>
                   {contornosExternosIds?.has(o.id) ? "Tipo: Contorno externo | " : ""}
                   {pontos.length > 0 ? `Pontos: ${pontos.length}` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
+                  {contornosExternosIds?.has(o.id) ? " | Afeta geometria: Sim" : ""}
                   {o.profundidade != null ? ` | Prof ${o.profundidade}` : ""}
                 </div>
               )}
