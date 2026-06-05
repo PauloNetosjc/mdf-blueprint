@@ -125,9 +125,10 @@ function ehTipoOuNomeDeContorno(op: VisualizadorOperacao): boolean {
 
 function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
   if (!ehTipoOuNomeDeContorno(op)) return false;
+  const nome = (op.nome_operacao ?? "").toLowerCase();
   const pts = pontosValidosDaOp(op);
-  if (pts.length < 2) return false;
-  return pts.some((p) => edgeOf(p, W, H) !== null);
+  if (pts.length < 2) return op.tipo_operacao === "contorno" || nome.includes("contorno");
+  return pts.some((p) => edgeOf(p, W, H) !== null) || nome.includes("contorno");
 }
 
 function samePoint(a: Pt | undefined, b: Pt) {
