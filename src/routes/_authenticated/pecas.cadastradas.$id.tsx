@@ -321,6 +321,7 @@ function PecaCadastradaDetalhe() {
       // 2) Re-executa o parser
       const result = await parseTechnicalDrawingPdf(file, `${codigo}.pdf`);
       const { status, motivo } = classificarStatusParser(result);
+      const contornoAtual = lerContornoExterno(peca.data?.dados_brutos_json);
 
       // 3) Atualiza a peça
       const { error: errUp } = await db.from("pecas_cadastradas").update({
@@ -342,7 +343,9 @@ function PecaCadastradaDetalhe() {
           classificacao_sinais: result.classificacao.sinais,
         },
         logs_parser: result.logs,
-        dados_brutos_json: result.dados_brutos,
+        dados_brutos_json: contornoAtual
+          ? { ...result.dados_brutos, contorno_externo_json: contornoAtual }
+          : result.dados_brutos,
       }).eq("id", id);
       if (errUp) throw errUp;
 
