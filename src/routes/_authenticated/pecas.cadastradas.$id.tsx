@@ -44,6 +44,7 @@ type Peca = {
   erros_parser: string[];
   parser_alertas_json: string[] | null;
   resumo_parser_json: Record<string, unknown> | null;
+  dados_brutos_json: Record<string, unknown> | null;
   logs_parser: string[];
 };
 
@@ -294,6 +295,8 @@ function PecaCadastradaDetalhe() {
           </p>
         </div>
       </header>
+
+      <MarcadoresDesenho dados={p.dados_brutos_json} />
 
       {p.erros_parser?.length > 0 && (
         <div className="mb-4 rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
@@ -715,6 +718,52 @@ function SecaoOps({
           <OpRow key={o.id} op={o} onSave={salvar} onDelete={() => apagar(o.id)} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function MarcadoresDesenho({ dados }: { dados: Record<string, unknown> | null }) {
+  if (!dados) return null;
+  const faceAlinhamento = (dados.face_alinhamento as string | null) ?? null;
+  const faceAlinhamentoRegiao = (dados.face_alinhamento_regiao as string | null) ?? null;
+  const indicadores = Array.isArray(dados.indicadores_borda)
+    ? (dados.indicadores_borda as string[])
+    : [];
+  const facesDetectadas = Array.isArray(dados.faces_detectadas)
+    ? (dados.faces_detectadas as string[])
+    : [];
+  const facePrincipal = (dados.face_principal_visual as string | null) ?? null;
+
+  if (!faceAlinhamento && indicadores.length === 0 && facesDetectadas.length === 0 && !facePrincipal) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
+      <span className="font-semibold text-muted-foreground">Marcadores do desenho:</span>
+      {faceAlinhamento && (
+        <Badge variant="outline" className="font-mono">
+          Face de alinhamento: {faceAlinhamento}
+          {faceAlinhamentoRegiao && faceAlinhamentoRegiao !== "desconhecida"
+            ? ` • ${faceAlinhamentoRegiao}`
+            : ""}
+        </Badge>
+      )}
+      {facePrincipal && (
+        <Badge variant="outline" className="font-mono">
+          Face principal: {facePrincipal}
+        </Badge>
+      )}
+      {facesDetectadas.length > 0 && (
+        <Badge variant="outline" className="font-mono">
+          Faces detectadas: {facesDetectadas.join(", ")}
+        </Badge>
+      )}
+      {indicadores.map((m) => (
+        <Badge key={m} variant="secondary" className="font-mono">
+          {m}
+        </Badge>
+      ))}
     </div>
   );
 }

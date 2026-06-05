@@ -557,6 +557,139 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
   });
 }
 
+// ---------- Face de alinhamento, indicadores B e faces visuais ----------
+
+export type FaceAlinhamentoDetectada = {
+  letra: string;
+  regiao: "superior" | "inferior" | "esquerda" | "direita" | "centro" | "desconhecida";
+  pagina: number;
+  x: number;
+  y: number;
+};
+
+export type IndicadorBordaDetectado = {
+  marcador: string;
+  regiao: "superior" | "inferior" | "esquerda" | "direita" | "centro" | "desconhecida";
+  pagina: number;
+  x: number;
+  y: number;
+};
+
+type Regiao = "superior" | "inferior" | "esquerda" | "direita" | "centro" | "desconhecida";
+
+function classificarRegiao(
+  x: number,
+  y: number,
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number },
+): Regiao {
+  const { xMin, xMax, yMin, yMax } = bounds;
+  const w = xMax - xMin;
+  const h = yMax - yMin;
+  if (w <= 0 || h <= 0) return "desconhecida";
+  const nx = (x - xMin) / w;
+  const ny = (y - yMin) / h;
+  const margem = 0.18;
+  const dEsq = nx, dDir = 1 - nx, dInf = ny, dSup = 1 - ny;
+  const min = Math.min(dEsq, dDir, dInf, dSup);
+  if (min > margem) return "centro";
+  if (min === dSup) return "superior";
+  if (min === dInf) return "inferior";
+  if (min === dEsq) return "esquerda";
+  return "direita";
+}
+
+function calcularBounds(itens: Item[]) {
+  if (!itens.length) return { xMin: 0, xMax: 0, yMin: 0, yMax: 0 };
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const it of itens) {
+    if (it.x < xMin) xMin = it.x;
+    if (it.x > xMax) xMax = it.x;
+    if (it.y < yMin) yMin = it.y;
+    if (it.y > yMax) yMax = it.y;
+  }
+  return { xMin, xMax, yMin, yMax };
+}
+
+export function extrairFaceAlinhamento(itens: Item[]): FaceAlinhamentoDetectada | null {
+  const bounds = calcularBounds(itens);
+  const candidatos = itens.filter((it) => /^A$/.test(it.str.trim()));
+  if (!candidatos.length) return null;
+  const cx = (bounds.xMin + bounds.xMax) / 2;
+  const cy = (bounds.yMin + bounds.yMax) / 2;
+  let melhor: Item | null = null;
+  let melhorDist = Infinity;
+  for (const c of candidatos) {
+    const d = Math.hypot(c.x - cx, c.y - cy);
+    if (d < melhorDist) { melhorDist = d; melhor = c; }
+  }
+  if (!melhor) return null;
+  return {
+    letra: "A",
+    regiao: classificarRegiao(melhor.x, melhor.y, bounds),
+    pagina: melhor.pagina,
+    x: melhor.x,
+    y: melhor.y,
+  };
+}
+
+export function extrairIndicadoresBorda(itens: Item[]): IndicadorBordaDetectado[] {
+  const bounds = calcularBounds(itens);
+  const out: IndicadorBordaDetectado[] = [];
+  const seen = new Set<string>();
+  for (const it of itens) {
+    const m = it.str.trim().match(/^B(\d{1,2})$/);
+    if (!m) continue;
+    const marcador = `B${m[1]}`;
+    const key = `${marcador}@${it.pagina}:${Math.round(it.x)}:${Math.round(it.y)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      marcador,
+      regiao: classificarRegiao(it.x, it.y, bounds),
+      pagina: it.pagina,
+      x: it.x,
+      y: it.y,
+    });
+  }
+  out.sort((a, b) => a.marcador.localeCompare(b.marcador, undefined, { numeric: true }));
+  return out;
+}
+
+export function extrairFacesVisuais(linhas: Linha[]): {
+  faces_detectadas: string[];
+  face_principal_visual: string | null;
+} {
+  const faces = new Set<string>();
+  for (const l of linhas) {
+    const matches = l.texto.match(/\b(?:face|lado)\s*([0-5])\b/gi);
+    if (matches) {
+      for (const m of matches) {
+        const n = m.match(/([0-5])/);
+        if (n) faces.add(n[1]);
+      }
+    }
+  }
+  const counts = new Map<string, number>();
+  for (const l of linhas) {
+    const m = l.texto.trim().match(/^([0-5])$/);
+    if (m) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+  }
+  let principal: string | null = null;
+  let max = 0;
+  for (const [face, n] of counts) {
+    if (n > max) { max = n; principal = face; }
+  }
+  return {
+    faces_detectadas: Array.from(faces).sort(),
+    face_principal_visual: principal,
+  };
+}
+
+function regiaoToLado(r: Regiao): BordaExtraida["lado"] {
+  if (r === "superior" || r === "inferior" || r === "esquerda" || r === "direita") return r;
+  return "desconhecido";
+}
+
 function extrairMedidas(linhas: Linha[]): {
   largura: number | null;
   altura: number | null;
@@ -691,7 +824,33 @@ export async function parseTechnicalDrawingPdf(
   logs.push(`Operações detectadas: ${operacoes.length}`);
   operacoes = operacoes.map((op) => inferOperationAnchors(op, medidas.largura, medidas.altura));
   const bordas = extrairBordas(linhas);
+
+  // Face de alinhamento (A), indicadores B1/B2... e faces visuais
+  const faceAlinhamento = extrairFaceAlinhamento(itens);
+  const indicadoresBorda = extrairIndicadoresBorda(itens);
+  const facesVisuais = extrairFacesVisuais(linhas);
+
+  if (faceAlinhamento) {
+    logs.push(`Face de alinhamento: ${faceAlinhamento.letra} (${faceAlinhamento.regiao})`);
+  }
+  if (indicadoresBorda.length) {
+    logs.push(
+      `Indicadores de borda: ${indicadoresBorda.map((b) => `${b.marcador}(${b.regiao})`).join(", ")}`,
+    );
+  }
+
+  // Associa cada indicador B# à borda correspondente (ordem do indicador → ordem da borda).
+  for (let i = 0; i < bordas.length; i++) {
+    const ind = indicadoresBorda[i];
+    if (!ind) break;
+    bordas[i].indicador_desenho = ind.marcador;
+    if (bordas[i].lado === "desconhecido") {
+      bordas[i].lado = regiaoToLado(ind.regiao);
+    }
+  }
+
   if (bordas.length) logs.push(`Bordas detectadas: ${bordas.map((b) => b.codigo_borda).join(", ")}`);
+
 
   const furos = operacoes.filter((o) => o.tipo_operacao === "furo").length;
   const rasgos = operacoes.filter((o) => o.tipo_operacao === "rasgo").length;
@@ -772,7 +931,16 @@ export async function parseTechnicalDrawingPdf(
     erros,
     alertas,
     resumo,
-    dados_brutos: { total_linhas: linhas.length },
+    dados_brutos: {
+      total_linhas: linhas.length,
+      face_alinhamento: faceAlinhamento?.letra ?? null,
+      face_alinhamento_regiao: faceAlinhamento?.regiao ?? null,
+      face_alinhamento_detalhe: faceAlinhamento,
+      indicadores_borda: indicadoresBorda.map((b) => b.marcador),
+      indicadores_borda_detalhe: indicadoresBorda,
+      faces_detectadas: facesVisuais.faces_detectadas,
+      face_principal_visual: facesVisuais.face_principal_visual,
+    },
     classificacao,
   };
 }
