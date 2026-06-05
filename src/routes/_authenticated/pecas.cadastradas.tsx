@@ -592,7 +592,8 @@ function PecasCadastradasPage() {
   }
 
   const cont = contadores.data;
-  const getCont = (id: string) => cont?.get(id) ?? { furos: 0, rasgos: 0, bordas: 0, face5: false };
+  const getCont = (id: string) =>
+    cont?.get(id) ?? { furos: 0, rasgos: 0, usinagens: 0, bordas: 0, face5: false };
 
   const pecas = lista.data ?? [];
 
