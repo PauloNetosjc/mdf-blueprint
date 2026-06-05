@@ -449,7 +449,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       .filter((v): v is number => v != null);
     if (valores.length < 2) continue;
 
-    const face = faceCtx.get(i) || (usinagemAtual?.face ?? null);
+    const face: string | null = faceCtx.get(i) || (usinagemAtual?.face ?? null);
 
     if (modo === "furo") {
       const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
