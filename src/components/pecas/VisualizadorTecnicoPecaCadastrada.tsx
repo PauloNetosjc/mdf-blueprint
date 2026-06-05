@@ -34,6 +34,7 @@ export type NovaOperacaoPayload = {
   x2: number | null;
   largura: number | null;
   comprimento: number | null;
+  pontos_json?: Array<{ x: number | null; y: number | null; profundidade: number | null; tipo?: string | null }> | null;
   observacao?: string | null;
 };
 
@@ -117,14 +118,16 @@ function pontosValidosDaOp(op: VisualizadorOperacao): Pt[] {
     .map((p) => ({ x: p.x, y: p.y }));
 }
 
-function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
-  if (!ehUsinagem(op.tipo_operacao)) return false;
+function ehTipoOuNomeDeContorno(op: VisualizadorOperacao): boolean {
   const nome = (op.nome_operacao ?? "").toLowerCase();
+  return op.tipo_operacao === "contorno" || op.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
+}
+
+function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
+  if (!ehTipoOuNomeDeContorno(op)) return false;
   const pts = pontosValidosDaOp(op);
   if (pts.length < 2) return false;
-  const tocaBorda = pts.some((p) => edgeOf(p, W, H) !== null);
-  const nomeIndica = nome.includes("contorno") || nome.includes("recorte") || nome.includes("rebaixo");
-  return tocaBorda || nomeIndica;
+  return pts.some((p) => edgeOf(p, W, H) !== null);
 }
 
 /**
@@ -171,6 +174,26 @@ function buildPiecePolygon(W: number, H: number, notches: Pt[][]): Pt[] {
   out.push({ x: 0, y: H });
   byEdge.left.forEach((n) => out.push(...n.pts));
   return out;
+}
+
+function getPecaOutlinePath({
+  largura,
+  altura,
+  margem,
+  contornosExternos,
+}: {
+  largura: number;
+  altura: number;
+  margem: number;
+  contornosExternos: VisualizadorOperacao[];
+}) {
+  const notches = contornosExternos.map(pontosValidosDaOp);
+  const polygon = buildPiecePolygon(largura, altura, notches);
+  const path =
+    polygon
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
+      .join(" ") + " Z";
+  return { path, polygon, temContornoExterno: contornosExternos.length > 0 };
 }
 
 function fmt(v: number | string | null | undefined) {
