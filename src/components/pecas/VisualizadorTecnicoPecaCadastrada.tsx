@@ -91,10 +91,86 @@ type Props = {
   onDeleteOperacao?: (id: string) => void | Promise<void>;
 };
 
-const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem"];
+const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
 
 function ehUsinagem(t: string) {
   return TIPO_USINAGEM.includes(t);
+}
+
+type Pt = { x: number; y: number };
+
+const EDGE_EPS = 0.5;
+
+function edgeOf(p: Pt, W: number, H: number): "bottom" | "right" | "top" | "left" | null {
+  if (Math.abs(p.y) < EDGE_EPS) return "bottom";
+  if (Math.abs(p.x - W) < EDGE_EPS) return "right";
+  if (Math.abs(p.y - H) < EDGE_EPS) return "top";
+  if (Math.abs(p.x) < EDGE_EPS) return "left";
+  return null;
+}
+
+function pontosValidosDaOp(op: VisualizadorOperacao): Pt[] {
+  return (op.pontos_json ?? [])
+    .filter((p): p is { x: number; y: number; profundidade: number | null; tipo?: string | null } =>
+      p.x != null && p.y != null,
+    )
+    .map((p) => ({ x: p.x, y: p.y }));
+}
+
+function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
+  if (!ehUsinagem(op.tipo_operacao)) return false;
+  const nome = (op.nome_operacao ?? "").toLowerCase();
+  const pts = pontosValidosDaOp(op);
+  if (pts.length < 2) return false;
+  const tocaBorda = pts.some((p) => edgeOf(p, W, H) !== null);
+  const nomeIndica = nome.includes("contorno") || nome.includes("recorte") || nome.includes("rebaixo");
+  return tocaBorda || nomeIndica;
+}
+
+/**
+ * Constrói o contorno real da peça a partir do retângulo base + entalhes (notches)
+ * cujos pontos inicial e final tocam a mesma borda da peça.
+ * Retorna pontos em coordenadas REAIS (Y para cima).
+ */
+function buildPiecePolygon(W: number, H: number, notches: Pt[][]): Pt[] {
+  const byEdge: Record<"bottom" | "right" | "top" | "left", { order: number; pts: Pt[] }[]> = {
+    bottom: [], right: [], top: [], left: [],
+  };
+  for (const raw of notches) {
+    if (raw.length < 2) continue;
+    const a = raw[0];
+    const b = raw[raw.length - 1];
+    const ea = edgeOf(a, W, H);
+    const eb = edgeOf(b, W, H);
+    if (!ea || ea !== eb) continue;
+    let pts = raw.slice();
+    if (ea === "bottom") {
+      if (a.x > b.x) pts = pts.reverse();
+      byEdge.bottom.push({ order: pts[0].x, pts });
+    } else if (ea === "right") {
+      if (a.y > b.y) pts = pts.reverse();
+      byEdge.right.push({ order: pts[0].y, pts });
+    } else if (ea === "top") {
+      if (a.x < b.x) pts = pts.reverse();
+      byEdge.top.push({ order: -pts[0].x, pts });
+    } else {
+      if (a.y < b.y) pts = pts.reverse();
+      byEdge.left.push({ order: -pts[0].y, pts });
+    }
+  }
+  (Object.keys(byEdge) as Array<keyof typeof byEdge>).forEach((k) =>
+    byEdge[k].sort((x, y) => x.order - y.order),
+  );
+  const out: Pt[] = [];
+  out.push({ x: 0, y: 0 });
+  byEdge.bottom.forEach((n) => out.push(...n.pts));
+  out.push({ x: W, y: 0 });
+  byEdge.right.forEach((n) => out.push(...n.pts));
+  out.push({ x: W, y: H });
+  byEdge.top.forEach((n) => out.push(...n.pts));
+  out.push({ x: 0, y: H });
+  byEdge.left.forEach((n) => out.push(...n.pts));
+  return out;
 }
 
 function fmt(v: number | string | null | undefined) {
