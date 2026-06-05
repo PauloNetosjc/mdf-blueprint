@@ -13,8 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw } from "lucide-react";
+import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes } from "lucide-react";
 import { toast } from "sonner";
+import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeometriaDialog";
+import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
   parseTechnicalDrawingPdf,
   parseTechnicalPartCode,
@@ -65,6 +67,7 @@ type PecaRow = {
   pdf_url: string | null;
   pdf_nome_arquivo: string | null;
   atualizado_em: string;
+  dados_brutos_json: Record<string, unknown> | null;
 };
 
 type ImportProgress = {
@@ -156,6 +159,7 @@ function PecasCadastradasPage() {
   const [progresso, setProgresso] = useState<ImportProgress | null>(null);
   const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
   const [mostrarModulos, setMostrarModulos] = useState(false);
+  const [reprocessOpen, setReprocessOpen] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -650,6 +654,14 @@ function PecasCadastradasPage() {
       if (filtro === "ignorado_modulo" && !isModulo(p)) return false;
       if (filtro === "pendente_classificacao" && p.status_parser !== "pendente_classificacao") return false;
       if (filtro === "ok" && p.status_parser !== "ok") return false;
+      if (filtro.startsWith("geo_")) {
+        const g = statusGeometria(p.dados_brutos_json);
+        if (filtro === "geo_pendente" && g !== "pendente") return false;
+        if (filtro === "geo_retangular" && g !== "retangular") return false;
+        if (filtro === "geo_contorno" && g !== "contorno_pdf") return false;
+        if (filtro === "geo_fallback" && g !== "fallback") return false;
+        if (filtro === "geo_manual" && g !== "manual" && g !== "misto") return false;
+      }
       if (!q) return true;
       return (
         (p.codigo_completo ?? "").toLowerCase().includes(q) ||
@@ -741,6 +753,10 @@ function PecasCadastradasPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Reprocessar erros{arquivosComErro.length ? ` (${arquivosComErro.length})` : ""}
           </Button>
+          <Button variant="outline" onClick={() => setReprocessOpen(true)} disabled={importando}>
+            <Shapes className="mr-2 h-4 w-4" />
+            Reprocessar geometria
+          </Button>
           {ultimoDebug != null ? (
             <Button variant="ghost" size="sm" onClick={baixarDebugJson}>
               Baixar JSON de debug
@@ -809,6 +825,11 @@ function PecasCadastradasPage() {
             <SelectItem value="com_usinagens">Com usinagens</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
             <SelectItem value="sem_bordas">Sem bordas</SelectItem>
+            <SelectItem value="geo_contorno">Geometria: contorno detectado</SelectItem>
+            <SelectItem value="geo_retangular">Geometria: retangular</SelectItem>
+            <SelectItem value="geo_fallback">Geometria: fallback 65×40</SelectItem>
+            <SelectItem value="geo_manual">Geometria: manual / mista</SelectItem>
+            <SelectItem value="geo_pendente">Geometria: pendente</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
@@ -842,6 +863,7 @@ function PecasCadastradasPage() {
               <th className="px-3 py-2 text-center">Usinag.</th>
               <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Geometria</th>
               <th className="px-3 py-2 text-right">Ações</th>
             </tr>
           </thead>
@@ -893,6 +915,9 @@ function PecasCadastradasPage() {
                       {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
                     </div>
                   </td>
+                  <td className="px-3 py-2">
+                    <GeometriaBadge status={statusGeometria(p.dados_brutos_json)} />
+                  </td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button asChild size="sm" variant="outline">
                       <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent">
@@ -905,7 +930,7 @@ function PecasCadastradasPage() {
             })}
             {!filtradas.length && (
               <tr>
-                <td colSpan={13} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={14} className="px-3 py-10 text-center text-muted-foreground">
                   <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   Nenhuma peça encontrada.
                 </td>
@@ -925,7 +950,34 @@ function PecasCadastradasPage() {
           </div>
         )}
       </div>
+
+      <ReprocessarGeometriaDialog
+        open={reprocessOpen}
+        onOpenChange={setReprocessOpen}
+        pecaIds={pecas.filter((p) => !isModulo(p) && p.largura_ref && p.altura_ref).map((p) => p.id)}
+        onConcluido={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+        }}
+      />
     </div>
+  );
+}
+
+const GEO_VARIANT: Record<GeometriaStatus, { label: string; cls: string }> = {
+  contorno_pdf: { label: "Contorno detectado", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  retangular: { label: "Retangular", cls: "border-border bg-surface-2 text-muted-foreground" },
+  fallback: { label: "Fallback 65×40", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  manual: { label: "Manual", cls: "border-primary/40 bg-primary/10 text-primary" },
+  misto: { label: "Misto", cls: "border-primary/40 bg-primary/10 text-primary" },
+  pendente: { label: "Geometria pendente", cls: "border-destructive/40 bg-destructive/10 text-destructive" },
+};
+
+function GeometriaBadge({ status }: { status: GeometriaStatus }) {
+  const v = GEO_VARIANT[status];
+  return (
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-medium ${v.cls}`}>
+      {v.label}
+    </span>
   );
 }
 

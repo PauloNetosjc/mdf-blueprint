@@ -75,7 +75,7 @@ export type VisualizadorBorda = {
   cor: string | null;
 };
 
-export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto";
+export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto" | "retangular";
 export type PosicaoRecuo =
   | "superior"
   | "superior_direito"
@@ -189,7 +189,7 @@ function touchesSameEdge(raw: Pt[], W: number, H: number) {
 }
 
 /** Largura/profundidade padrão de um recuo visual sem cota explícita (mm). */
-const RECUO_PADRAO = { largura: 65, profundidade: 40 } as const;
+export const RECUO_PADRAO = { largura: 65, profundidade: 40 } as const;
 
 export type RecuoInfo = {
   opId: string;
@@ -231,7 +231,7 @@ const TIPO_CONTORNO_POR_LADO: Record<Edge, ContornoAplicado["tipo_contorno"]> = 
   right: "recuo_direito",
 };
 
-function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
+export function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
   return pontos.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${altura - p.y}`).join(" ") + " Z";
 }
 
@@ -369,7 +369,7 @@ function gerarPathExternoPeca({
   };
 }
 
-function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
+export function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
   if (!contorno || !Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
   const pontos = contorno.pontos
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
@@ -378,7 +378,7 @@ function contornoExternoValido(contorno: ContornoExterno | null | undefined): Co
   return { ...contorno, pontos };
 }
 
-function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
+export function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
   const contornos = operacoes.filter((o) => ehContornoExterno(o, largura, altura));
   const outline = gerarPathExternoPeca({ largura, altura, operacoes: contornos });
   if (!outline.temContornoAplicado) return null;
@@ -400,6 +400,24 @@ function gerarContornoExternoDeOperacoes(largura: number, altura: number, operac
     })),
     presets_aplicados: ["gerado_a_partir_das_operacoes"],
     observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
+/** Gera um contorno retangular simples para peças sem recortes. */
+export function gerarContornoRetangular(largura: number, altura: number): ContornoExterno {
+  return {
+    origem: "retangular",
+    largura,
+    altura,
+    pontos: [
+      { x: 0, y: 0 },
+      { x: largura, y: 0 },
+      { x: largura, y: altura },
+      { x: 0, y: altura },
+    ],
+    recuos: [],
+    presets_aplicados: ["retangulo_simples"],
+    observacao: "Peça retangular sem recortes.",
   };
 }
 
@@ -911,27 +929,15 @@ export function VisualizadorTecnicoPecaCadastrada({
               {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
               <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
 
-              {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoExterno ? (
-                <path
-                  d={outline.pathSvg}
-                  transform={`translate(${margin} ${margin})`}
-                  fill="var(--color-surface)"
-                  stroke="var(--color-foreground)"
-                  strokeWidth={px(1.5)}
-                  strokeLinejoin="miter"
-                />
-              ) : (
-                <rect
-                  x={margin}
-                  y={margin}
-                  width={partW}
-                  height={partH}
-                  fill="var(--color-surface)"
-                  stroke="var(--color-foreground)"
-                  strokeWidth={px(1.5)}
-                />
-              )}
+              {/* Peça (contorno externo sempre via path — nunca rect por cima) */}
+              <path
+                d={outline.pathSvg}
+                transform={`translate(${margin} ${margin})`}
+                fill="var(--color-surface)"
+                stroke="var(--color-foreground)"
+                strokeWidth={px(1.5)}
+                strokeLinejoin="miter"
+              />
 
 
               {(erroPathReal || contornosComFalha || temRecuoFallback) && (
@@ -1663,7 +1669,14 @@ function ContornoDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => onSubmit({ origem, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." })}>
+          <Button onClick={() => {
+            // Edição manual sempre marca como "manual" (ou "misto" se origem anterior era parser_pdf/fallback)
+            const origemAnterior = contorno?.origem;
+            const origemFinal: ContornoOrigem = origemAnterior === "parser_pdf" || origemAnterior === "fallback"
+              ? "misto"
+              : "manual";
+            onSubmit({ origem: origemFinal, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." });
+          }}>
             Salvar contorno
           </Button>
         </DialogFooter>
