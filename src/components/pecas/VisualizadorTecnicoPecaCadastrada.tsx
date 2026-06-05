@@ -731,7 +731,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                     }
                     return null;
                   }
-                  const isContornoExt = contornosExternosIds.has(op.id);
+                  const isContornoExt = contornosAplicadosIds.has(op.id);
                   const d = pts
                     .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x!} ${margin + partH - p.y!}`)
                     .join(" ");
@@ -855,6 +855,10 @@ export function VisualizadorTecnicoPecaCadastrada({
                       <div className="my-1 inline-flex items-center rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                         Contorno externo
                       </div>
+                    )}
+                    {contornosExternosIds.has(opSelObj.id) && <Linha k="Afeta geometria" v="Sim" />}
+                    {Array.isArray(opSelObj.pontos_json) && opSelObj.pontos_json.length > 0 && (
+                      <Linha k="Pontos" v={String(opSelObj.pontos_json.length)} />
                     )}
                     {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
                     <Linha k="Face" v={String(opSelObj.face ?? "—")} />
