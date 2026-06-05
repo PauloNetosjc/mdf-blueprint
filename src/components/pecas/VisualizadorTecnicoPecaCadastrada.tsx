@@ -1534,6 +1534,144 @@ function GrupoOperacoesFace({
   );
 }
 
+function ContornoDialog({
+  open,
+  onOpenChange,
+  largura,
+  altura,
+  contorno,
+  operacoesContorno,
+  onGerarOperacoes,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  largura: number;
+  altura: number;
+  contorno: ContornoExterno | null;
+  operacoesContorno: VisualizadorOperacao[];
+  onGerarOperacoes: () => void | Promise<void>;
+  onSubmit: (contorno: ContornoExterno) => void | Promise<void>;
+}) {
+  const [origem, setOrigem] = useState<ContornoOrigem>(contorno?.origem ?? "manual");
+  const [pontos, setPontos] = useState<Array<{ x: string; y: string }>>([]);
+  const [recuos, setRecuos] = useState<ContornoRecuo[]>(contorno?.recuos ?? []);
+  const [posicaoRecuo, setPosicaoRecuo] = useState<PosicaoRecuo>("superior_direito");
+
+  useEffect(() => {
+    if (!open) return;
+    const base = contorno?.pontos ?? [{ x: 0, y: 0 }, { x: largura, y: 0 }, { x: largura, y: altura }, { x: 0, y: altura }];
+    setOrigem(contorno?.origem ?? "manual");
+    setPontos(base.map((p) => ({ x: String(p.x), y: String(p.y) })));
+    setRecuos(contorno?.recuos ?? []);
+  }, [open, contorno, largura, altura]);
+
+  const nums = () => pontos
+    .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const setPonto = (idx: number, key: "x" | "y", value: string) => {
+    setPontos((atuais) => atuais.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
+  const aplicarPreset = (preset: string) => {
+    if (preset === "retangulo") {
+      setPontos([{ x: "0", y: "0" }, { x: String(largura), y: "0" }, { x: String(largura), y: String(altura) }, { x: "0", y: String(altura) }]);
+      setRecuos([]);
+      setOrigem("manual");
+      return;
+    }
+    if (preset === "chanfro") {
+      const c = RECUO_PADRAO.largura;
+      setPontos([{ x: "0", y: "0" }, { x: String(largura), y: "0" }, { x: String(largura), y: String(altura - c) }, { x: String(largura - c), y: String(altura) }, { x: "0", y: String(altura) }]);
+      setOrigem("manual");
+      return;
+    }
+    const pos = preset as PosicaoRecuo;
+    const novo = aplicarRecuoPadraoAoContorno({ origem, largura, altura, pontos: nums(), recuos }, largura, altura, pos);
+    setOrigem(novo.origem);
+    setRecuos(novo.recuos ?? []);
+    setPontos(novo.pontos.map((p) => ({ x: String(p.x), y: String(p.y) })));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Editar contorno da peça</DialogTitle>
+          <DialogDescription className="text-xs">O corpo da peça será desenhado por estes pontos, separado das operações técnicas.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
+          <div className="max-h-[520px] overflow-auto rounded border border-border bg-surface-2 p-2">
+            <div className="mb-2 grid grid-cols-[48px_1fr_1fr_36px] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span>#</span><span>X</span><span>Y</span><span />
+            </div>
+            <div className="space-y-2">
+              {pontos.map((p, i) => (
+                <div key={i} className="grid grid-cols-[48px_1fr_1fr_36px] items-center gap-2">
+                  <span className="font-mono text-xs">P{i + 1}</span>
+                  <Input type="number" value={p.x} onChange={(e) => setPonto(i, "x", e.target.value)} />
+                  <Input type="number" value={p.y} onChange={(e) => setPonto(i, "y", e.target.value)} />
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => setPontos((atuais) => atuais.filter((_, idx) => idx !== i))}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => setPontos((atuais) => [...atuais, { x: "0", y: "0" }])}>
+              <Plus className="mr-1 h-3 w-3" /> Adicionar ponto
+            </Button>
+          </div>
+          <aside className="space-y-3 rounded border border-border bg-surface-2 p-2 text-xs">
+            <div>
+              <Label className="mb-1 block text-[10px]">Origem</Label>
+              <Select value={origem} onValueChange={(v) => setOrigem(v as ContornoOrigem)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="parser_pdf">parser_pdf</SelectItem>
+                  <SelectItem value="manual">manual</SelectItem>
+                  <SelectItem value="fallback">fallback</SelectItem>
+                  <SelectItem value="misto">misto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior")}>Recuo superior</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior_direito")}>Recuo superior direito</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior_esquerdo")}>Recuo superior esquerdo</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("inferior")}>Recuo inferior</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("direita")}>Recuo lateral direito</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("esquerda")}>Recuo lateral esquerdo</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("chanfro")}>Chanfro</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("retangulo")}>Retângulo simples</Button>
+            </div>
+            <div className="border-t border-border pt-2">
+              <Label className="mb-1 block text-[10px]">Adicionar recuo 65 × 40</Label>
+              <Select value={posicaoRecuo} onValueChange={(v) => setPosicaoRecuo(v as PosicaoRecuo)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="superior">Superior</SelectItem>
+                  <SelectItem value="superior_direito">Superior direito</SelectItem>
+                  <SelectItem value="superior_esquerdo">Superior esquerdo</SelectItem>
+                  <SelectItem value="inferior">Inferior</SelectItem>
+                  <SelectItem value="direita">Direita</SelectItem>
+                  <SelectItem value="esquerda">Esquerda</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="mt-2 w-full" onClick={() => aplicarPreset(posicaoRecuo)}>Adicionar recuo 65 x 40</Button>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" disabled={operacoesContorno.length === 0} onClick={onGerarOperacoes}>Gerar contorno a partir das operações</Button>
+          </aside>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={() => onSubmit({ origem, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." })}>
+            Salvar contorno
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OperacaoDialog({
   open,
   onOpenChange,
