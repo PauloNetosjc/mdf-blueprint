@@ -1411,6 +1411,22 @@ export function VisualizadorTecnicoPecaCadastrada({
         />
       )}
 
+      {onSaveContorno && (
+        <ContornoDialog
+          open={contornoOpen}
+          onOpenChange={setContornoOpen}
+          largura={partW}
+          altura={partH}
+          contorno={contornoSalvo}
+          operacoesContorno={contornosExternos}
+          onGerarOperacoes={gerarContornoDasOperacoes}
+          onSubmit={async (contorno) => {
+            await salvarContorno(contorno);
+            setContornoOpen(false);
+          }}
+        />
+      )}
+
       {/* Modal excluir */}
       <Dialog open={!!delOp} onOpenChange={(v) => !v && setDelOp(null)}>
         <DialogContent className="max-w-md">
