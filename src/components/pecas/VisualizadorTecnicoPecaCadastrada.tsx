@@ -675,9 +675,6 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </pattern>
               </defs>
 
-              {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
-              <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
-
               {/* Grade / régua (opcional) */}
               {mostrarRegua && (
                 <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
@@ -696,10 +693,14 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </g>
               )}
 
+              {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
+              <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
+
               {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoAplicado ? (
+              {outline.temContornoExterno ? (
                 <path
-                  d={outline.path}
+                  d={outline.pathSvg}
+                  transform={`translate(${margin} ${margin})`}
                   fill="var(--color-surface)"
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
@@ -718,7 +719,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               )}
 
 
-              {(contornosComFalha || temRecuoFallback) && (
+              {(erroPathReal || contornosComFalha || temRecuoFallback) && (
                 <g>
                   <rect
                     x={margin + px(10)}
@@ -730,7 +731,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     strokeWidth={px(1)}
                   />
                   <text x={margin + px(20)} y={margin + px(31)} fontSize={px(11)} fill="var(--color-warning)" fontFamily="monospace">
-                    {temRecuoFallback
+                    {erroPathReal
+                      ? "Contorno externo detectado, mas o path real da peça não foi aplicado."
+                      : temRecuoFallback
                       ? "Recuo sem medida explícita. Aplicada medida padrão 65 × 40 mm."
                       : "Contorno externo detectado, mas não foi possível aplicar ao formato da peça."}
                   </text>
