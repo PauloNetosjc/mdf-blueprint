@@ -760,14 +760,14 @@ function PecasCadastradasPage() {
             </tr>
           </thead>
           <tbody>
-            {filtradas.map((p) => {
+            {exibidas.map((p) => {
               const c = getCont(p.id);
               const tipoAmigavel = p.tipo_peca || getTipoPecaPorPrefixo(p.prefixo);
               const nome = p.nome_peca || (p.prefixo ? `${tipoAmigavel} ${p.codigo_principal ?? ""}${p.sufixo ?? ""}` : "—");
               return (
                 <tr key={p.id} className="border-t border-border hover:bg-surface-2">
                   <td className="px-3 py-2 font-mono font-semibold">
-                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} className="hover:underline">
+                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent" className="hover:underline">
                       {p.codigo_completo}
                     </Link>
                   </td>
@@ -807,6 +807,17 @@ function PecasCadastradasPage() {
             )}
           </tbody>
         </table>
+        {filtradas.length > exibidas.length && (
+          <div className="flex items-center justify-center gap-3 border-t border-border p-3 text-sm text-muted-foreground">
+            <span>Mostrando {exibidas.length} de {filtradas.length}</span>
+            <Button size="sm" variant="outline" onClick={() => setVisiveis((n) => n + PAGE_SIZE)}>
+              Carregar mais {Math.min(PAGE_SIZE, filtradas.length - exibidas.length)}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setVisiveis(filtradas.length)}>
+              Mostrar todas
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
