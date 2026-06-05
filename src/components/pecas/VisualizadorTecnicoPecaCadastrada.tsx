@@ -586,6 +586,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
   const [delOp, setDelOp] = useState<VisualizadorOperacao | null>(null);
   const [contornoOpen, setContornoOpen] = useState(false);
+  const [modoTodasFaces, setModoTodasFaces] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
@@ -596,25 +597,69 @@ export function VisualizadorTecnicoPecaCadastrada({
     return m;
   }, [facesLayout]);
 
-  const { partW, partH } = useMemo(() => {
+  function dimsForFace(f: string): { w: number; h: number } {
     const L = largura ?? 600;
     const A = altura ?? 400;
     const E = espessura ?? 18;
-    const override = facesLayoutMap.get(faceSel);
-    if (override && override.largura_visual > 0 && override.altura_visual > 0) {
-      return { partW: override.largura_visual, partH: override.altura_visual };
-    }
-    if (faceSel === "0" || faceSel === "5") return { partW: L, partH: A };
-    if (faceSel === "1" || faceSel === "2") return { partW: A, partH: E };
-    return { partW: L, partH: E };
+    const o = facesLayoutMap.get(f);
+    if (o && o.largura_visual > 0 && o.altura_visual > 0) return { w: o.largura_visual, h: o.altura_visual };
+    if (f === "0" || f === "5") return { w: L, h: A };
+    if (f === "1" || f === "3") return { w: E, h: A };
+    if (f === "2" || f === "4") return { w: L, h: E };
+    return { w: L, h: A };
+  }
+
+  const { partW, partH } = useMemo(() => {
+    const d = dimsForFace(faceSel);
+    return { partW: d.w, partH: d.h };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faceSel, largura, altura, espessura, facesLayoutMap]);
 
+  // Layout global para o modo "Ver todas as faces"
+  const todasFacesLayout = useMemo(() => {
+    const GAP = 40;
+    const f0 = dimsForFace("0");
+    const f1 = dimsForFace("1");
+    const f5 = dimsForFace("5");
+    const f3 = dimsForFace("3");
+    const f4 = dimsForFace("4");
+    const f2 = dimsForFace("2");
+    const middleH = Math.max(f0.h, f1.h, f5.h, f3.h);
+    const topRowH = f4.h;
+    const x0 = 0;
+    const x1 = x0 + f0.w + GAP;
+    const x5 = x1 + f1.w + GAP;
+    const x3 = x5 + f5.w + GAP;
+    const yMid = topRowH + GAP;
+    const yBot = yMid + middleH + GAP;
+    const boxes = [
+      { face: "4", x: x0, y: 0, w: f4.w, h: f4.h },
+      { face: "0", x: x0, y: yMid, w: f0.w, h: f0.h },
+      { face: "1", x: x1, y: yMid + (middleH - f1.h) / 2, w: f1.w, h: f1.h },
+      { face: "5", x: x5, y: yMid, w: f5.w, h: f5.h },
+      { face: "3", x: x3, y: yMid + (middleH - f3.h) / 2, w: f3.w, h: f3.h },
+      { face: "2", x: x0, y: yBot, w: f2.w, h: f2.h },
+    ];
+    return boxes.filter((b) => faces.includes(b.face));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facesLayoutMap, faces, largura, altura, espessura]);
 
+  const temLayoutMultiFaces = !!facesLayout && (facesLayout.faces?.length ?? 0) > 1;
+
+  const todasExtent = useMemo(() => {
+    let W = 0;
+    let H = 0;
+    for (const b of todasFacesLayout) {
+      if (b.x + b.w > W) W = b.x + b.w;
+      if (b.y + b.h > H) H = b.y + b.h;
+    }
+    return { W: W || partW, H: H || partH };
+  }, [todasFacesLayout, partW, partH]);
 
   // Margem de segurança ao redor da peça (mm)
   const margin = Math.max(80, Math.round(Math.max(partW, partH) * 0.1));
-  const viewW = partW + margin * 2;
-  const viewH = partH + margin * 2;
+  const viewW = (modoTodasFaces ? todasExtent.W : partW) + margin * 2;
+  const viewH = (modoTodasFaces ? todasExtent.H : partH) + margin * 2;
 
   // ─── Zoom / Pan livres ───
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -641,11 +686,11 @@ export function VisualizadorTecnicoPecaCadastrada({
     });
   }
 
-  // Ajusta na primeira renderização e quando troca face
+  // Ajusta na primeira renderização e quando troca face / modo
   useEffect(() => {
     fitToView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faceSel, partW, partH]);
+  }, [faceSel, partW, partH, modoTodasFaces]);
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
@@ -876,8 +921,22 @@ export function VisualizadorTecnicoPecaCadastrada({
             {tipo ? ` • ${tipo}` : ""}
             {nome ? ` • ${nome}` : ""}
           </span>
+          {modoTodasFaces && !temLayoutMultiFaces && (
+            <span className="rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] text-warning-foreground">
+              Layout múltiplo de faces não definido — usando layout padrão.
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1">
-            {onSaveContorno && podeUsarContornoSalvo && (
+            <Button
+              size="sm"
+              variant={modoTodasFaces ? "default" : "outline"}
+              className="h-7"
+              onClick={() => { setModoTodasFaces((v) => !v); setOpSel(null); }}
+              title="Alternar entre face selecionada e visão geral de todas as faces"
+            >
+              {modoTodasFaces ? "Face selecionada" : "Ver todas as faces"}
+            </Button>
+            {onSaveContorno && podeUsarContornoSalvo && !modoTodasFaces && (
               <>
                 <Button size="sm" variant="outline" className="h-7" onClick={() => setContornoOpen(true)}>
                   Editar contorno da peça
@@ -937,6 +996,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </pattern>
               </defs>
 
+              {!modoTodasFaces && (<>
               {/* Grade / régua (opcional) */}
               {mostrarRegua && (
                 <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
@@ -1164,6 +1224,145 @@ export function VisualizadorTecnicoPecaCadastrada({
                 }
                 return null;
               })}
+              </>)}
+
+              {modoTodasFaces && (
+                <g>
+                  {todasFacesLayout.map((box) => {
+                    const opsBox = opsPorFace.get(box.face) ?? [];
+                    const ativa = box.face === faceSel;
+                    const bx = margin + box.x;
+                    const by = margin + box.y;
+                    return (
+                      <g
+                        key={`face-box-${box.face}`}
+                        onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(null); }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <rect
+                          x={bx}
+                          y={by}
+                          width={box.w}
+                          height={box.h}
+                          fill="var(--color-surface)"
+                          stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                          strokeWidth={ativa ? px(2.5) : px(1.2)}
+                        />
+                        {/* Label da face */}
+                        <text
+                          x={bx + box.w / 2}
+                          y={by + box.h / 2}
+                          fontSize={Math.max(px(18), Math.min(box.w, box.h) * 0.25)}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontFamily="monospace"
+                          fontWeight="700"
+                          fill={ativa ? "var(--color-primary)" : "color-mix(in oklab, var(--color-foreground) 25%, transparent)"}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          F{box.face}
+                        </text>
+                        {/* Medidas */}
+                        <text
+                          x={bx + box.w / 2}
+                          y={by + box.h + px(14)}
+                          fontSize={px(11)}
+                          textAnchor="middle"
+                          fontFamily="monospace"
+                          fill="var(--color-muted-foreground)"
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {Math.round(box.w)} × {Math.round(box.h)} mm
+                        </text>
+                        {/* Marcador A */}
+                        {faceAlinhamento && box.face === "0" && (
+                          <g style={{ pointerEvents: "none" }}>
+                            <circle cx={bx - px(10)} cy={by + box.h + px(10)} r={px(9)} fill="var(--color-primary)" />
+                            <text
+                              x={bx - px(10)}
+                              y={by + box.h + px(13)}
+                              fontSize={px(11)}
+                              textAnchor="middle"
+                              fill="var(--color-primary-foreground)"
+                              fontWeight="700"
+                            >
+                              {faceAlinhamento}
+                            </text>
+                          </g>
+                        )}
+                        {/* Operações da face */}
+                        {opsBox.map((op) => {
+                          const sel = op.id === opSel;
+                          if (op.tipo_operacao === "furo") {
+                            if (op.x == null || op.y == null) return null;
+                            const cx = bx + op.x;
+                            const cy = by + box.h - op.y;
+                            const r = Math.max((op.diametro ?? 4) / 2, px(2));
+                            return (
+                              <circle
+                                key={op.id}
+                                cx={cx}
+                                cy={cy}
+                                r={r}
+                                fill={sel ? "var(--color-primary)" : "var(--color-surface)"}
+                                stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                                strokeWidth={px(1)}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          if (op.tipo_operacao === "rasgo") {
+                            const y = op.y ?? 0;
+                            const x1 = op.x1 ?? op.x ?? 0;
+                            const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
+                            const larg = Math.max(op.largura ?? 6, px(3));
+                            const cy = by + box.h - y;
+                            return (
+                              <rect
+                                key={op.id}
+                                x={bx + Math.min(x1, x2)}
+                                y={cy - larg / 2}
+                                width={Math.abs(x2 - x1)}
+                                height={larg}
+                                fill={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                                strokeWidth={px(0.8)}
+                                rx={larg / 2}
+                                opacity={0.85}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          if (ehUsinagem(op.tipo_operacao)) {
+                            const pts = (op.pontos_json ?? []).filter(
+                              (p): p is { x: number; y: number; profundidade: number | null; tipo?: string | null } =>
+                                p.x != null && p.y != null,
+                            );
+                            if (pts.length === 0) return null;
+                            const d = pts
+                              .map((p, i) => `${i === 0 ? "M" : "L"} ${bx + p.x!} ${by + box.h - p.y!}`)
+                              .join(" ");
+                            return (
+                              <path
+                                key={op.id}
+                                d={d + (pts.length > 2 ? " Z" : "")}
+                                fill="none"
+                                stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                strokeWidth={px(1.2)}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          return null;
+                        })}
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
             </svg>
           </div>
 
@@ -1187,7 +1386,7 @@ export function VisualizadorTecnicoPecaCadastrada({
             </svg>
           </div>
 
-          {opsFace.length === 0 && (
+          {!modoTodasFaces && opsFace.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
               <span>Nenhuma operação cadastrada nesta face.</span>
               {onAddOperacao && (
