@@ -686,11 +686,11 @@ export function VisualizadorTecnicoPecaCadastrada({
     });
   }
 
-  // Ajusta na primeira renderização e quando troca face
+  // Ajusta na primeira renderização e quando troca face / modo
   useEffect(() => {
     fitToView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faceSel, partW, partH]);
+  }, [faceSel, partW, partH, modoTodasFaces]);
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
