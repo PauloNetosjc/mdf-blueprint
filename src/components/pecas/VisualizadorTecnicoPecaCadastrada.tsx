@@ -536,37 +536,23 @@ export function VisualizadorTecnicoPecaCadastrada({
               viewBox={`0 0 ${viewW} ${viewH}`}
               style={{ display: "block", overflow: "visible" }}
             >
-              {/* Grade */}
-              <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
-                {Array.from({ length: Math.floor(partW / 50) + 1 }, (_, i) => i * 50).map((x) => (
-                  <g key={`gx${x}`}>
-                    <line x1={margin + x} y1={margin} x2={margin + x} y2={margin + partH} />
-                    <text
-                      x={margin + x}
-                      y={margin - px(6)}
-                      fontSize={fontGrid}
-                      fill="var(--color-muted-foreground)"
-                      textAnchor="middle"
-                    >
-                      {x}
-                    </text>
-                  </g>
-                ))}
-                {Array.from({ length: Math.floor(partH / 50) + 1 }, (_, i) => i * 50).map((y) => (
-                  <g key={`gy${y}`}>
-                    <line x1={margin} y1={margin + y} x2={margin + partW} y2={margin + y} />
-                    <text
-                      x={margin - px(6)}
-                      y={margin + y + px(3)}
-                      fontSize={fontGrid}
-                      fill="var(--color-muted-foreground)"
-                      textAnchor="end"
-                    >
-                      {y}
-                    </text>
-                  </g>
-                ))}
-              </g>
+              {/* Grade / régua (opcional) */}
+              {mostrarRegua && (
+                <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
+                  {Array.from({ length: Math.floor(partW / 50) + 1 }, (_, i) => i * 50).map((x) => (
+                    <g key={`gx${x}`}>
+                      <line x1={margin + x} y1={margin} x2={margin + x} y2={margin + partH} />
+                      <text x={margin + x} y={margin - px(6)} fontSize={fontGrid} fill="var(--color-muted-foreground)" textAnchor="middle">{x}</text>
+                    </g>
+                  ))}
+                  {Array.from({ length: Math.floor(partH / 50) + 1 }, (_, i) => i * 50).map((y) => (
+                    <g key={`gy${y}`}>
+                      <line x1={margin} y1={margin + y} x2={margin + partW} y2={margin + y} />
+                      <text x={margin - px(6)} y={margin + y + px(3)} fontSize={fontGrid} fill="var(--color-muted-foreground)" textAnchor="end">{y}</text>
+                    </g>
+                  ))}
+                </g>
+              )}
 
               {/* Peça (com contornos externos integrados ao formato) */}
               {outline.temContornoAplicado ? (
