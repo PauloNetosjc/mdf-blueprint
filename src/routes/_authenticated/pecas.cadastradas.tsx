@@ -474,16 +474,22 @@ function PecasCadastradasPage() {
         erros_arquivos: failedFiles.map((f) => getFileName(f)),
       });
 
+      const pecasIndividuais = parsed.filter((p) => p.result.classificacao.classificacao === "peca_individual").length;
       return {
         ok: pecaIdByCodigo.size,
         falhas: falhasParser + falhasBanco,
         puladas,
         total: candidatos.length,
         uploads: uploads.length,
+        pecas_individuais: pecasIndividuais,
+        ignorados_modulo: ignoradosModulo,
+        pendentes_class: pendentesClass,
       };
     },
     onSuccess: (r) => {
-      toast.success(`Dados salvos: ${r.ok} peças, ${r.puladas} puladas, ${r.falhas} falhas. PDFs em envio separado.`);
+      toast.success(
+        `Importação: ${r.pecas_individuais} peças individuais, ${r.ignorados_modulo} módulos ignorados, ${r.pendentes_class} pendentes, ${r.puladas} puladas, ${r.falhas} falhas.`,
+      );
       qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
       qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
     },
