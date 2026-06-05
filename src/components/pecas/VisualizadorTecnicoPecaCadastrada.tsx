@@ -189,7 +189,7 @@ function touchesSameEdge(raw: Pt[], W: number, H: number) {
 }
 
 /** Largura/profundidade padrão de um recuo visual sem cota explícita (mm). */
-const RECUO_PADRAO = { largura: 65, profundidade: 40 } as const;
+export const RECUO_PADRAO = { largura: 65, profundidade: 40 } as const;
 
 export type RecuoInfo = {
   opId: string;
