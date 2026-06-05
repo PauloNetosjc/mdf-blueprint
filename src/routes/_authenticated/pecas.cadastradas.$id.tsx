@@ -518,6 +518,9 @@ function OpRow({
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
+      {local.nome_operacao && (
+        <div className="mt-1 px-1 text-[10px] font-semibold text-foreground">{local.nome_operacao}</div>
+      )}
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-[10px] text-muted-foreground">
         {local.largura != null && <span>L: {local.largura}</span>}
         {local.comprimento != null && <span>C: {local.comprimento}</span>}
@@ -527,6 +530,35 @@ function OpRow({
         {local.ancora_y && <span>↕ {local.ancora_y}{local.offset_y != null ? ` (${local.offset_y})` : ""}</span>}
         <span>conf: {local.confianca_parser}</span>
       </div>
+      {Array.isArray(local.pontos_json) && local.pontos_json.length > 0 && (
+        <div className="mt-1 rounded bg-surface p-1.5">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Pontos ({local.pontos_json.length})
+          </div>
+          <table className="w-full text-[10px]">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="px-1 text-left">#</th>
+                <th className="px-1 text-right">X</th>
+                <th className="px-1 text-right">Y</th>
+                <th className="px-1 text-right">Prof.</th>
+                <th className="px-1 text-left">Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {local.pontos_json.map((p, i) => (
+                <tr key={i} className="border-t border-border/50">
+                  <td className="px-1">{i + 1}</td>
+                  <td className="px-1 text-right font-mono">{p.x ?? "—"}</td>
+                  <td className="px-1 text-right font-mono">{p.y ?? "—"}</td>
+                  <td className="px-1 text-right font-mono">{p.profundidade ?? "—"}</td>
+                  <td className="px-1">{p.tipo ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
