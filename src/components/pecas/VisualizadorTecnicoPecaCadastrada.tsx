@@ -655,6 +655,63 @@ export function VisualizadorTecnicoPecaCadastrada({
   );
 }
 
+function GrupoOperacoesFace({
+  titulo,
+  ops,
+  opSel,
+  setOpSel,
+}: {
+  titulo: string;
+  ops: VisualizadorOperacao[];
+  opSel: string | null;
+  setOpSel: (id: string) => void;
+}) {
+  if (ops.length === 0) return null;
+  return (
+    <section className="space-y-1">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {titulo} ({ops.length})
+      </div>
+      {ops.map((o, i) => {
+        const ativo = o.id === opSel;
+        const pontos = o.pontos_json ?? [];
+        return (
+          <button
+            key={o.id}
+            onClick={() => setOpSel(o.id)}
+            className={`w-full rounded border px-2 py-1 text-left text-[11px] transition ${
+              ativo ? "border-primary bg-primary/10" : "border-border bg-surface-2 hover:bg-surface-2/80"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono">
+                {o.tipo_operacao === "furo" ? `Furo #${i + 1}` : o.tipo_operacao === "rasgo" ? `Rasgo #${i + 1}` : (o.nome_operacao ?? `Usinagem #${i + 1}`)}
+              </span>
+              <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                #{o.ordem}
+              </Badge>
+            </div>
+            <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+              {o.tipo_operacao === "furo" && (
+                <div>X {fmt(o.x)} | Y {fmt(o.y)} | Ø{fmt(o.diametro)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {o.tipo_operacao === "rasgo" && (
+                <div>Y {fmt(o.y)} | X1 {fmt(o.x1)} | X2 {fmt(o.x2)} | Larg {fmt(o.largura)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {ehUsinagem(o.tipo_operacao) && pontos.length === 0 && (
+                <div>X {fmt(o.x)} | Y {fmt(o.y)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {ehUsinagem(o.tipo_operacao) && pontos.slice(0, 4).map((p, idx) => (
+                <div key={idx}>Ponto {idx + 1}: X {fmt(p.x)} | Y {fmt(p.y)} | Prof {fmt(p.profundidade)}{p.tipo ? ` | ${p.tipo}` : ""}</div>
+              ))}
+            </div>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
 function AddOperacaoDialog({
   open,
   onOpenChange,
