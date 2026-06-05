@@ -75,6 +75,38 @@ export type VisualizadorBorda = {
   cor: string | null;
 };
 
+export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto";
+export type PosicaoRecuo =
+  | "superior"
+  | "superior_direito"
+  | "superior_esquerdo"
+  | "inferior"
+  | "direita"
+  | "esquerda";
+
+export type ContornoRecuo = {
+  id?: string;
+  posicao: PosicaoRecuo;
+  largura: number;
+  profundidade: number;
+  origem: ContornoOrigem;
+  preset?: string;
+  x_inicio?: number;
+  x_fim?: number;
+  y_inicio?: number;
+  y_fim?: number;
+};
+
+export type ContornoExterno = {
+  origem: ContornoOrigem;
+  largura: number;
+  altura: number;
+  pontos: Pt[];
+  recuos?: ContornoRecuo[];
+  presets_aplicados?: string[];
+  observacao?: string;
+};
+
 type Props = {
   codigo: string;
   nome?: string | null;
@@ -87,9 +119,11 @@ type Props = {
   faceAlinhamento?: string | null;
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
+  contornoExterno?: ContornoExterno | null;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
+  onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
 };
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
@@ -335,6 +369,137 @@ function gerarPathExternoPeca({
   };
 }
 
+function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
+  if (!contorno || !Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
+  const pontos = contorno.pontos
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+    .map((p) => ({ x: Number(p.x), y: Number(p.y) }));
+  if (pontos.length < 3) return null;
+  return { ...contorno, pontos };
+}
+
+function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
+  const contornos = operacoes.filter((o) => ehContornoExterno(o, largura, altura));
+  const outline = gerarPathExternoPeca({ largura, altura, operacoes: contornos });
+  if (!outline.temContornoAplicado) return null;
+  return {
+    origem: "parser_pdf",
+    largura,
+    altura,
+    pontos: outline.pontosTecnicos,
+    recuos: outline.contornosAplicados.map((c) => ({
+      posicao: c.lado === "top" ? "superior" : c.lado === "bottom" ? "inferior" : c.lado === "right" ? "direita" : "esquerda",
+      largura: c.largura,
+      profundidade: c.profundidade,
+      origem: c.origem === "pdf" ? "parser_pdf" : "fallback",
+      preset: c.origem === "pdf" ? "operação de contorno" : "recuo 65x40",
+      x_inicio: c.lado === "top" || c.lado === "bottom" ? c.ini : undefined,
+      x_fim: c.lado === "top" || c.lado === "bottom" ? c.fim : undefined,
+      y_inicio: c.lado === "left" || c.lado === "right" ? c.ini : undefined,
+      y_fim: c.lado === "left" || c.lado === "right" ? c.fim : undefined,
+    })),
+    presets_aplicados: ["gerado_a_partir_das_operacoes"],
+    observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
+type CorteBorda = { edge: Edge; ini: number; fim: number; profundidade: number };
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function cortePorRecuo(recuo: ContornoRecuo, largura: number, altura: number): CorteBorda {
+  const lar = Math.max(1, recuo.largura || RECUO_PADRAO.largura);
+  const prof = Math.max(1, recuo.profundidade || RECUO_PADRAO.profundidade);
+  if (recuo.posicao === "superior") {
+    const ini = clamp(recuo.x_inicio ?? (largura - lar) / 2, 0, largura);
+    return { edge: "top", ini, fim: clamp(recuo.x_fim ?? ini + lar, ini, largura), profundidade: clamp(prof, 1, altura) };
+  }
+  if (recuo.posicao === "superior_direito") {
+    return { edge: "right", ini: clamp(altura - prof, 0, altura), fim: altura, profundidade: clamp(lar, 1, largura) };
+  }
+  if (recuo.posicao === "superior_esquerdo") {
+    return { edge: "left", ini: clamp(altura - prof, 0, altura), fim: altura, profundidade: clamp(lar, 1, largura) };
+  }
+  if (recuo.posicao === "inferior") {
+    const ini = clamp(recuo.x_inicio ?? (largura - lar) / 2, 0, largura);
+    return { edge: "bottom", ini, fim: clamp(recuo.x_fim ?? ini + lar, ini, largura), profundidade: clamp(prof, 1, altura) };
+  }
+  if (recuo.posicao === "direita") {
+    const ini = clamp(recuo.y_inicio ?? (altura - lar) / 2, 0, altura);
+    return { edge: "right", ini, fim: clamp(recuo.y_fim ?? ini + lar, ini, altura), profundidade: clamp(prof, 1, largura) };
+  }
+  const ini = clamp(recuo.y_inicio ?? (altura - lar) / 2, 0, altura);
+  return { edge: "left", ini, fim: clamp(recuo.y_fim ?? ini + lar, ini, altura), profundidade: clamp(prof, 1, largura) };
+}
+
+function pontosPorRecuos(largura: number, altura: number, recuos: ContornoRecuo[]) {
+  const cortes: Record<Edge, CorteBorda[]> = { bottom: [], right: [], top: [], left: [] };
+  recuos.forEach((r) => {
+    const c = cortePorRecuo(r, largura, altura);
+    if (c.fim - c.ini > EDGE_EPS) cortes[c.edge].push(c);
+  });
+  cortes.bottom.sort((a, b) => a.ini - b.ini);
+  cortes.right.sort((a, b) => a.ini - b.ini);
+  cortes.top.sort((a, b) => b.fim - a.fim);
+  cortes.left.sort((a, b) => b.fim - a.fim);
+
+  const out: Pt[] = [];
+  pushPt(out, { x: 0, y: 0 });
+  cortes.bottom.forEach((c) => {
+    if (c.ini > 0) pushPt(out, { x: c.ini, y: 0 });
+    pushPt(out, { x: c.ini, y: c.profundidade });
+    pushPt(out, { x: c.fim, y: c.profundidade });
+    if (c.fim < largura) pushPt(out, { x: c.fim, y: 0 });
+  });
+  pushPt(out, { x: largura, y: 0 });
+  cortes.right.forEach((c) => {
+    if (c.ini > 0) pushPt(out, { x: largura, y: c.ini });
+    pushPt(out, { x: largura - c.profundidade, y: c.ini });
+    pushPt(out, { x: largura - c.profundidade, y: c.fim });
+    if (c.fim < altura) pushPt(out, { x: largura, y: c.fim });
+  });
+  if (!samePoint(out[out.length - 1], { x: largura - (cortes.right.at(-1)?.fim === altura ? cortes.right.at(-1)!.profundidade : 0), y: altura })) {
+    pushPt(out, { x: largura, y: altura });
+  }
+  cortes.top.forEach((c) => {
+    if (c.fim < largura) pushPt(out, { x: c.fim, y: altura });
+    pushPt(out, { x: c.fim, y: altura - c.profundidade });
+    pushPt(out, { x: c.ini, y: altura - c.profundidade });
+    if (c.ini > 0) pushPt(out, { x: c.ini, y: altura });
+  });
+  if (!(cortes.top.at(-1)?.ini === 0 || cortes.left[0]?.fim === altura)) pushPt(out, { x: 0, y: altura });
+  cortes.left.forEach((c) => {
+    if (c.fim < altura) pushPt(out, { x: 0, y: c.fim });
+    pushPt(out, { x: c.profundidade, y: c.fim });
+    pushPt(out, { x: c.profundidade, y: c.ini });
+    if (c.ini > 0) pushPt(out, { x: 0, y: c.ini });
+  });
+  return out;
+}
+
+function aplicarRecuoPadraoAoContorno(base: ContornoExterno | null | undefined, largura: number, altura: number, posicao: PosicaoRecuo): ContornoExterno {
+  const recuos = [...(base?.recuos ?? [])];
+  recuos.push({
+    id: crypto.randomUUID?.() ?? String(Date.now()),
+    posicao,
+    largura: RECUO_PADRAO.largura,
+    profundidade: RECUO_PADRAO.profundidade,
+    origem: "manual",
+    preset: "recuo_65x40",
+  });
+  return {
+    origem: base?.origem && base.origem !== "manual" ? "misto" : "manual",
+    largura,
+    altura,
+    pontos: pontosPorRecuos(largura, altura, recuos),
+    recuos,
+    presets_aplicados: [...(base?.presets_aplicados ?? []), `recuo_65x40_${posicao}`],
+    observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
 function fmt(v: number | string | null | undefined) {
   return v == null || v === "" ? "?" : String(v);
 }
@@ -354,9 +519,11 @@ export function VisualizadorTecnicoPecaCadastrada({
   faceAlinhamento,
   indicadoresBorda = [],
   facesDetectadas = [],
+  contornoExterno,
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
+  onSaveContorno,
 }: Props) {
   const opsPorFace = useMemo(() => {
     const m = new Map<string, VisualizadorOperacao[]>();
@@ -383,6 +550,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const [addOpen, setAddOpen] = useState(false);
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
   const [delOp, setDelOp] = useState<VisualizadorOperacao | null>(null);
+  const [contornoOpen, setContornoOpen] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
@@ -526,17 +694,41 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Contornos externos que alteram o formato da peça
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
-  const outline = useMemo(
+  const outlineOperacoes = useMemo(
     () => gerarPathExternoPeca({ largura: partW, altura: partH, operacoes: contornosExternos }),
     [contornosExternos, partW, partH],
   );
+  const podeUsarContornoSalvo = faceSel === "0" || faceSel === "5";
+  const contornoSalvo = useMemo(
+    () => podeUsarContornoSalvo ? contornoExternoValido(contornoExterno) : null,
+    [contornoExterno, podeUsarContornoSalvo],
+  );
+  const outline = useMemo(() => {
+    if (contornoSalvo) {
+      const pontosTecnicos = contornoSalvo.pontos;
+      const pathSvg = pathTecnicoParaSvg(pontosTecnicos, partH);
+      return {
+        pathSvg,
+        pontosTecnicos,
+        temContornoExterno: true,
+        contornosAplicados: outlineOperacoes.contornosAplicados,
+        contornoAplicadoIds: outlineOperacoes.contornoAplicadoIds,
+        contornoFalhouIds: outlineOperacoes.contornoFalhouIds,
+        recuos: contornoSalvo.recuos ?? outlineOperacoes.recuos,
+        path: pathSvg,
+        polygon: pontosTecnicos,
+        temContornoAplicado: true,
+      };
+    }
+    return { ...outlineOperacoes, temContornoExterno: false, temContornoAplicado: false };
+  }, [contornoSalvo, outlineOperacoes, partH]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const recuoPorOpId = useMemo(() => {
-    const m = new Map<string, typeof outline.recuos[number]>();
-    outline.recuos.forEach((r) => m.set(r.opId, r));
+    const m = new Map<string, ContornoAplicado>();
+    outlineOperacoes.recuos.forEach((r) => m.set(r.opId, r));
     return m;
-  }, [outline.recuos]);
-  const temRecuoFallback = outline.recuos.some((r) => r.origem === "padrao_65x40");
+  }, [outlineOperacoes.recuos]);
+  const temRecuoFallback = outlineOperacoes.recuos.some((r) => r.origem === "padrao_65x40");
   const contornosComFalha = outline.contornoFalhouIds.length > 0;
   const isLat3854A = codigo.trim().toUpperCase() === "LAT3854A";
   const lat3854AInvalida = isLat3854A && contornosExternos.some((o) => (o.nome_operacao ?? "").includes("UsinagemParametrica01")) && (
@@ -547,7 +739,19 @@ export function VisualizadorTecnicoPecaCadastrada({
     !outline.pathSvg.includes("291.5 40") ||
     !outline.pathSvg.includes("291.5 0")
   );
-  const erroPathReal = (outline.temContornoExterno && !outline.temContornoAplicado) || lat3854AInvalida;
+  const temOperacaoContornoSemContornoSalvo = contornosExternos.length > 0 && !contornoSalvo;
+  const erroPathReal = (outlineOperacoes.temContornoExterno && !outlineOperacoes.temContornoAplicado) || lat3854AInvalida;
+  const rectFallbackAtivo = !contornoSalvo;
+
+  async function salvarContorno(contorno: ContornoExterno) {
+    if (!onSaveContorno) return;
+    await onSaveContorno(contorno);
+  }
+
+  async function gerarContornoDasOperacoes() {
+    const gerado = gerarContornoExternoDeOperacoes(partW, partH, contornosExternos);
+    if (gerado) await salvarContorno(gerado);
+  }
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -626,6 +830,16 @@ export function VisualizadorTecnicoPecaCadastrada({
             {nome ? ` • ${nome}` : ""}
           </span>
           <div className="ml-auto flex items-center gap-1">
+            {onSaveContorno && podeUsarContornoSalvo && (
+              <>
+                <Button size="sm" variant="outline" className="h-7" onClick={() => setContornoOpen(true)}>
+                  Editar contorno da peça
+                </Button>
+                <Button size="sm" variant="outline" className="h-7" onClick={gerarContornoDasOperacoes} disabled={contornosExternos.length === 0}>
+                  Gerar contorno a partir das operações
+                </Button>
+              </>
+            )}
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1.25)}>+</Button>
             <span className="w-14 text-center font-mono text-[11px]">{(zoom * 100).toFixed(0)}%</span>
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1 / 1.25)}>−</Button>
@@ -979,23 +1193,31 @@ export function VisualizadorTecnicoPecaCadastrada({
           </div>
         )}
 
-        {import.meta.env.DEV && (
-          <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
-            <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
-              Debug geometria
-            </summary>
-            <div className="mt-2 space-y-1 font-mono">
-              <Linha k="temContornoExterno" v={String(outline.temContornoExterno)} />
-              <Linha k="pathSvg" v={outline.pathSvg} />
-              <div className="break-all text-muted-foreground">
-                pontos: {JSON.stringify(outline.pontosTecnicos)}
+        <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
+          <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
+            Diagnóstico de Geometria
+          </summary>
+          <div className="mt-2 space-y-1 font-mono">
+            <Linha k="tem_contorno_externo" v={contornoSalvo ? "sim" : "não"} />
+            <Linha k="origem" v={contornoSalvo?.origem ?? "—"} />
+            <Linha k="pontos" v={String(contornoSalvo?.pontos.length ?? 0)} />
+            <Linha k="rect fallback ativo" v={rectFallbackAtivo ? "sim" : "não"} />
+            <Linha k="operações contorno" v={String(contornosExternos.length)} />
+            <Linha k="presets" v={(contornoSalvo?.presets_aplicados ?? []).join(", ") || "—"} />
+            <Linha k="pathSvg" v={outline.pathSvg} />
+            {temOperacaoContornoSemContornoSalvo && (
+              <div className="rounded border border-warning/40 bg-warning/10 p-1 text-warning-foreground">
+                Operação de contorno detectada, mas o contorno externo da peça ainda não foi definido.
               </div>
-              <div className="break-all text-muted-foreground">
-                contornos: {JSON.stringify(outline.contornosAplicados.map((c) => ({ opId: c.opId, operacao: c.operacao, tipo_contorno: c.tipo_contorno, origem: c.origem, pontos: c.pontos })))}
-              </div>
+            )}
+            <div className="break-all text-muted-foreground">
+              pontos: {JSON.stringify(contornoSalvo?.pontos ?? [])}
             </div>
-          </details>
-        )}
+            <div className="break-all text-muted-foreground">
+              operações que afetam contorno: {JSON.stringify(contornosExternos.map((o) => ({ id: o.id, nome: o.nome_operacao, pontos: pontosValidosDaOp(o) })))}
+            </div>
+          </div>
+        </details>
 
         <div className="mt-2 border-t border-border pt-2">
           <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Detalhes</h3>
@@ -1189,6 +1411,22 @@ export function VisualizadorTecnicoPecaCadastrada({
         />
       )}
 
+      {onSaveContorno && (
+        <ContornoDialog
+          open={contornoOpen}
+          onOpenChange={setContornoOpen}
+          largura={partW}
+          altura={partH}
+          contorno={contornoSalvo}
+          operacoesContorno={contornosExternos}
+          onGerarOperacoes={gerarContornoDasOperacoes}
+          onSubmit={async (contorno) => {
+            await salvarContorno(contorno);
+            setContornoOpen(false);
+          }}
+        />
+      )}
+
       {/* Modal excluir */}
       <Dialog open={!!delOp} onOpenChange={(v) => !v && setDelOp(null)}>
         <DialogContent className="max-w-md">
@@ -1293,6 +1531,144 @@ function GrupoOperacoesFace({
         );
       })}
     </section>
+  );
+}
+
+function ContornoDialog({
+  open,
+  onOpenChange,
+  largura,
+  altura,
+  contorno,
+  operacoesContorno,
+  onGerarOperacoes,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  largura: number;
+  altura: number;
+  contorno: ContornoExterno | null;
+  operacoesContorno: VisualizadorOperacao[];
+  onGerarOperacoes: () => void | Promise<void>;
+  onSubmit: (contorno: ContornoExterno) => void | Promise<void>;
+}) {
+  const [origem, setOrigem] = useState<ContornoOrigem>(contorno?.origem ?? "manual");
+  const [pontos, setPontos] = useState<Array<{ x: string; y: string }>>([]);
+  const [recuos, setRecuos] = useState<ContornoRecuo[]>(contorno?.recuos ?? []);
+  const [posicaoRecuo, setPosicaoRecuo] = useState<PosicaoRecuo>("superior_direito");
+
+  useEffect(() => {
+    if (!open) return;
+    const base = contorno?.pontos ?? [{ x: 0, y: 0 }, { x: largura, y: 0 }, { x: largura, y: altura }, { x: 0, y: altura }];
+    setOrigem(contorno?.origem ?? "manual");
+    setPontos(base.map((p) => ({ x: String(p.x), y: String(p.y) })));
+    setRecuos(contorno?.recuos ?? []);
+  }, [open, contorno, largura, altura]);
+
+  const nums = () => pontos
+    .map((p) => ({ x: Number(p.x), y: Number(p.y) }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const setPonto = (idx: number, key: "x" | "y", value: string) => {
+    setPontos((atuais) => atuais.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
+  const aplicarPreset = (preset: string) => {
+    if (preset === "retangulo") {
+      setPontos([{ x: "0", y: "0" }, { x: String(largura), y: "0" }, { x: String(largura), y: String(altura) }, { x: "0", y: String(altura) }]);
+      setRecuos([]);
+      setOrigem("manual");
+      return;
+    }
+    if (preset === "chanfro") {
+      const c = RECUO_PADRAO.largura;
+      setPontos([{ x: "0", y: "0" }, { x: String(largura), y: "0" }, { x: String(largura), y: String(altura - c) }, { x: String(largura - c), y: String(altura) }, { x: "0", y: String(altura) }]);
+      setOrigem("manual");
+      return;
+    }
+    const pos = preset as PosicaoRecuo;
+    const novo = aplicarRecuoPadraoAoContorno({ origem, largura, altura, pontos: nums(), recuos }, largura, altura, pos);
+    setOrigem(novo.origem);
+    setRecuos(novo.recuos ?? []);
+    setPontos(novo.pontos.map((p) => ({ x: String(p.x), y: String(p.y) })));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Editar contorno da peça</DialogTitle>
+          <DialogDescription className="text-xs">O corpo da peça será desenhado por estes pontos, separado das operações técnicas.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
+          <div className="max-h-[520px] overflow-auto rounded border border-border bg-surface-2 p-2">
+            <div className="mb-2 grid grid-cols-[48px_1fr_1fr_36px] gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span>#</span><span>X</span><span>Y</span><span />
+            </div>
+            <div className="space-y-2">
+              {pontos.map((p, i) => (
+                <div key={i} className="grid grid-cols-[48px_1fr_1fr_36px] items-center gap-2">
+                  <span className="font-mono text-xs">P{i + 1}</span>
+                  <Input type="number" value={p.x} onChange={(e) => setPonto(i, "x", e.target.value)} />
+                  <Input type="number" value={p.y} onChange={(e) => setPonto(i, "y", e.target.value)} />
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => setPontos((atuais) => atuais.filter((_, idx) => idx !== i))}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => setPontos((atuais) => [...atuais, { x: "0", y: "0" }])}>
+              <Plus className="mr-1 h-3 w-3" /> Adicionar ponto
+            </Button>
+          </div>
+          <aside className="space-y-3 rounded border border-border bg-surface-2 p-2 text-xs">
+            <div>
+              <Label className="mb-1 block text-[10px]">Origem</Label>
+              <Select value={origem} onValueChange={(v) => setOrigem(v as ContornoOrigem)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="parser_pdf">parser_pdf</SelectItem>
+                  <SelectItem value="manual">manual</SelectItem>
+                  <SelectItem value="fallback">fallback</SelectItem>
+                  <SelectItem value="misto">misto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior")}>Recuo superior</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior_direito")}>Recuo superior direito</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("superior_esquerdo")}>Recuo superior esquerdo</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("inferior")}>Recuo inferior</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("direita")}>Recuo lateral direito</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("esquerda")}>Recuo lateral esquerdo</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("chanfro")}>Chanfro</Button>
+              <Button size="sm" variant="outline" className="w-full justify-start" onClick={() => aplicarPreset("retangulo")}>Retângulo simples</Button>
+            </div>
+            <div className="border-t border-border pt-2">
+              <Label className="mb-1 block text-[10px]">Adicionar recuo 65 × 40</Label>
+              <Select value={posicaoRecuo} onValueChange={(v) => setPosicaoRecuo(v as PosicaoRecuo)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="superior">Superior</SelectItem>
+                  <SelectItem value="superior_direito">Superior direito</SelectItem>
+                  <SelectItem value="superior_esquerdo">Superior esquerdo</SelectItem>
+                  <SelectItem value="inferior">Inferior</SelectItem>
+                  <SelectItem value="direita">Direita</SelectItem>
+                  <SelectItem value="esquerda">Esquerda</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="mt-2 w-full" onClick={() => aplicarPreset(posicaoRecuo)}>Adicionar recuo 65 x 40</Button>
+            </div>
+            <Button size="sm" variant="outline" className="w-full" disabled={operacoesContorno.length === 0} onClick={onGerarOperacoes}>Gerar contorno a partir das operações</Button>
+          </aside>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={() => onSubmit({ origem, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." })}>
+            Salvar contorno
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

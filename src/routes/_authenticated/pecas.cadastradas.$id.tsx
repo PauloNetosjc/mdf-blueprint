@@ -24,7 +24,7 @@ import {
   classificarStatusParser,
 } from "@/lib/pecas-cadastradas-parser";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
-import { VisualizadorTecnicoPecaCadastrada } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -101,6 +101,21 @@ type Borda = {
 
 const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
 const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseira", "desconhecido"];
+
+function lerContornoExterno(raw: Record<string, unknown> | null | undefined): ContornoExterno | null {
+  const c = raw?.contorno_externo_json;
+  if (!c || typeof c !== "object") return null;
+  const contorno = c as ContornoExterno;
+  if (!Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
+  return contorno;
+}
+
+function pathContorno(contorno: ContornoExterno | null) {
+  if (!contorno?.pontos?.length) return "—";
+  return contorno.pontos
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${contorno.altura - p.y}`)
+    .join(" ") + " Z";
+}
 
 function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
@@ -267,6 +282,27 @@ function PecaCadastradaDetalhe() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] }),
   });
 
+  const salvarContorno = useMutation({
+    mutationFn: async (contorno: ContornoExterno) => {
+      const atual = peca.data?.dados_brutos_json ?? {};
+      const { error } = await db
+        .from("pecas_cadastradas")
+        .update({
+          dados_brutos_json: {
+            ...atual,
+            contorno_externo_json: contorno,
+          },
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Contorno externo salvo.");
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const reprocessar = useMutation({
     mutationFn: async () => {
       const pdfPath = peca.data?.pdf_url;
@@ -285,6 +321,7 @@ function PecaCadastradaDetalhe() {
       // 2) Re-executa o parser
       const result = await parseTechnicalDrawingPdf(file, `${codigo}.pdf`);
       const { status, motivo } = classificarStatusParser(result);
+      const contornoAtual = lerContornoExterno(peca.data?.dados_brutos_json);
 
       // 3) Atualiza a peça
       const { error: errUp } = await db.from("pecas_cadastradas").update({
@@ -306,7 +343,9 @@ function PecaCadastradaDetalhe() {
           classificacao_sinais: result.classificacao.sinais,
         },
         logs_parser: result.logs,
-        dados_brutos_json: result.dados_brutos,
+        dados_brutos_json: contornoAtual
+          ? { ...result.dados_brutos, contorno_externo_json: contornoAtual }
+          : result.dados_brutos,
       }).eq("id", id);
       if (errUp) throw errUp;
 
@@ -391,6 +430,11 @@ function PecaCadastradaDetalhe() {
   const facesDetectadas = Array.isArray(dadosBrutos.faces_detectadas)
     ? (dadosBrutos.faces_detectadas as string[])
     : [];
+  const contornoExterno = lerContornoExterno(dadosBrutos);
+  const operacoesContorno = (ops.data ?? []).filter((o) => {
+    const nome = (o.nome_operacao ?? "").toLowerCase();
+    return o.tipo_operacao === "contorno" || o.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
+  });
 
   return (
     <div className="p-6">
@@ -503,6 +547,8 @@ function PecaCadastradaDetalhe() {
             faceAlinhamento={faceAlinhamento}
             indicadoresBorda={indicadoresBorda}
             facesDetectadas={facesDetectadas}
+            contornoExterno={contornoExterno}
+            onSaveContorno={(contorno) => salvarContorno.mutateAsync(contorno)}
             onAddOperacao={async (payload) => {
               const { data: u } = await supabase.auth.getUser();
               const { error } = await db.from("peca_cadastrada_operacoes").insert({
@@ -642,6 +688,29 @@ function PecaCadastradaDetalhe() {
             <CampoCab label="Faces detectadas" valor={facesDetectadas.join(", ") || "—"} mono />
             <CampoCab label="Operações por face" valor={facesOrdenadas.map((f) => `${f}:${opsPorFace.get(f)!.length}`).join("  ") || "—"} mono />
           </div>
+
+          <details open className="rounded border border-border bg-surface p-2 text-xs">
+            <summary className="cursor-pointer font-medium">Diagnóstico de Geometria</summary>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <CampoCab label="tem_contorno_externo" valor={contornoExterno ? "sim" : "não"} mono />
+              <CampoCab label="origem" valor={contornoExterno?.origem ?? "—"} mono />
+              <CampoCab label="qtd pontos" valor={String(contornoExterno?.pontos.length ?? 0)} mono />
+              <CampoCab label="rect fallback" valor={contornoExterno ? "não" : "sim"} mono />
+            </div>
+            {operacoesContorno.length > 0 && !contornoExterno && (
+              <div className="mt-2 rounded border border-warning/40 bg-warning/10 p-2 text-warning-foreground">
+                Operação de contorno detectada, mas o contorno externo da peça ainda não foi definido.
+              </div>
+            )}
+            <pre className="mt-2 max-h-80 overflow-auto bg-surface-2 p-2 text-[10px] text-muted-foreground">
+              {JSON.stringify({
+                pontos_do_contorno: contornoExterno?.pontos ?? [],
+                path_svg_gerado: pathContorno(contornoExterno),
+                operacoes_que_afetam_contorno: operacoesContorno.map((o) => ({ id: o.id, nome: o.nome_operacao, pontos: o.pontos_json })),
+                presets_aplicados: contornoExterno?.presets_aplicados ?? [],
+              }, null, 2)}
+            </pre>
+          </details>
 
           {p.erros_parser?.length > 0 && (
             <details open className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
