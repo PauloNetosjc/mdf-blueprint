@@ -37,7 +37,7 @@ const UPLOAD_CONCURRENCY = 4;
 const PECA_BATCH_SIZE = 80;
 const INSERT_BATCH_SIZE = 500;
 
-export const Route = createFileRoute("/_authenticated/pecas/cadastradas")({
+export const Route = createFileRoute("/_authenticated/pecas/cadastradas/")({
   head: () => ({ meta: [{ title: "Peças Cadastradas — Biblioteca técnica" }] }),
   component: PecasCadastradasPage,
 });
