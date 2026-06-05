@@ -345,7 +345,11 @@ function finalizarLinha(l: Linha): Linha {
 // ---------- Parser principal ----------
 
 function toNum(s: string): number | null {
-  const n = Number(s.replace(",", ".").replace(/[^\d.\-]/g, ""));
+  const normalizado = s.trim().replace(",", ".");
+  if (!/\d/.test(normalizado)) return null;
+  const m = normalizado.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -353,6 +357,10 @@ function isNumericCells(cels: { str: string }[]): boolean {
   if (!cels.length) return false;
   const nums = cels.filter((c) => /^-?\d+([.,]\d+)?$/.test(c.str.trim())).length;
   return nums >= Math.max(2, Math.floor(cels.length * 0.7));
+}
+
+function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
+  return valores.length > qtd ? valores.slice(-qtd) : valores;
 }
 
 function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
