@@ -978,6 +978,24 @@ export function VisualizadorTecnicoPecaCadastrada({
           </div>
         )}
 
+        {import.meta.env.DEV && (
+          <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
+            <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
+              Debug geometria
+            </summary>
+            <div className="mt-2 space-y-1 font-mono">
+              <Linha k="temContornoExterno" v={String(outline.temContornoExterno)} />
+              <Linha k="pathSvg" v={outline.pathSvg} />
+              <div className="break-all text-muted-foreground">
+                pontos: {JSON.stringify(outline.pontosTecnicos)}
+              </div>
+              <div className="break-all text-muted-foreground">
+                contornos: {JSON.stringify(outline.contornosAplicados.map((c) => ({ opId: c.opId, operacao: c.operacao, tipo_contorno: c.tipo_contorno, origem: c.origem, pontos: c.pontos })))}
+              </div>
+            </div>
+          </details>
+        )}
+
         <div className="mt-2 border-t border-border pt-2">
           <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Detalhes</h3>
           {!opSelObj ? (
@@ -1004,10 +1022,11 @@ export function VisualizadorTecnicoPecaCadastrada({
                     {(() => {
                       const r = recuoPorOpId.get(opSelObj.id);
                       if (!r) return null;
-                      const ladoLabel = { top: "Recuo superior", bottom: "Recuo inferior", left: "Recuo esquerdo", right: "Recuo direito" }[r.lado];
+                      const ladoLabel: Record<Edge, string> = { top: "Recuo superior", bottom: "Recuo inferior", left: "Recuo esquerdo", right: "Recuo direito" };
                       return (
                         <>
-                          <Linha k="Tipo do recuo" v={ladoLabel} />
+                          <Linha k="Tipo do recuo" v={ladoLabel[r.lado]} />
+                          <Linha k="tipo_contorno" v={r.tipo_contorno} />
                           <Linha k="Largura do recuo" v={`${r.largura.toFixed(1)} mm`} />
                           <Linha k="Profundidade do recuo" v={`${r.profundidade.toFixed(1)} mm`} />
                           <Linha k="Origem da medida" v={r.origem === "padrao_65x40" ? "padrão 65×40" : "PDF"} />
