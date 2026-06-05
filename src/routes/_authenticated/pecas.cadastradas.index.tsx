@@ -67,6 +67,7 @@ type PecaRow = {
   pdf_url: string | null;
   pdf_nome_arquivo: string | null;
   atualizado_em: string;
+  dados_brutos_json: Record<string, unknown> | null;
 };
 
 type ImportProgress = {
