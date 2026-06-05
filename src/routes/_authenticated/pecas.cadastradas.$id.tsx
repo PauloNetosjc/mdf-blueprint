@@ -420,6 +420,11 @@ function PecaCadastradaDetalhe() {
   const facesDetectadas = Array.isArray(dadosBrutos.faces_detectadas)
     ? (dadosBrutos.faces_detectadas as string[])
     : [];
+  const contornoExterno = lerContornoExterno(dadosBrutos);
+  const operacoesContorno = (ops.data ?? []).filter((o) => {
+    const nome = (o.nome_operacao ?? "").toLowerCase();
+    return o.tipo_operacao === "contorno" || o.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
+  });
 
   return (
     <div className="p-6">
