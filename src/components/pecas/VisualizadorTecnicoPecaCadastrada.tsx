@@ -130,70 +130,106 @@ function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): bool
   return pts.some((p) => edgeOf(p, W, H) !== null);
 }
 
-/**
- * Constrói o contorno real da peça a partir do retângulo base + entalhes (notches)
- * cujos pontos inicial e final tocam a mesma borda da peça.
- * Retorna pontos em coordenadas REAIS (Y para cima).
- */
-function buildPiecePolygon(W: number, H: number, notches: Pt[][]): Pt[] {
-  const byEdge: Record<"bottom" | "right" | "top" | "left", { order: number; pts: Pt[] }[]> = {
-    bottom: [], right: [], top: [], left: [],
-  };
-  for (const raw of notches) {
-    if (raw.length < 2) continue;
-    const a = raw[0];
-    const b = raw[raw.length - 1];
-    const ea = edgeOf(a, W, H);
-    const eb = edgeOf(b, W, H);
-    if (!ea || ea !== eb) continue;
-    let pts = raw.slice();
-    if (ea === "bottom") {
-      if (a.x > b.x) pts = pts.reverse();
-      byEdge.bottom.push({ order: pts[0].x, pts });
-    } else if (ea === "right") {
-      if (a.y > b.y) pts = pts.reverse();
-      byEdge.right.push({ order: pts[0].y, pts });
-    } else if (ea === "top") {
-      if (a.x < b.x) pts = pts.reverse();
-      byEdge.top.push({ order: -pts[0].x, pts });
-    } else {
-      if (a.y < b.y) pts = pts.reverse();
-      byEdge.left.push({ order: -pts[0].y, pts });
-    }
-  }
-  (Object.keys(byEdge) as Array<keyof typeof byEdge>).forEach((k) =>
-    byEdge[k].sort((x, y) => x.order - y.order),
-  );
-  const out: Pt[] = [];
-  out.push({ x: 0, y: 0 });
-  byEdge.bottom.forEach((n) => out.push(...n.pts));
-  out.push({ x: W, y: 0 });
-  byEdge.right.forEach((n) => out.push(...n.pts));
-  out.push({ x: W, y: H });
-  byEdge.top.forEach((n) => out.push(...n.pts));
-  out.push({ x: 0, y: H });
-  byEdge.left.forEach((n) => out.push(...n.pts));
-  return out;
+function samePoint(a: Pt | undefined, b: Pt) {
+  return !!a && Math.abs(a.x - b.x) < EDGE_EPS && Math.abs(a.y - b.y) < EDGE_EPS;
 }
 
-function getPecaOutlinePath({
+function pushPt(out: Pt[], p: Pt) {
+  if (!samePoint(out[out.length - 1], p)) out.push({ x: p.x, y: p.y });
+}
+
+function touchesSameEdge(raw: Pt[], W: number, H: number) {
+  const first = raw[0];
+  const last = raw[raw.length - 1];
+  if (!first || !last) return null;
+  const edge = edgeOf(first, W, H);
+  if (!edge || edgeOf(last, W, H) !== edge) return null;
+  const hasInwardPoint = raw.some((p) => {
+    if (edge === "top") return p.y < H - EDGE_EPS;
+    if (edge === "bottom") return p.y > EDGE_EPS;
+    if (edge === "left") return p.x > EDGE_EPS;
+    return p.x < W - EDGE_EPS;
+  });
+  return hasInwardPoint ? edge : null;
+}
+
+/**
+ * Gera o contorno real da peça em coordenadas técnicas (Y para cima).
+ * Recortes que começam e terminam na mesma borda entram no próprio outline;
+ * usinagens internas ficam fora daqui e continuam desenhadas como operação.
+ */
+function gerarOutlineDaPeca({
   largura,
   altura,
   margem,
-  contornosExternos,
+  operacoesContornoExterno,
 }: {
   largura: number;
   altura: number;
   margem: number;
-  contornosExternos: VisualizadorOperacao[];
+  operacoesContornoExterno: VisualizadorOperacao[];
 }) {
-  const notches = contornosExternos.map(pontosValidosDaOp);
-  const polygon = buildPiecePolygon(largura, altura, notches);
-  const path =
-    polygon
-      .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
-      .join(" ") + " Z";
-  return { path, polygon, temContornoExterno: contornosExternos.length > 0 };
+  type Edge = "bottom" | "right" | "top" | "left";
+  const byEdge: Record<Edge, { order: number; pts: Pt[]; opId: string }[]> = {
+    bottom: [],
+    right: [],
+    top: [],
+    left: [],
+  };
+  const contornoFalhouIds: string[] = [];
+
+  for (const op of operacoesContornoExterno) {
+    const raw = pontosValidosDaOp(op);
+    if (raw.length < 3) {
+      contornoFalhouIds.push(op.id);
+      continue;
+    }
+    const edge = touchesSameEdge(raw, largura, altura);
+    if (!edge) {
+      contornoFalhouIds.push(op.id);
+      continue;
+    }
+    let pts = raw.slice();
+    if (edge === "bottom") {
+      if (pts[0].x > pts[pts.length - 1].x) pts = pts.reverse();
+      byEdge.bottom.push({ order: pts[0].x, pts, opId: op.id });
+    } else if (edge === "right") {
+      if (pts[0].y > pts[pts.length - 1].y) pts = pts.reverse();
+      byEdge.right.push({ order: pts[0].y, pts, opId: op.id });
+    } else if (edge === "top") {
+      if (pts[0].x < pts[pts.length - 1].x) pts = pts.reverse();
+      byEdge.top.push({ order: -pts[0].x, pts, opId: op.id });
+    } else {
+      if (pts[0].y < pts[pts.length - 1].y) pts = pts.reverse();
+      byEdge.left.push({ order: -pts[0].y, pts, opId: op.id });
+    }
+  }
+
+  (Object.keys(byEdge) as Edge[]).forEach((k) => byEdge[k].sort((a, b) => a.order - b.order));
+
+  const polygon: Pt[] = [];
+  pushPt(polygon, { x: 0, y: 0 });
+  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: largura, y: 0 });
+  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: largura, y: altura });
+  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  pushPt(polygon, { x: 0, y: altura });
+  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+
+  const path = polygon
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
+    .join(" ") + " Z";
+  const contornoAplicadoIds = (Object.keys(byEdge) as Edge[]).flatMap((edge) => byEdge[edge].map((n) => n.opId));
+
+  return {
+    path,
+    polygon,
+    temContornoExterno: operacoesContornoExterno.length > 0,
+    temContornoAplicado: contornoAplicadoIds.length > 0,
+    contornoAplicadoIds,
+    contornoFalhouIds,
+  };
 }
 
 function fmt(v: number | string | null | undefined) {
