@@ -1219,6 +1219,145 @@ export function VisualizadorTecnicoPecaCadastrada({
                 }
                 return null;
               })}
+              </>)}
+
+              {modoTodasFaces && (
+                <g>
+                  {todasFacesLayout.map((box) => {
+                    const opsBox = opsPorFace.get(box.face) ?? [];
+                    const ativa = box.face === faceSel;
+                    const bx = margin + box.x;
+                    const by = margin + box.y;
+                    return (
+                      <g
+                        key={`face-box-${box.face}`}
+                        onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(null); }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <rect
+                          x={bx}
+                          y={by}
+                          width={box.w}
+                          height={box.h}
+                          fill="var(--color-surface)"
+                          stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                          strokeWidth={ativa ? px(2.5) : px(1.2)}
+                        />
+                        {/* Label da face */}
+                        <text
+                          x={bx + box.w / 2}
+                          y={by + box.h / 2}
+                          fontSize={Math.max(px(18), Math.min(box.w, box.h) * 0.25)}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontFamily="monospace"
+                          fontWeight="700"
+                          fill={ativa ? "var(--color-primary)" : "color-mix(in oklab, var(--color-foreground) 25%, transparent)"}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          F{box.face}
+                        </text>
+                        {/* Medidas */}
+                        <text
+                          x={bx + box.w / 2}
+                          y={by + box.h + px(14)}
+                          fontSize={px(11)}
+                          textAnchor="middle"
+                          fontFamily="monospace"
+                          fill="var(--color-muted-foreground)"
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {Math.round(box.w)} × {Math.round(box.h)} mm
+                        </text>
+                        {/* Marcador A */}
+                        {faceAlinhamento && box.face === "0" && (
+                          <g style={{ pointerEvents: "none" }}>
+                            <circle cx={bx - px(10)} cy={by + box.h + px(10)} r={px(9)} fill="var(--color-primary)" />
+                            <text
+                              x={bx - px(10)}
+                              y={by + box.h + px(13)}
+                              fontSize={px(11)}
+                              textAnchor="middle"
+                              fill="var(--color-primary-foreground)"
+                              fontWeight="700"
+                            >
+                              {faceAlinhamento}
+                            </text>
+                          </g>
+                        )}
+                        {/* Operações da face */}
+                        {opsBox.map((op) => {
+                          const sel = op.id === opSel;
+                          if (op.tipo_operacao === "furo") {
+                            if (op.x == null || op.y == null) return null;
+                            const cx = bx + op.x;
+                            const cy = by + box.h - op.y;
+                            const r = Math.max((op.diametro ?? 4) / 2, px(2));
+                            return (
+                              <circle
+                                key={op.id}
+                                cx={cx}
+                                cy={cy}
+                                r={r}
+                                fill={sel ? "var(--color-primary)" : "var(--color-surface)"}
+                                stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                                strokeWidth={px(1)}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          if (op.tipo_operacao === "rasgo") {
+                            const y = op.y ?? 0;
+                            const x1 = op.x1 ?? op.x ?? 0;
+                            const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
+                            const larg = Math.max(op.largura ?? 6, px(3));
+                            const cy = by + box.h - y;
+                            return (
+                              <rect
+                                key={op.id}
+                                x={bx + Math.min(x1, x2)}
+                                y={cy - larg / 2}
+                                width={Math.abs(x2 - x1)}
+                                height={larg}
+                                fill={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                                strokeWidth={px(0.8)}
+                                rx={larg / 2}
+                                opacity={0.85}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          if (ehUsinagem(op.tipo_operacao)) {
+                            const pts = (op.pontos_json ?? []).filter(
+                              (p): p is { x: number; y: number; profundidade: number | null; tipo?: string | null } =>
+                                p.x != null && p.y != null,
+                            );
+                            if (pts.length === 0) return null;
+                            const d = pts
+                              .map((p, i) => `${i === 0 ? "M" : "L"} ${bx + p.x!} ${by + box.h - p.y!}`)
+                              .join(" ");
+                            return (
+                              <path
+                                key={op.id}
+                                d={d + (pts.length > 2 ? " Z" : "")}
+                                fill="none"
+                                stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                strokeWidth={px(1.2)}
+                                onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                style={{ cursor: "pointer" }}
+                              />
+                            );
+                          }
+                          return null;
+                        })}
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
             </svg>
           </div>
 
