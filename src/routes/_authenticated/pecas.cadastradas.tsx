@@ -415,6 +415,7 @@ function PecasCadastradasPage() {
       }
 
       const bordaRows = parsed.flatMap(({ result }) => {
+        if (result.classificacao.classificacao !== "peca_individual") return [];
         const pecaId = pecaIdByCodigo.get(result.codigo.codigo_completo);
         if (!pecaId) return [];
         return result.bordas.map((b) => ({
