@@ -107,6 +107,20 @@ export type ContornoExterno = {
   observacao?: string;
 };
 
+export type FaceLayoutEntry = {
+  face: string;
+  label?: string;
+  tipo_vista?: string;
+  largura_visual: number;
+  altura_visual: number;
+  posicao_pdf?: string;
+  ordem_visual?: number;
+};
+
+export type FacesLayoutJson = {
+  faces: FaceLayoutEntry[];
+};
+
 type Props = {
   codigo: string;
   nome?: string | null;
@@ -120,11 +134,13 @@ type Props = {
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
+  facesLayout?: FacesLayoutJson | null;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
   onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
 };
+
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
 
