@@ -863,6 +863,7 @@ function PecasCadastradasPage() {
               <th className="px-3 py-2 text-center">Usinag.</th>
               <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Geometria</th>
               <th className="px-3 py-2 text-right">Ações</th>
             </tr>
           </thead>
