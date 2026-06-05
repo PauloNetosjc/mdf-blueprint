@@ -75,7 +75,7 @@ export type VisualizadorBorda = {
   cor: string | null;
 };
 
-export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto";
+export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto" | "retangular";
 export type PosicaoRecuo =
   | "superior"
   | "superior_direito"
