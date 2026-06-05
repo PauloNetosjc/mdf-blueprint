@@ -724,11 +724,11 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [contornoSalvo, outlineOperacoes, partH]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const recuoPorOpId = useMemo(() => {
-    const m = new Map<string, typeof outline.recuos[number]>();
-    outline.recuos.forEach((r) => m.set(r.opId, r));
+    const m = new Map<string, ContornoAplicado>();
+    outlineOperacoes.recuos.forEach((r) => m.set(r.opId, r));
     return m;
-  }, [outline.recuos]);
-  const temRecuoFallback = outline.recuos.some((r) => r.origem === "padrao_65x40");
+  }, [outlineOperacoes.recuos]);
+  const temRecuoFallback = outlineOperacoes.recuos.some((r) => r.origem === "padrao_65x40");
   const contornosComFalha = outline.contornoFalhouIds.length > 0;
   const isLat3854A = codigo.trim().toUpperCase() === "LAT3854A";
   const lat3854AInvalida = isLat3854A && contornosExternos.some((o) => (o.nome_operacao ?? "").includes("UsinagemParametrica01")) && (
