@@ -614,3 +614,65 @@ function StatusBadgeDetalhe({ status, motivo }: { status: string; motivo: string
     </span>
   );
 }
+
+function EngenhariaResumo({ ops, bordas }: { ops: Operacao[]; bordas: Borda[] }) {
+  const furos = ops.filter((o) => o.tipo_operacao === "furo").length;
+  const rasgos = ops.filter((o) => o.tipo_operacao === "rasgo").length;
+  const usinagens = ops.filter(
+    (o) =>
+      o.tipo_operacao === "usinagem_parametrica" ||
+      o.tipo_operacao === "contorno" ||
+      o.tipo_operacao === "usinagem",
+  ).length;
+  const faces = Array.from(new Set(ops.map((o) => String(o.face ?? "—")))).sort();
+  return (
+    <div className="rounded border border-border bg-surface p-3">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Engenharia fixa da peça
+      </h2>
+      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+        <Resumo label="Furos" valor={furos} />
+        <Resumo label="Rasgos" valor={rasgos} />
+        <Resumo label="Usinagens" valor={usinagens} />
+        <Resumo label="Bordas" valor={bordas.length} />
+        <Resumo label="Faces" valor={faces.join(", ") || "—"} />
+      </div>
+    </div>
+  );
+}
+
+function Resumo({ label, valor }: { label: string; valor: number | string }) {
+  return (
+    <div className="rounded bg-surface-2 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="font-mono text-base font-semibold">{valor}</div>
+    </div>
+  );
+}
+
+function SecaoOps({
+  titulo,
+  count,
+  ops,
+  salvar,
+  apagar,
+}: {
+  titulo: string;
+  count: number;
+  ops: Operacao[];
+  salvar: (o: Operacao) => void;
+  apagar: (id: string) => void;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+        <span>{titulo} ({count})</span>
+      </div>
+      <div className="space-y-1">
+        {ops.map((o) => (
+          <OpRow key={o.id} op={o} onSave={salvar} onDelete={() => apagar(o.id)} />
+        ))}
+      </div>
+    </div>
+  );
+}
