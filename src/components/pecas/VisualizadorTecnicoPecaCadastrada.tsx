@@ -1669,7 +1669,14 @@ function ContornoDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => onSubmit({ origem, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." })}>
+          <Button onClick={() => {
+            // Edição manual sempre marca como "manual" (ou "misto" se origem anterior era parser_pdf/fallback)
+            const origemAnterior = contorno?.origem;
+            const origemFinal: ContornoOrigem = origemAnterior === "parser_pdf" || origemAnterior === "fallback"
+              ? "misto"
+              : "manual";
+            onSubmit({ origem: origemFinal, largura, altura, pontos: nums(), recuos, observacao: "Contorno externo usado para desenhar a geometria real da peça." });
+          }}>
             Salvar contorno
           </Button>
         </DialogFooter>
