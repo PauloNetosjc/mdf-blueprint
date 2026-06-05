@@ -355,6 +355,25 @@ export function VisualizadorTecnicoPecaCadastrada({
   const usinagensFace = opsFace.filter((o) => ehUsinagem(o.tipo_operacao));
   const outrasFace = opsFace.filter((o) => !["furo", "rasgo", ...TIPO_USINAGEM].includes(o.tipo_operacao));
 
+  // Contornos externos que alteram o formato da peça
+  const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
+  const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
+  const piecePolygon = useMemo(() => {
+    if (contornosExternos.length === 0) return null;
+    const notches = contornosExternos.map(pontosValidosDaOp);
+    const poly = buildPiecePolygon(partW, partH, notches);
+    if (poly.length < 3) return null;
+    return poly;
+  }, [contornosExternos, partW, partH]);
+  const piecePathD = useMemo(() => {
+    if (!piecePolygon) return null;
+    return (
+      piecePolygon
+        .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x} ${margin + partH - p.y}`)
+        .join(" ") + " Z"
+    );
+  }, [piecePolygon, margin, partH]);
+
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
       {/* Painel esquerdo: faces */}
