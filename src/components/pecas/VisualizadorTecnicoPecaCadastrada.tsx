@@ -56,6 +56,7 @@ export type VisualizadorOperacao = {
   pontos_json: Array<{ x: number | null; y: number | null; profundidade: number | null; tipo?: string | null }> | null;
   confianca_parser: string;
   ordem: number;
+  dados_brutos_json?: Record<string, unknown> | null;
 };
 
 export type VisualizadorBorda = {
@@ -150,12 +151,23 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Alertas básicos
   const alertasOp = (o: VisualizadorOperacao) => {
     const a: string[] = [];
-    if (o.x != null && (o.x < 0 || o.x > partW)) a.push("X fora da peça");
-    if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
-    if (espessura != null && o.profundidade != null && o.profundidade > espessura)
-      a.push("Profundidade > espessura");
-    if (o.tipo_operacao === "furo" && o.diametro == null) a.push("Sem diâmetro");
-    if (o.profundidade == null) a.push("Sem profundidade");
+    if (o.tipo_operacao === "rasgo") {
+      if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
+      if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
+      if (o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
+      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      if (o.largura != null && o.largura <= 0) a.push("Largura do rasgo inválida");
+      if (o.profundidade != null && o.profundidade <= 0) a.push("Profundidade inválida");
+      if (espessura != null && o.profundidade != null && o.profundidade > espessura)
+        a.push("Profundidade > espessura");
+    } else {
+      if (o.x != null && (o.x < 0 || o.x > partW)) a.push("X fora da peça");
+      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      if (espessura != null && o.profundidade != null && o.profundidade > espessura)
+        a.push("Profundidade > espessura");
+      if (o.tipo_operacao === "furo" && o.diametro == null) a.push("Sem diâmetro");
+      if (o.tipo_operacao === "furo" && o.profundidade == null) a.push("Sem profundidade");
+    }
     if (o.confianca_parser === "baixa") a.push("Baixa confiança");
     return a;
   };
@@ -535,7 +547,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                   </div>
                   <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                     {o.tipo_operacao === "rasgo"
-                      ? `Y${o.y ?? "?"} X[${o.x1 ?? "?"}→${o.x2 ?? "?"}]`
+                      ? `Y${o.y ?? "?"} X1 ${o.x1 ?? "?"} X2 ${o.x2 ?? "?"} Larg ${o.largura ?? "?"} Prof ${o.profundidade ?? "?"}`
                       : `X${o.x ?? "?"} Y${o.y ?? "?"}${o.diametro ? ` Ø${o.diametro}` : ""}`}
                   </div>
                 </button>
@@ -554,25 +566,43 @@ export function VisualizadorTecnicoPecaCadastrada({
             </p>
           ) : (
             <div className="space-y-1 text-[11px]">
-              <Linha k="Tipo" v={opSelObj.tipo_operacao} />
-              {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
-              <Linha k="Face" v={String(opSelObj.face ?? "—")} />
-              {opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
-              {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
-              {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
-              {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
-              {opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
-              {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
-              {opSelObj.comprimento != null && <Linha k="Comprimento" v={String(opSelObj.comprimento)} />}
-              {opSelObj.profundidade != null && <Linha k="Profundidade" v={String(opSelObj.profundidade)} />}
-              {opSelObj.ancora_x && (
-                <Linha k="Âncora X" v={`${opSelObj.ancora_x}${opSelObj.offset_x != null ? ` (${opSelObj.offset_x})` : ""}`} />
-              )}
-              {opSelObj.ancora_y && (
-                <Linha k="Âncora Y" v={`${opSelObj.ancora_y}${opSelObj.offset_y != null ? ` (${opSelObj.offset_y})` : ""}`} />
-              )}
-              <Linha k="Confiança" v={opSelObj.confianca_parser} />
-              <Linha k="Origem" v="biblioteca de peças cadastradas" />
+              {(() => {
+                const isRasgo = opSelObj.tipo_operacao === "rasgo";
+                const ancoras = (opSelObj.dados_brutos_json as { ancoras_extras?: { x1?: { ancora: string; offset: number }; x2?: { ancora: string; offset: number } } } | null | undefined)?.ancoras_extras;
+                return (
+                  <>
+                    <Linha k="Tipo" v={opSelObj.tipo_operacao} />
+                    {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
+                    <Linha k="Face" v={String(opSelObj.face ?? "—")} />
+                    {!isRasgo && opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
+                    {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
+                    {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
+                    {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
+                    {!isRasgo && opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
+                    {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
+                    {!isRasgo && opSelObj.comprimento != null && (
+                      <Linha k="Comprimento" v={String(opSelObj.comprimento)} />
+                    )}
+                    {opSelObj.profundidade != null && (
+                      <Linha k="Profundidade" v={String(opSelObj.profundidade)} />
+                    )}
+                    {isRasgo && ancoras?.x1 && (
+                      <Linha k="X1 âncora" v={`${ancoras.x1.ancora}, offset ${ancoras.x1.offset}`} />
+                    )}
+                    {isRasgo && ancoras?.x2 && (
+                      <Linha k="X2 âncora" v={`${ancoras.x2.ancora}, offset ${ancoras.x2.offset}`} />
+                    )}
+                    {!isRasgo && opSelObj.ancora_x && (
+                      <Linha k="Âncora X" v={`${opSelObj.ancora_x}${opSelObj.offset_x != null ? ` (${opSelObj.offset_x})` : ""}`} />
+                    )}
+                    {opSelObj.ancora_y && (
+                      <Linha k="Âncora Y" v={`${opSelObj.ancora_y}${opSelObj.offset_y != null ? ` (${opSelObj.offset_y})` : ""}`} />
+                    )}
+                    <Linha k="Confiança" v={opSelObj.confianca_parser} />
+                    <Linha k="Origem" v="biblioteca de peças cadastradas" />
+                  </>
+                );
+              })()}
 
               {(() => {
                 const al = alertasOp(opSelObj);
