@@ -621,7 +621,8 @@ function PecasCadastradasPage() {
       if (filtro === "com_rasgos" && c.rasgos === 0) return false;
       if (filtro === "face5" && !c.face5) return false;
       if (filtro === "sem_nome" && p.nome_peca) return false;
-      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
+      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0 || c.usinagens > 0)) return false;
+      if (filtro === "com_usinagens" && c.usinagens === 0) return false;
       if (filtro === "sem_bordas" && c.bordas > 0) return false;
       if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
       if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
