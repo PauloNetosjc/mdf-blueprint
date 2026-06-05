@@ -90,6 +90,10 @@ function ehUsinagem(t: string) {
   return TIPO_USINAGEM.includes(t);
 }
 
+function fmt(v: number | string | null | undefined) {
+  return v == null || v === "" ? "?" : String(v);
+}
+
 export function VisualizadorTecnicoPecaCadastrada({
   codigo,
   nome,
@@ -181,6 +185,11 @@ export function VisualizadorTecnicoPecaCadastrada({
       total: arr.length,
     };
   };
+
+  const furosFace = opsFace.filter((o) => o.tipo_operacao === "furo");
+  const rasgosFace = opsFace.filter((o) => o.tipo_operacao === "rasgo");
+  const usinagensFace = opsFace.filter((o) => ehUsinagem(o.tipo_operacao));
+  const outrasFace = opsFace.filter((o) => !["furo", "rasgo", ...TIPO_USINAGEM].includes(o.tipo_operacao));
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_280px]">
