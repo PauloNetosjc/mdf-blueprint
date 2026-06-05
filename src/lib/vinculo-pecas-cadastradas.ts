@@ -505,6 +505,7 @@ export async function processarVinculosProjeto(
         opsRowsParaInserir.push({
           projeto_id: projetoId,
           projeto_peca_id: peca.id,
+          peca_id: peca.peca_id ?? null,
           peca_cadastrada_id: cadRow.id,
           tipo_operacao: op.tipo_operacao ?? op.tipo ?? "furacao",
           face: String(op.face ?? 0),
