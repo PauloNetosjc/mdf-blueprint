@@ -366,7 +366,7 @@ export async function processarVinculosProjeto(
 
   const { data: pecasProjeto, error: ePP } = await supabase
     .from("projeto_pecas")
-    .select("id, projeto_id, descricao, largura, altura, espessura, codigo_peca, modulo, fita_codigo")
+    .select("id, projeto_id, peca_id, descricao, largura, altura, espessura, codigo_peca, modulo, fita_codigo")
     .eq("projeto_id", projetoId);
   if (ePP) { log.erros.push(ePP.message); return log; }
   const pecas = (pecasProjeto ?? []) as ProjetoPecaRow[];
