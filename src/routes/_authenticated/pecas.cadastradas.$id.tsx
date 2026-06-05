@@ -348,14 +348,18 @@ function PecaCadastradaDetalhe() {
 
         {/* Operações + Bordas */}
         <div className="space-y-4">
+          <EngenhariaResumo ops={ops.data ?? []} bordas={bordas.data ?? []} />
+
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
-              <h2 className="text-sm font-semibold">Operações ({ops.data?.length ?? 0})</h2>
+              <h2 className="text-sm font-semibold">
+                Engenharia fixa — operações ({ops.data?.length ?? 0})
+              </h2>
               <Button size="sm" variant="outline" onClick={() => novaOp.mutate()}>
                 <Plus className="mr-1 h-3 w-3" /> Adicionar
               </Button>
             </div>
-            <div className="max-h-[500px] overflow-auto p-2">
+            <div className="max-h-[600px] overflow-auto p-2">
               {facesOrdenadas.length === 0 && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   Nenhuma operação detectada.
@@ -363,13 +367,28 @@ function PecaCadastradaDetalhe() {
               )}
               {facesOrdenadas.map((face) => {
                 const alertaFace5 = face === "5" && !ehDiv;
+                const opsFace = opsPorFace.get(face)!;
+                const furos = opsFace.filter((o) => o.tipo_operacao === "furo");
+                const rasgos = opsFace.filter((o) => o.tipo_operacao === "rasgo");
+                const usinagens = opsFace.filter(
+                  (o) =>
+                    o.tipo_operacao === "usinagem_parametrica" ||
+                    o.tipo_operacao === "contorno" ||
+                    o.tipo_operacao === "usinagem",
+                );
+                const outras = opsFace.filter(
+                  (o) =>
+                    !["furo", "rasgo", "usinagem_parametrica", "contorno", "usinagem"].includes(
+                      o.tipo_operacao,
+                    ),
+                );
                 return (
-                  <div key={face} className="mb-3">
-                    <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                      <strong>
+                  <div key={face} className="mb-4">
+                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                      <strong className="text-foreground">
                         Face {face} — {nomeFace(face)}
                       </strong>
-                      <span className="text-[10px]">({opsPorFace.get(face)!.length})</span>
+                      <span className="text-[10px]">({opsFace.length} op.)</span>
                       {alertaFace5 && (
                         <Badge variant="destructive" className="gap-1 text-[10px]">
                           <AlertTriangle className="h-3 w-3" />
@@ -377,21 +396,49 @@ function PecaCadastradaDetalhe() {
                         </Badge>
                       )}
                     </div>
-                    <div className="space-y-1">
-                      {opsPorFace.get(face)!.map((o) => (
-                        <OpRow
-                          key={o.id}
-                          op={o}
-                          onSave={(updated) => salvarOp.mutate(updated)}
-                          onDelete={() => apagarOp.mutate(o.id)}
-                        />
-                      ))}
-                    </div>
+
+                    {furos.length > 0 && (
+                      <SecaoOps
+                        titulo="Furações"
+                        count={furos.length}
+                        ops={furos}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {rasgos.length > 0 && (
+                      <SecaoOps
+                        titulo="Rasgos"
+                        count={rasgos.length}
+                        ops={rasgos}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {usinagens.length > 0 && (
+                      <SecaoOps
+                        titulo="Usinagens / Contornos"
+                        count={usinagens.length}
+                        ops={usinagens}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {outras.length > 0 && (
+                      <SecaoOps
+                        titulo="Outras"
+                        count={outras.length}
+                        ops={outras}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
+
 
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
