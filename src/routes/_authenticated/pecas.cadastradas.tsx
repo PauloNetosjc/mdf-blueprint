@@ -885,6 +885,8 @@ const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNo
   com_alertas: { label: "Alertas", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
   pendente_revisao: { label: "Revisão", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
   com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
+  ignorado_modulo: { label: "Módulo", cls: "border-muted-foreground/30 bg-muted/40 text-muted-foreground", icon: <AlertTriangle className="h-3 w-3" /> },
+  pendente_classificacao: { label: "Classif.?", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
 };
 
 const StatusBadge = memo(function StatusBadge({ peca }: { peca: PecaRow }) {
