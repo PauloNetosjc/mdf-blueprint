@@ -894,11 +894,7 @@ export async function parseTechnicalDrawingPdf(
     alertas.push(`${opsBaixaConfianca} operação(ões) com confiança baixa.`);
   }
 
-  if (temFace5 && codigo && !ehDivisoria(codigo.prefixo)) {
-    alertas.push(
-      `Operação na Face 5 detectada em peça do tipo ${codigo.tipo_peca}. Face 5 normalmente é usada apenas em Divisórias — operações foram preservadas.`,
-    );
-  }
+  // Face 5 não é tratada como caso especial — é apenas o identificador local do PDF.
 
   const resumo: ResumoParser = {
     furos_detectados: furos,
