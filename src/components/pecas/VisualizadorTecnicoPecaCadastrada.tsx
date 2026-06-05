@@ -426,6 +426,8 @@ export function VisualizadorTecnicoPecaCadastrada({
     () => gerarOutlineDaPeca({ largura: partW, altura: partH, margem: margin, operacoesContornoExterno: contornosExternos }),
     [contornosExternos, partW, partH, margin],
   );
+  const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
+  const contornosComFalha = outline.contornoFalhouIds.length > 0;
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
@@ -557,7 +559,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               </g>
 
               {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoExterno ? (
+              {outline.temContornoAplicado ? (
                 <path
                   d={outline.path}
                   fill="var(--color-surface)"
@@ -575,6 +577,23 @@ export function VisualizadorTecnicoPecaCadastrada({
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
                 />
+              )}
+
+              {contornosComFalha && (
+                <g>
+                  <rect
+                    x={margin + px(10)}
+                    y={margin + px(10)}
+                    width={Math.min(px(440), partW - px(20))}
+                    height={px(34)}
+                    fill="var(--color-surface)"
+                    stroke="var(--color-warning)"
+                    strokeWidth={px(1)}
+                  />
+                  <text x={margin + px(20)} y={margin + px(31)} fontSize={px(11)} fill="var(--color-warning)" fontFamily="monospace">
+                    Contorno externo detectado, mas não foi possível aplicar ao formato da peça.
+                  </text>
+                </g>
               )}
 
               {/* Face de alinhamento */}
