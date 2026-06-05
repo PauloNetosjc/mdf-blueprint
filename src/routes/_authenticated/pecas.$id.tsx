@@ -159,6 +159,7 @@ function EditorPeca() {
             )}
           </div>
 
+          <EngenhariaCadastradaBoxByPeca pecaId={id} />
           <OperacoesImportadas pecaId={id} nextOrdem={operacoes.length + 1} />
         </aside>
 
