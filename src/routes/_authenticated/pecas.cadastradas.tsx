@@ -795,9 +795,18 @@ function PecasCadastradasPage() {
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
+        <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5"
+            checked={mostrarModulos}
+            onChange={(e) => setMostrarModulos(e.target.checked)}
+          />
+          Mostrar módulos ignorados {stats.ignorado_modulo ? `(${stats.ignorado_modulo})` : ""}
+        </label>
       </div>
       <p className="mb-2 text-xs text-muted-foreground">
-        Clique em uma peça para abrir o visualizador técnico.
+        Clique em uma peça para abrir o visualizador técnico. Módulos (ARM/CAN/BAL/RET/SEQ/SIS) ficam ocultos por padrão.
       </p>
 
       <div className="overflow-auto rounded border border-border bg-surface">
