@@ -369,6 +369,137 @@ function gerarPathExternoPeca({
   };
 }
 
+function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
+  if (!contorno || !Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
+  const pontos = contorno.pontos
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+    .map((p) => ({ x: Number(p.x), y: Number(p.y) }));
+  if (pontos.length < 3) return null;
+  return { ...contorno, pontos };
+}
+
+function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
+  const contornos = operacoes.filter((o) => ehContornoExterno(o, largura, altura));
+  const outline = gerarPathExternoPeca({ largura, altura, operacoes: contornos });
+  if (!outline.temContornoAplicado) return null;
+  return {
+    origem: "parser_pdf",
+    largura,
+    altura,
+    pontos: outline.pontosTecnicos,
+    recuos: outline.contornosAplicados.map((c) => ({
+      posicao: c.lado === "top" ? "superior" : c.lado === "bottom" ? "inferior" : c.lado === "right" ? "direita" : "esquerda",
+      largura: c.largura,
+      profundidade: c.profundidade,
+      origem: c.origem === "pdf" ? "parser_pdf" : "fallback",
+      preset: c.origem === "pdf" ? "operação de contorno" : "recuo 65x40",
+      x_inicio: c.lado === "top" || c.lado === "bottom" ? c.ini : undefined,
+      x_fim: c.lado === "top" || c.lado === "bottom" ? c.fim : undefined,
+      y_inicio: c.lado === "left" || c.lado === "right" ? c.ini : undefined,
+      y_fim: c.lado === "left" || c.lado === "right" ? c.fim : undefined,
+    })),
+    presets_aplicados: ["gerado_a_partir_das_operacoes"],
+    observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
+type CorteBorda = { edge: Edge; ini: number; fim: number; profundidade: number };
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function cortePorRecuo(recuo: ContornoRecuo, largura: number, altura: number): CorteBorda {
+  const lar = Math.max(1, recuo.largura || RECUO_PADRAO.largura);
+  const prof = Math.max(1, recuo.profundidade || RECUO_PADRAO.profundidade);
+  if (recuo.posicao === "superior") {
+    const ini = clamp(recuo.x_inicio ?? (largura - lar) / 2, 0, largura);
+    return { edge: "top", ini, fim: clamp(recuo.x_fim ?? ini + lar, ini, largura), profundidade: clamp(prof, 1, altura) };
+  }
+  if (recuo.posicao === "superior_direito") {
+    return { edge: "right", ini: clamp(altura - prof, 0, altura), fim: altura, profundidade: clamp(lar, 1, largura) };
+  }
+  if (recuo.posicao === "superior_esquerdo") {
+    return { edge: "left", ini: clamp(altura - prof, 0, altura), fim: altura, profundidade: clamp(lar, 1, largura) };
+  }
+  if (recuo.posicao === "inferior") {
+    const ini = clamp(recuo.x_inicio ?? (largura - lar) / 2, 0, largura);
+    return { edge: "bottom", ini, fim: clamp(recuo.x_fim ?? ini + lar, ini, largura), profundidade: clamp(prof, 1, altura) };
+  }
+  if (recuo.posicao === "direita") {
+    const ini = clamp(recuo.y_inicio ?? (altura - lar) / 2, 0, altura);
+    return { edge: "right", ini, fim: clamp(recuo.y_fim ?? ini + lar, ini, altura), profundidade: clamp(prof, 1, largura) };
+  }
+  const ini = clamp(recuo.y_inicio ?? (altura - lar) / 2, 0, altura);
+  return { edge: "left", ini, fim: clamp(recuo.y_fim ?? ini + lar, ini, altura), profundidade: clamp(prof, 1, largura) };
+}
+
+function pontosPorRecuos(largura: number, altura: number, recuos: ContornoRecuo[]) {
+  const cortes: Record<Edge, CorteBorda[]> = { bottom: [], right: [], top: [], left: [] };
+  recuos.forEach((r) => {
+    const c = cortePorRecuo(r, largura, altura);
+    if (c.fim - c.ini > EDGE_EPS) cortes[c.edge].push(c);
+  });
+  cortes.bottom.sort((a, b) => a.ini - b.ini);
+  cortes.right.sort((a, b) => a.ini - b.ini);
+  cortes.top.sort((a, b) => b.fim - a.fim);
+  cortes.left.sort((a, b) => b.fim - a.fim);
+
+  const out: Pt[] = [];
+  pushPt(out, { x: 0, y: 0 });
+  cortes.bottom.forEach((c) => {
+    if (c.ini > 0) pushPt(out, { x: c.ini, y: 0 });
+    pushPt(out, { x: c.ini, y: c.profundidade });
+    pushPt(out, { x: c.fim, y: c.profundidade });
+    if (c.fim < largura) pushPt(out, { x: c.fim, y: 0 });
+  });
+  pushPt(out, { x: largura, y: 0 });
+  cortes.right.forEach((c) => {
+    if (c.ini > 0) pushPt(out, { x: largura, y: c.ini });
+    pushPt(out, { x: largura - c.profundidade, y: c.ini });
+    pushPt(out, { x: largura - c.profundidade, y: c.fim });
+    if (c.fim < altura) pushPt(out, { x: largura, y: c.fim });
+  });
+  if (!samePoint(out[out.length - 1], { x: largura - (cortes.right.at(-1)?.fim === altura ? cortes.right.at(-1)!.profundidade : 0), y: altura })) {
+    pushPt(out, { x: largura, y: altura });
+  }
+  cortes.top.forEach((c) => {
+    if (c.fim < largura) pushPt(out, { x: c.fim, y: altura });
+    pushPt(out, { x: c.fim, y: altura - c.profundidade });
+    pushPt(out, { x: c.ini, y: altura - c.profundidade });
+    if (c.ini > 0) pushPt(out, { x: c.ini, y: altura });
+  });
+  if (!(cortes.top.at(-1)?.ini === 0 || cortes.left[0]?.fim === altura)) pushPt(out, { x: 0, y: altura });
+  cortes.left.forEach((c) => {
+    if (c.fim < altura) pushPt(out, { x: 0, y: c.fim });
+    pushPt(out, { x: c.profundidade, y: c.fim });
+    pushPt(out, { x: c.profundidade, y: c.ini });
+    if (c.ini > 0) pushPt(out, { x: 0, y: c.ini });
+  });
+  return out;
+}
+
+function aplicarRecuoPadraoAoContorno(base: ContornoExterno | null | undefined, largura: number, altura: number, posicao: PosicaoRecuo): ContornoExterno {
+  const recuos = [...(base?.recuos ?? [])];
+  recuos.push({
+    id: crypto.randomUUID?.() ?? String(Date.now()),
+    posicao,
+    largura: RECUO_PADRAO.largura,
+    profundidade: RECUO_PADRAO.profundidade,
+    origem: "manual",
+    preset: "recuo_65x40",
+  });
+  return {
+    origem: base?.origem && base.origem !== "manual" ? "misto" : "manual",
+    largura,
+    altura,
+    pontos: pontosPorRecuos(largura, altura, recuos),
+    recuos,
+    presets_aplicados: [...(base?.presets_aplicados ?? []), `recuo_65x40_${posicao}`],
+    observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
 function fmt(v: number | string | null | undefined) {
   return v == null || v === "" ? "?" : String(v);
 }
