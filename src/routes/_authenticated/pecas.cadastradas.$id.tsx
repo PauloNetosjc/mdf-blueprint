@@ -13,10 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ehDivisoria, FACE_LABELS, getTipoPecaPorPrefixo } from "@/lib/pecas-cadastradas-parser";
+import {
+  ehDivisoria,
+  FACE_LABELS,
+  getTipoPecaPorPrefixo,
+  parseTechnicalDrawingPdf,
+  classificarStatusParser,
+} from "@/lib/pecas-cadastradas-parser";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,6 +266,118 @@ function PecaCadastradaDetalhe() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] }),
   });
 
+  const reprocessar = useMutation({
+    mutationFn: async () => {
+      const pdfPath = peca.data?.pdf_url;
+      if (!pdfPath) throw new Error("Esta peça não tem PDF armazenado para reprocessar.");
+      const codigo = peca.data?.codigo_completo ?? "peca";
+
+      // 1) Baixa o PDF do storage
+      const { data: signed, error: errSig } = await supabase
+        .storage.from("pecas-cadastradas").createSignedUrl(pdfPath, 600);
+      if (errSig || !signed?.signedUrl) throw new Error(errSig?.message ?? "Falha ao gerar URL");
+      const resp = await fetch(signed.signedUrl);
+      if (!resp.ok) throw new Error(`Falha ao baixar PDF (HTTP ${resp.status})`);
+      const blob = await resp.blob();
+      const file = new File([blob], `${codigo}.pdf`, { type: "application/pdf" });
+
+      // 2) Re-executa o parser
+      const result = await parseTechnicalDrawingPdf(file, `${codigo}.pdf`);
+      const { status, motivo } = classificarStatusParser(result);
+
+      // 3) Atualiza a peça
+      const { error: errUp } = await db.from("pecas_cadastradas").update({
+        nome_peca: result.nome_peca,
+        largura_ref: result.largura_ref,
+        altura_ref: result.altura_ref,
+        espessura_ref: result.espessura_ref,
+        material_ref: result.material_ref,
+        fita_ref: result.fita_ref,
+        status_parser: status,
+        motivo_status: motivo,
+        erros_parser: result.erros,
+        parser_alertas_json: result.alertas,
+        resumo_parser_json: {
+          ...result.resumo,
+          classificacao: result.classificacao.classificacao,
+          classificacao_motivo: result.classificacao.motivo,
+          classificacao_confianca: result.classificacao.confianca,
+          classificacao_sinais: result.classificacao.sinais,
+        },
+        logs_parser: result.logs,
+        dados_brutos_json: result.dados_brutos,
+      }).eq("id", id);
+      if (errUp) throw errUp;
+
+      // 4) Substitui operações e bordas
+      await db.from("peca_cadastrada_operacoes").delete().eq("peca_cadastrada_id", id);
+      await db.from("peca_cadastrada_bordas").delete().eq("peca_cadastrada_id", id);
+
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u.user!.id;
+
+      if (result.operacoes.length > 0) {
+        const opsRows = result.operacoes.map((o, idx) => ({
+          user_id: userId,
+          peca_cadastrada_id: id,
+          tipo: o.tipo_operacao,
+          tipo_operacao: o.tipo_operacao,
+          nome_operacao: o.nome_operacao,
+          face: o.face != null ? Number(o.face) : 0,
+          x: o.x, y: o.y, z: o.z,
+          diametro: o.diametro,
+          profundidade: o.profundidade,
+          largura: o.largura,
+          comprimento: o.comprimento,
+          x1: o.x1, x2: o.x2, y1: o.y1, y2: o.y2,
+          ancora_x: o.ancora_x, ancora_y: o.ancora_y,
+          offset_x: o.offset_x, offset_y: o.offset_y,
+          pontos_json: o.pontos ?? [],
+          confianca_parser: o.confianca_parser,
+          dados_brutos_json: o.dados_brutos ?? {},
+          ordem: idx + 1,
+        }));
+        const { error: errOps } = await db.from("peca_cadastrada_operacoes").insert(opsRows);
+        if (errOps) throw errOps;
+      }
+
+      if (result.bordas.length > 0) {
+        const bordasRows = result.bordas.map((b) => ({
+          user_id: userId,
+          peca_cadastrada_id: id,
+          lado: b.lado,
+          codigo_borda: b.codigo_borda,
+          descricao_borda: b.descricao_borda,
+          espessura: b.espessura,
+          largura: b.largura,
+          cor: b.cor,
+          indicador_desenho: b.indicador_desenho,
+          confianca_parser: b.confianca_parser,
+          tem_fita: true,
+        }));
+        const { error: errB } = await db.from("peca_cadastrada_bordas").insert(bordasRows);
+        if (errB) throw errB;
+      }
+
+      return {
+        furos: result.operacoes.filter((o) => o.tipo_operacao === "furo").length,
+        rasgos: result.operacoes.filter((o) => o.tipo_operacao === "rasgo").length,
+        usin: result.operacoes.filter((o) =>
+          ["usinagem_parametrica", "contorno", "usinagem"].includes(o.tipo_operacao),
+        ).length,
+      };
+    },
+    onSuccess: (r) => {
+      toast.success(`Reprocessado: ${r.furos} furos, ${r.rasgos} rasgos, ${r.usin} usinagens`);
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] });
+    },
+    onError: (e: Error) => toast.error(`Falha ao reprocessar: ${e.message}`),
+  });
+
+
+
   if (peca.isLoading) return <div className="p-6">Carregando...</div>;
   if (!peca.data) return <div className="p-6">Peça não encontrada.</div>;
   const p = peca.data;
@@ -276,13 +394,25 @@ function PecaCadastradaDetalhe() {
   return (
     <div className="p-6">
       <header className="mb-4">
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost" size="sm">
             <Link to="/pecas/cadastradas">
               <ArrowLeft className="mr-1 h-4 w-4" /> Voltar para Peças Cadastradas
             </Link>
           </Button>
+          {p.pdf_url && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reprocessar.mutate()}
+              disabled={reprocessar.isPending}
+            >
+              <RefreshCw className={`mr-1 h-4 w-4 ${reprocessar.isPending ? "animate-spin" : ""}`} />
+              {reprocessar.isPending ? "Reprocessando..." : "Reprocessar PDF"}
+            </Button>
+          )}
         </div>
+
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

@@ -348,6 +348,28 @@ function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
   return out;
 }
 
+// Section detection helpers — tolerant to acentuação and plural/concatenado
+const RE_FURACAO = /\bfura[cç][aãáà][oõ]e?s?\b/i;
+const RE_RASGOS = /\brasgo?s?\b/i;
+const RE_USINAGENS_SECAO = /\businagens?\b/i;
+const RE_USINAGEM_ENTRADA = /(usinagem\s*param[eé]trica\s*\d*|contorno)/i;
+
+export type SecaoDetectada = {
+  furacao: boolean;
+  rasgos: boolean;
+  usinagens: boolean;
+};
+
+function detectarSecoes(linhas: Linha[]): SecaoDetectada {
+  const out: SecaoDetectada = { furacao: false, rasgos: false, usinagens: false };
+  for (const l of linhas) {
+    if (RE_FURACAO.test(l.texto)) out.furacao = true;
+    if (RE_RASGOS.test(l.texto)) out.rasgos = true;
+    if (RE_USINAGENS_SECAO.test(l.texto) || RE_USINAGEM_ENTRADA.test(l.texto)) out.usinagens = true;
+  }
+  return out;
+}
+
 function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   const ops: OperacaoExtraida[] = [];
   const faceCtx = extrairFacesPorContexto(linhas);
@@ -366,64 +388,70 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
-    const t = linha.texto.toLowerCase();
+    const texto = linha.texto;
+    const numericLinha = isNumericCells(linha.cels);
 
-    // Detecta cabeçalhos de seção
-    const mUsin = linha.texto.match(
-      /\b(usinagem\s*param[eé]trica\s*\d*|usinagem|contorno)\b\s*[-–:]?\s*([A-Za-zÀ-ÿ0-9 .\-]*)/i,
-    );
-    if (mUsin && /usinagem|contorno/i.test(linha.texto) && !isNumericCells(linha.cels)) {
-      flushUsinagem();
-      modo = "usinagem";
-      const face = faceCtx.get(i) || null;
-      const isContorno = /contorno/i.test(linha.texto);
-      usinagemAtual = {
-        tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
-        nome_operacao: linha.texto.replace(/\s+/g, " ").trim().slice(0, 120),
-        face,
-        x: null,
-        y: null,
-        z: null,
-        diametro: null,
-        profundidade: null,
-        largura: null,
-        comprimento: null,
-        x1: null,
-        x2: null,
-        y1: null,
-        y2: null,
-        ordem: ordem++,
-        ancora_x: null,
-        ancora_y: null,
-        offset_x: null,
-        offset_y: null,
-        pontos: [],
-        confianca_parser: "alta",
-        dados_brutos: { cabecalho: linha.texto },
-      };
-      continue;
-    }
-
-    if (/\bfura(c|ç)(a|õ|o)e?s?\b/.test(t)) {
-      flushUsinagem();
-      modo = "furo";
-      continue;
-    }
-    if (/\brasgo?s?\b/.test(t)) {
-      flushUsinagem();
-      modo = "rasgo";
-      continue;
+    // 1) Cabeçalhos de seção (têm prioridade e nunca são linhas numéricas)
+    if (!numericLinha) {
+      if (RE_FURACAO.test(texto)) {
+        flushUsinagem();
+        modo = "furo";
+        continue;
+      }
+      if (RE_RASGOS.test(texto)) {
+        flushUsinagem();
+        modo = "rasgo";
+        continue;
+      }
+      if (RE_USINAGENS_SECAO.test(texto) && !RE_USINAGEM_ENTRADA.test(texto)) {
+        flushUsinagem();
+        modo = "usinagem";
+        continue;
+      }
+      // 2) Entrada individual de usinagem (ex.: "UsinagemParametrica01 - Contorno")
+      if (RE_USINAGEM_ENTRADA.test(texto)) {
+        flushUsinagem();
+        modo = "usinagem";
+        const isContorno = /contorno/i.test(texto);
+        usinagemAtual = {
+          tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
+          nome_operacao: texto.replace(/\s+/g, " ").trim().slice(0, 120),
+          face: faceCtx.get(i) || null,
+          x: null,
+          y: null,
+          z: null,
+          diametro: null,
+          profundidade: null,
+          largura: null,
+          comprimento: null,
+          x1: null,
+          x2: null,
+          y1: null,
+          y2: null,
+          ordem: ordem++,
+          ancora_x: null,
+          ancora_y: null,
+          offset_x: null,
+          offset_y: null,
+          pontos: [],
+          confianca_parser: "alta",
+          dados_brutos: { cabecalho: texto },
+        };
+        continue;
+      }
     }
 
     if (!modo) continue;
-    if (!isNumericCells(linha.cels)) continue;
+    if (!numericLinha) continue;
 
     const valores = linha.cels
       .map((c) => toNum(c.str))
       .filter((v): v is number => v != null);
     if (valores.length < 2) continue;
 
-    const face = faceCtx.get(i) || (usinagemAtual?.face ?? null);
+    const faceFromCtx = faceCtx.get(i);
+    const faceFromUsin: string | null = usinagemAtual ? usinagemAtual.face : null;
+    const face: string | null = faceFromCtx || faceFromUsin;
 
     if (modo === "furo") {
       const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
@@ -484,7 +512,34 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         confianca_parser: valores.length >= 5 ? "alta" : "media",
         dados_brutos: { linha: linha.texto, valores },
       });
-    } else if (modo === "usinagem" && usinagemAtual) {
+    } else if (modo === "usinagem") {
+      // Se vier numeric antes de uma entrada explícita, cria uma usinagem implícita
+      if (!usinagemAtual) {
+        usinagemAtual = {
+          tipo_operacao: "usinagem_parametrica",
+          nome_operacao: "Usinagem",
+          face,
+          x: null,
+          y: null,
+          z: null,
+          diametro: null,
+          profundidade: null,
+          largura: null,
+          comprimento: null,
+          x1: null,
+          x2: null,
+          y1: null,
+          y2: null,
+          ordem: ordem++,
+          ancora_x: null,
+          ancora_y: null,
+          offset_x: null,
+          offset_y: null,
+          pontos: [],
+          confianca_parser: "media",
+          dados_brutos: { implicita: true },
+        };
+      }
       // X, Y, Profundidade [+ rótulo "Ponto Inicial/Final" no texto]
       const [x, y, prof] = [valores[0], valores[1], valores[2] ?? null];
       const rotuloMatch = linha.texto.match(/ponto\s+(inicial|final|intermedi[aá]rio)/i);
@@ -495,7 +550,6 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         tipo: rotuloMatch ? `Ponto ${rotuloMatch[1]}` : null,
         ordem: ordemPonto++,
       });
-      // Profundidade representativa: a mais profunda dos pontos
       if (prof != null && (usinagemAtual.profundidade == null || prof > usinagemAtual.profundidade)) {
         usinagemAtual.profundidade = prof;
       }
@@ -504,6 +558,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   flushUsinagem();
   return ops;
 }
+
 
 function extrairBordas(linhas: Linha[]): BordaExtraida[] {
   const bordas: BordaExtraida[] = [];
@@ -880,6 +935,22 @@ export async function parseTechnicalDrawingPdf(
   if (operacoes.length === 0) {
     alertas.push("Nenhuma furação, rasgo ou usinagem encontrada.");
   }
+
+  // Validação por seção: se a tabela existe mas nada foi extraído, registra alerta de parser.
+  const secoes = detectarSecoes(linhas);
+  if (secoes.furacao && furos === 0) {
+    alertas.push("Tabela de furação detectada, mas nenhum furo foi extraído.");
+    erros.push("Furação: tabela encontrada no PDF mas o parser não conseguiu extrair os furos.");
+  }
+  if (secoes.rasgos && rasgos === 0) {
+    alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
+    erros.push("Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.");
+  }
+  if (secoes.usinagens && usinagens === 0) {
+    alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
+    erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
+  }
+
   if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
 
   for (const b of bordas) {
@@ -888,6 +959,7 @@ export async function parseTechnicalDrawingPdf(
       break;
     }
   }
+
 
   const opsBaixaConfianca = operacoes.filter((o) => o.confianca_parser === "baixa").length;
   if (opsBaixaConfianca > 0) {
