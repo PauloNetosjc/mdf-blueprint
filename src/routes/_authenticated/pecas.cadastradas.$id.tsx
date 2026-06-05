@@ -24,7 +24,7 @@ import {
   classificarStatusParser,
 } from "@/lib/pecas-cadastradas-parser";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
-import { VisualizadorTecnicoPecaCadastrada } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -101,6 +101,14 @@ type Borda = {
 
 const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
 const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseira", "desconhecido"];
+
+function lerContornoExterno(raw: Record<string, unknown> | null | undefined): ContornoExterno | null {
+  const c = raw?.contorno_externo_json;
+  if (!c || typeof c !== "object") return null;
+  const contorno = c as ContornoExterno;
+  if (!Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
+  return contorno;
+}
 
 function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
