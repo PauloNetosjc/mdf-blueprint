@@ -1,7 +1,38 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AlertTriangle, Plus } from "lucide-react";
+
+const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
+
+export type NovaOperacaoPayload = {
+  face: string;
+  tipo_operacao: string;
+  x: number | null;
+  y: number | null;
+  diametro: number | null;
+  profundidade: number | null;
+  x1: number | null;
+  x2: number | null;
+  largura: number | null;
+  comprimento: number | null;
+};
 
 export type VisualizadorOperacao = {
   id: string;
@@ -49,6 +80,7 @@ type Props = {
   faceAlinhamento?: string | null;
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
+  onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
 };
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem"];
@@ -69,6 +101,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   faceAlinhamento,
   indicadoresBorda = [],
   facesDetectadas = [],
+  onAddOperacao,
 }: Props) {
   // Agrupa por face
   const opsPorFace = useMemo(() => {
@@ -82,14 +115,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [operacoes]);
 
   const faces = useMemo(() => {
-    const s = new Set<string>([...opsPorFace.keys(), ...facesDetectadas.map(String)]);
-    if (s.size === 0) s.add("0");
-    return Array.from(s).sort();
+    // Sempre mostrar as 6 faces padrão + qualquer outra detectada/com operações.
+    const s = new Set<string>([
+      ...FACES_PADRAO,
+      ...opsPorFace.keys(),
+      ...facesDetectadas.map(String),
+    ]);
+    s.delete("—");
+    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [opsPorFace, facesDetectadas]);
 
   const [faceSel, setFaceSel] = useState<string>(faces[0] ?? "0");
   const [opSel, setOpSel] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [addOpen, setAddOpen] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
@@ -448,8 +487,13 @@ export function VisualizadorTecnicoPecaCadastrada({
           </svg>
 
           {opsFace.length === 0 && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-              Nenhuma furação, rasgo ou usinagem nesta face.
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+              <span>Nenhuma operação cadastrada nesta face.</span>
+              {onAddOperacao && (
+                <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Adicionar operação nesta face
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -457,11 +501,18 @@ export function VisualizadorTecnicoPecaCadastrada({
 
       {/* Painel direito: detalhes / lista */}
       <aside className="rounded border border-border bg-surface p-2">
-        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Operações da Face {faceSel}
-        </h3>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Operações da Face {faceSel}
+          </h3>
+          {onAddOperacao && (
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1 h-3 w-3" /> Adicionar
+            </Button>
+          )}
+        </div>
         {opsFace.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma operação.</p>
+          <p className="text-xs text-muted-foreground">Nenhuma operação cadastrada nesta face.</p>
         ) : (
           <div className="mb-3 max-h-48 space-y-1 overflow-auto">
             {opsFace.map((o) => {
@@ -571,7 +622,113 @@ export function VisualizadorTecnicoPecaCadastrada({
           )}
         </div>
       </aside>
+
+      {onAddOperacao && (
+        <AddOperacaoDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          face={faceSel}
+          onSubmit={async (payload) => {
+            await onAddOperacao(payload);
+            setAddOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AddOperacaoDialog({
+  open,
+  onOpenChange,
+  face,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  face: string;
+  onSubmit: (payload: NovaOperacaoPayload) => void | Promise<void>;
+}) {
+  const [tipo, setTipo] = useState("furo");
+  const [x, setX] = useState("");
+  const [y, setY] = useState("");
+  const [diametro, setDiametro] = useState("");
+  const [profundidade, setProfundidade] = useState("");
+  const [x1, setX1] = useState("");
+  const [x2, setX2] = useState("");
+  const [largura, setLargura] = useState("");
+  const [comprimento, setComprimento] = useState("");
+
+  const num = (s: string) => (s.trim() === "" ? null : Number(s));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar operação — Face {face}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="col-span-2">
+            <Label className="mb-1 block text-xs">Tipo</Label>
+            <Select value={tipo} onValueChange={setTipo}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="furo">Furação</SelectItem>
+                <SelectItem value="rasgo">Rasgo</SelectItem>
+                <SelectItem value="usinagem_parametrica">Usinagem</SelectItem>
+                <SelectItem value="contorno">Contorno</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {tipo === "rasgo" ? (
+            <>
+              <div><Label className="mb-1 block text-xs">Y</Label><Input value={y} onChange={(e) => setY(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">Largura</Label><Input value={largura} onChange={(e) => setLargura(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">X1</Label><Input value={x1} onChange={(e) => setX1(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">X2</Label><Input value={x2} onChange={(e) => setX2(e.target.value)} /></div>
+              <div className="col-span-2"><Label className="mb-1 block text-xs">Profundidade</Label><Input value={profundidade} onChange={(e) => setProfundidade(e.target.value)} /></div>
+            </>
+          ) : (
+            <>
+              <div><Label className="mb-1 block text-xs">X</Label><Input value={x} onChange={(e) => setX(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">Y</Label><Input value={y} onChange={(e) => setY(e.target.value)} /></div>
+              {tipo === "furo" && (
+                <div><Label className="mb-1 block text-xs">Diâmetro</Label><Input value={diametro} onChange={(e) => setDiametro(e.target.value)} /></div>
+              )}
+              <div><Label className="mb-1 block text-xs">Profundidade</Label><Input value={profundidade} onChange={(e) => setProfundidade(e.target.value)} /></div>
+              {tipo !== "furo" && (
+                <>
+                  <div><Label className="mb-1 block text-xs">Largura</Label><Input value={largura} onChange={(e) => setLargura(e.target.value)} /></div>
+                  <div><Label className="mb-1 block text-xs">Comprimento</Label><Input value={comprimento} onChange={(e) => setComprimento(e.target.value)} /></div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={() =>
+              onSubmit({
+                face,
+                tipo_operacao: tipo,
+                x: num(x),
+                y: num(y),
+                diametro: num(diametro),
+                profundidade: num(profundidade),
+                x1: num(x1),
+                x2: num(x2),
+                largura: num(largura),
+                comprimento: num(comprimento),
+              })
+            }
+          >
+            Salvar operação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
