@@ -915,6 +915,9 @@ function PecasCadastradasPage() {
                       {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
                     </div>
                   </td>
+                  <td className="px-3 py-2">
+                    <GeometriaBadge status={statusGeometria(p.dados_brutos_json)} />
+                  </td>
                   <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button asChild size="sm" variant="outline">
                       <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent">
