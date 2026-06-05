@@ -110,6 +110,13 @@ function lerContornoExterno(raw: Record<string, unknown> | null | undefined): Co
   return contorno;
 }
 
+function pathContorno(contorno: ContornoExterno | null) {
+  if (!contorno?.pontos?.length) return "—";
+  return contorno.pontos
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${contorno.altura - p.y}`)
+    .join(" ") + " Z";
+}
+
 function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
