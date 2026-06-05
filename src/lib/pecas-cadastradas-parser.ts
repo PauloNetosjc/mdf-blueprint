@@ -233,14 +233,26 @@ export function inferOperationAnchors(
   altura_ref: number | null,
 ): OperacaoExtraida {
   const out = { ...op };
-  if (op.x != null) {
+
+  // Para rasgo: a posição relevante é X1 (esquerda) e X2 (direita), não o ponto médio.
+  // X1 sempre ancorado à esquerda; X2 sempre ancorado à direita (offset = largura_ref - x2);
+  // Y é a distância em relação à borda inferior da face.
+  const ehRasgo = op.tipo_operacao === "rasgo";
+
+  if (ehRasgo && op.x1 != null) {
+    out.ancora_x = "esquerda";
+    out.offset_x = op.x1;
+  } else if (op.x != null) {
     const a = inferirAncoraEixo(op.x, largura_ref);
     out.ancora_x = a.ancora;
     out.offset_x = a.offset;
   }
-  if (op.y != null) {
+
+  if (ehRasgo && op.y != null) {
+    out.ancora_y = "inferior";
+    out.offset_y = op.y;
+  } else if (op.y != null) {
     const a = inferirAncoraEixo(op.y, altura_ref);
-    // No eixo Y mapeamos esquerda/direita → inferior/superior
     out.ancora_y =
       a.ancora === "esquerda"
         ? "inferior"
@@ -249,10 +261,18 @@ export function inferOperationAnchors(
           : (a.ancora as "centro" | "absoluto");
     out.offset_y = a.offset;
   }
-  // Âncoras para extremos do rasgo (x1/x2) e para cada ponto de usinagem
+
+  // Âncoras para extremos do rasgo (x1/x2) e para cada ponto de usinagem.
+  // X2 é sempre referenciado à borda direita (offset = largura_ref - x2)
+  // para permitir adaptar o rasgo a peças de largura variável.
   const ancorasExtras: Record<string, unknown> = {};
-  if (op.x1 != null) ancorasExtras.x1 = inferirAncoraEixo(op.x1, largura_ref);
-  if (op.x2 != null) ancorasExtras.x2 = inferirAncoraEixo(op.x2, largura_ref);
+  if (op.x1 != null) {
+    ancorasExtras.x1 = { ancora: "esquerda", offset: op.x1 };
+  }
+  if (op.x2 != null) {
+    const offsetDir = largura_ref != null && largura_ref > 0 ? largura_ref - op.x2 : op.x2;
+    ancorasExtras.x2 = { ancora: "direita", offset: offsetDir };
+  }
   if (op.y1 != null) ancorasExtras.y1 = inferirAncoraEixo(op.y1, altura_ref);
   if (op.y2 != null) ancorasExtras.y2 = inferirAncoraEixo(op.y2, altura_ref);
   if (op.pontos && op.pontos.length > 0) {
