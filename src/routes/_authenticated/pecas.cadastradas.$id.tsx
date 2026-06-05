@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Plus, Save, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { ehDivisoria, nomeFace, FACE_LABELS } from "@/lib/pecas-cadastradas-parser";
+import { ehDivisoria, FACE_LABELS } from "@/lib/pecas-cadastradas-parser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
