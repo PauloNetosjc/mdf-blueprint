@@ -645,7 +645,6 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [facesLayoutMap, faces, largura, altura, espessura]);
 
   const temLayoutMultiFaces = !!facesLayout && (facesLayout.faces?.length ?? 0) > 1;
-  void temLayoutMultiFaces;
 
   const todasExtent = useMemo(() => {
     let W = 0;
