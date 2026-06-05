@@ -780,17 +780,35 @@ export function classificarDocumentoPdf(
 
 // ---------- Classificação de status para a UI ----------
 
-export type StatusParser = "ok" | "com_alertas" | "com_erros" | "pendente_revisao";
+export type StatusParser =
+  | "ok"
+  | "com_alertas"
+  | "com_erros"
+  | "pendente_revisao"
+  | "ignorado_modulo"
+  | "pendente_classificacao";
 
 export function classificarStatusParser(r: ResultadoParserPDF): {
   status: StatusParser;
   motivo: string;
 } {
+  // Classificação do tipo de documento tem prioridade — não cadastrar módulos como peça.
+  if (r.classificacao.classificacao === "modulo_explodido") {
+    return {
+      status: "ignorado_modulo",
+      motivo: r.classificacao.motivo,
+    };
+  }
+  if (r.classificacao.classificacao === "desconhecido") {
+    return {
+      status: "pendente_classificacao",
+      motivo: r.classificacao.motivo,
+    };
+  }
   if (r.erros.length > 0) {
     return { status: "com_erros", motivo: r.erros[0] };
   }
   if (!r.codigo || !r.resumo.medidas_detectadas) {
-    // Sem código ou sem medidas mínimas detectadas → revisão manual
     return {
       status: "pendente_revisao",
       motivo: !r.codigo ? "Código da peça não identificado" : "Medidas incompletas",
