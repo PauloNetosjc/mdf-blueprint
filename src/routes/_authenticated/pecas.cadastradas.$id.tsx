@@ -394,13 +394,25 @@ function PecaCadastradaDetalhe() {
   return (
     <div className="p-6">
       <header className="mb-4">
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost" size="sm">
             <Link to="/pecas/cadastradas">
               <ArrowLeft className="mr-1 h-4 w-4" /> Voltar para Peças Cadastradas
             </Link>
           </Button>
+          {p.pdf_url && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => reprocessar.mutate()}
+              disabled={reprocessar.isPending}
+            >
+              <RefreshCw className={`mr-1 h-4 w-4 ${reprocessar.isPending ? "animate-spin" : ""}`} />
+              {reprocessar.isPending ? "Reprocessando..." : "Reprocessar PDF"}
+            </Button>
+          )}
         </div>
+
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
