@@ -348,7 +348,6 @@ export function VisualizadorTecnicoPecaCadastrada({
     if (ehTipoOuNomeDeContorno(o)) {
       if ((o.pontos_json ?? []).length === 0) a.push("Contorno sem pontos");
       if (pontos.some((p) => p.x < 0 || p.x > partW || p.y < 0 || p.y > partH)) a.push("Pontos fora da peça");
-      if (pontos.length > 0 && pontos.some((p) => edgeOf(p, partW, partH) !== null)) a.push("Contorno externo detectado");
     }
     if (o.tipo_operacao === "rasgo") {
       if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
@@ -1042,7 +1041,8 @@ function GrupoOperacoesFace({
               )}
               {ehUsinagem(o.tipo_operacao) && (
                 <div>
-                  {pontos.length > 0 ? `${pontos.length} pontos` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
+                  {contornosExternosIds?.has(o.id) ? "Tipo: Contorno externo | " : ""}
+                  {pontos.length > 0 ? `Pontos: ${pontos.length}` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
                   {o.profundidade != null ? ` | Prof ${o.profundidade}` : ""}
                 </div>
               )}
