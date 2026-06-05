@@ -504,6 +504,32 @@ function PecaCadastradaDetalhe() {
             faceAlinhamento={faceAlinhamento}
             indicadoresBorda={indicadoresBorda}
             facesDetectadas={facesDetectadas}
+            onAddOperacao={async (payload) => {
+              const { data: u } = await supabase.auth.getUser();
+              const { error } = await db.from("peca_cadastrada_operacoes").insert({
+                user_id: u.user!.id,
+                peca_cadastrada_id: id,
+                tipo: payload.tipo_operacao,
+                tipo_operacao: payload.tipo_operacao,
+                face: Number(payload.face) || 0,
+                x: payload.x,
+                y: payload.y,
+                diametro: payload.diametro,
+                profundidade: payload.profundidade,
+                x1: payload.x1,
+                x2: payload.x2,
+                largura: payload.largura,
+                comprimento: payload.comprimento,
+                ordem: (ops.data?.length ?? 0) + 1,
+                confianca_parser: "alta",
+              });
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              toast.success("Operação adicionada.");
+              qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+            }}
           />
           {p.pdf_url && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
