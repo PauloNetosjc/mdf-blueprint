@@ -151,12 +151,23 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Alertas básicos
   const alertasOp = (o: VisualizadorOperacao) => {
     const a: string[] = [];
-    if (o.x != null && (o.x < 0 || o.x > partW)) a.push("X fora da peça");
-    if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
-    if (espessura != null && o.profundidade != null && o.profundidade > espessura)
-      a.push("Profundidade > espessura");
-    if (o.tipo_operacao === "furo" && o.diametro == null) a.push("Sem diâmetro");
-    if (o.profundidade == null) a.push("Sem profundidade");
+    if (o.tipo_operacao === "rasgo") {
+      if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
+      if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
+      if (o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
+      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      if (o.largura != null && o.largura <= 0) a.push("Largura do rasgo inválida");
+      if (o.profundidade != null && o.profundidade <= 0) a.push("Profundidade inválida");
+      if (espessura != null && o.profundidade != null && o.profundidade > espessura)
+        a.push("Profundidade > espessura");
+    } else {
+      if (o.x != null && (o.x < 0 || o.x > partW)) a.push("X fora da peça");
+      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      if (espessura != null && o.profundidade != null && o.profundidade > espessura)
+        a.push("Profundidade > espessura");
+      if (o.tipo_operacao === "furo" && o.diametro == null) a.push("Sem diâmetro");
+      if (o.tipo_operacao === "furo" && o.profundidade == null) a.push("Sem profundidade");
+    }
     if (o.confianca_parser === "baixa") a.push("Baixa confiança");
     return a;
   };
