@@ -98,8 +98,7 @@ function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [aba, setAba] = useState<string>("visualizador");
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfCarregando, setPdfCarregando] = useState(false);
+  const [pdfTabAberta, setPdfTabAberta] = useState(false);
 
   const peca = useQuery({
     queryKey: ["peca-cadastrada", id],
