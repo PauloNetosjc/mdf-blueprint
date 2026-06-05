@@ -1381,7 +1381,7 @@ export function VisualizadorTecnicoPecaCadastrada({
             </svg>
           </div>
 
-          {opsFace.length === 0 && (
+          {!modoTodasFaces && opsFace.length === 0 && (
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
               <span>Nenhuma operação cadastrada nesta face.</span>
               {onAddOperacao && (
