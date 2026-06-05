@@ -937,6 +937,24 @@ export function VisualizadorTecnicoPecaCadastrada({
                       </div>
                     )}
                     {contornosExternosIds.has(opSelObj.id) && <Linha k="Afeta geometria" v="Sim" />}
+                    {(() => {
+                      const r = recuoPorOpId.get(opSelObj.id);
+                      if (!r) return null;
+                      const ladoLabel = { top: "Recuo superior", bottom: "Recuo inferior", left: "Recuo esquerdo", right: "Recuo direito" }[r.lado];
+                      return (
+                        <>
+                          <Linha k="Tipo do recuo" v={ladoLabel} />
+                          <Linha k="Largura do recuo" v={`${r.largura.toFixed(1)} mm`} />
+                          <Linha k="Profundidade do recuo" v={`${r.profundidade.toFixed(1)} mm`} />
+                          <Linha k="Origem da medida" v={r.origem === "padrao_65x40" ? "padrão 65×40" : "PDF"} />
+                          {r.origem === "padrao_65x40" && (
+                            <div className="my-1 rounded border border-warning/40 bg-warning/10 px-1.5 py-1 text-[10px] text-warning-foreground">
+                              Este recuo altera a geometria real da peça cadastrada. Medida padrão aplicada (65 × 40 mm) — edite os pontos para ajustar.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     {Array.isArray(opSelObj.pontos_json) && opSelObj.pontos_json.length > 0 && (
                       <Linha k="Pontos" v={String(opSelObj.pontos_json.length)} />
                     )}
