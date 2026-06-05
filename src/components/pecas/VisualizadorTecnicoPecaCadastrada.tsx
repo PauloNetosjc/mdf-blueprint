@@ -991,6 +991,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </pattern>
               </defs>
 
+              {!modoTodasFaces && (<>
               {/* Grade / régua (opcional) */}
               {mostrarRegua && (
                 <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
