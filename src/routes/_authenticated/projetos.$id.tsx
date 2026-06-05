@@ -175,6 +175,7 @@ function ProjetoEditor() {
 
         <TabsList className="mx-6 mt-3 w-fit">
           <TabsTrigger value="pecas">Peças</TabsTrigger>
+          <TabsTrigger value="vinculo">Vínculo Biblioteca</TabsTrigger>
           <TabsTrigger value="identificacao">Identificação</TabsTrigger>
           <TabsTrigger value="engenharia">Engenharia</TabsTrigger>
           <TabsTrigger value="compras">Lista de Compras</TabsTrigger>
@@ -192,6 +193,10 @@ function ProjetoEditor() {
             onAbrirEngenharia={(p) => abrirEngenharia.mutate(p)}
             projetoId={id}
           />
+        </TabsContent>
+
+        <TabsContent value="vinculo" className="flex-1 overflow-auto p-6 pt-3">
+          <VinculoBibliotecaTab projetoId={id} />
         </TabsContent>
 
         <TabsContent value="identificacao" className="flex-1 overflow-auto p-6 pt-3">
