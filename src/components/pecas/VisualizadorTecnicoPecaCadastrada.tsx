@@ -344,6 +344,12 @@ export function VisualizadorTecnicoPecaCadastrada({
 
   const alertasOp = (o: VisualizadorOperacao) => {
     const a: string[] = [];
+    const pontos = pontosValidosDaOp(o);
+    if (ehTipoOuNomeDeContorno(o)) {
+      if ((o.pontos_json ?? []).length === 0) a.push("Contorno sem pontos");
+      if (pontos.some((p) => p.x < 0 || p.x > partW || p.y < 0 || p.y > partH)) a.push("Pontos fora da peça");
+      if (pontos.length > 0 && pontos.some((p) => edgeOf(p, partW, partH) !== null)) a.push("Contorno externo detectado");
+    }
     if (o.tipo_operacao === "rasgo") {
       if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
       if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
@@ -381,21 +387,10 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Contornos externos que alteram o formato da peça
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
-  const piecePolygon = useMemo(() => {
-    if (contornosExternos.length === 0) return null;
-    const notches = contornosExternos.map(pontosValidosDaOp);
-    const poly = buildPiecePolygon(partW, partH, notches);
-    if (poly.length < 3) return null;
-    return poly;
-  }, [contornosExternos, partW, partH]);
-  const piecePathD = useMemo(() => {
-    if (!piecePolygon) return null;
-    return (
-      piecePolygon
-        .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x} ${margin + partH - p.y}`)
-        .join(" ") + " Z"
-    );
-  }, [piecePolygon, margin, partH]);
+  const outline = useMemo(
+    () => getPecaOutlinePath({ largura: partW, altura: partH, margem: margin, contornosExternos }),
+    [contornosExternos, partW, partH, margin],
+  );
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
