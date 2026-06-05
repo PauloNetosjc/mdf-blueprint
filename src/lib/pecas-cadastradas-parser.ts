@@ -623,6 +623,7 @@ export async function parseTechnicalDrawingPdf(
   const baseResumo: ResumoParser = {
     furos_detectados: 0,
     rasgos_detectados: 0,
+    usinagens_detectadas: 0,
     bordas_detectadas: 0,
     fita_detectada: false,
     nome_detectado: false,
@@ -631,6 +632,7 @@ export async function parseTechnicalDrawingPdf(
     pdf_lido: false,
     codigo_detectado: !!codigo,
     total_operacoes: 0,
+    faces_com_operacao: [],
   };
 
   let itens: Item[] = [];
