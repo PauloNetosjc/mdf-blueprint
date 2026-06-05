@@ -149,6 +149,25 @@ export type ResumoParser = {
   total_operacoes: number;
 };
 
+export type ClassificacaoPdf = "peca_individual" | "modulo_explodido" | "desconhecido";
+
+export type ResultadoClassificacao = {
+  classificacao: ClassificacaoPdf;
+  motivo: string;
+  confianca: "alta" | "media" | "baixa";
+  sinais: {
+    tem_composicoes: boolean;
+    tem_ferragens: boolean;
+    tem_tabela_composicao: boolean;
+    referencias_ferragens: string[];
+    faces_detectadas: number[];
+    tem_furacao_tabela: boolean;
+    tem_rasgos_tabela: boolean;
+    tem_face_alinhamento: boolean;
+    tem_ftabs: boolean;
+  };
+};
+
 export type ResultadoParserPDF = {
   codigo: CodigoPecaTecnica | null;
   nome_peca: string | null;
@@ -167,6 +186,8 @@ export type ResultadoParserPDF = {
   alertas: string[];
   resumo: ResumoParser;
   dados_brutos: Record<string, unknown>;
+  /** Classificação do tipo de documento (peça individual x módulo/explodido). */
+  classificacao: ResultadoClassificacao;
 };
 
 // ---------- Inferência de âncora ----------
