@@ -695,6 +695,15 @@ export async function parseTechnicalDrawingPdf(
 
   const furos = operacoes.filter((o) => o.tipo_operacao === "furo").length;
   const rasgos = operacoes.filter((o) => o.tipo_operacao === "rasgo").length;
+  const usinagens = operacoes.filter(
+    (o) =>
+      o.tipo_operacao === "usinagem_parametrica" ||
+      o.tipo_operacao === "contorno" ||
+      o.tipo_operacao === "usinagem",
+  ).length;
+  const facesComOp = Array.from(
+    new Set(operacoes.map((o) => (o.face != null ? Number(o.face) : null)).filter((v): v is number => v != null)),
+  ).sort();
   const temFace5 = operacoes.some((o) => o.face === "5");
   const medidasOk = medidas.largura != null && medidas.altura != null && medidas.espessura != null;
 
@@ -707,7 +716,9 @@ export async function parseTechnicalDrawingPdf(
   }
 
   if (!nomeDeFato) alertas.push("Nome da peça não encontrado no PDF (usando tipo + código).");
-  if (operacoes.length === 0) alertas.push("Nenhuma operação (furo/rasgo) detectada no PDF.");
+  if (operacoes.length === 0) {
+    alertas.push("Nenhuma furação, rasgo ou usinagem encontrada.");
+  }
   if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
 
   for (const b of bordas) {
@@ -731,6 +742,7 @@ export async function parseTechnicalDrawingPdf(
   const resumo: ResumoParser = {
     furos_detectados: furos,
     rasgos_detectados: rasgos,
+    usinagens_detectadas: usinagens,
     bordas_detectadas: bordas.length,
     fita_detectada: bordas.length > 0,
     nome_detectado: nomeDeFato,
@@ -739,6 +751,7 @@ export async function parseTechnicalDrawingPdf(
     pdf_lido: true,
     codigo_detectado: !!codigo,
     total_operacoes: operacoes.length,
+    faces_com_operacao: facesComOp,
   };
 
   const classificacao = classificarDocumentoPdf(linhas, resumo);
