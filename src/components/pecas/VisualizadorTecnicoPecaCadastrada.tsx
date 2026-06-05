@@ -302,6 +302,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 }); // px na tela
+  const [mostrarRegua, setMostrarRegua] = useState(false);
   const panState = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   function fitToView() {
@@ -374,7 +375,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Tamanhos visuais (compensados pelo zoom para manter px na tela)
   const px = (v: number) => v / zoom; // converte px de tela → unidades do SVG (mm)
   const minHoleR = px(4); // 4px de tela mínimo
-  const fontCota = px(14);
+  const fontCota = px(16);
   const fontGrid = px(10);
   const fontOp = px(11);
 
@@ -496,6 +497,15 @@ export function VisualizadorTecnicoPecaCadastrada({
             <span className="w-14 text-center font-mono text-[11px]">{(zoom * 100).toFixed(0)}%</span>
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1 / 1.25)}>−</Button>
             <Button size="sm" variant="outline" className="h-7" onClick={fitToView}>Ajustar</Button>
+            <Button
+              size="sm"
+              variant={mostrarRegua ? "default" : "outline"}
+              className="h-7"
+              onClick={() => setMostrarRegua((v) => !v)}
+              title="Mostrar/ocultar régua e escala numérica"
+            >
+              Régua
+            </Button>
           </div>
         </div>
 
@@ -526,37 +536,23 @@ export function VisualizadorTecnicoPecaCadastrada({
               viewBox={`0 0 ${viewW} ${viewH}`}
               style={{ display: "block", overflow: "visible" }}
             >
-              {/* Grade */}
-              <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
-                {Array.from({ length: Math.floor(partW / 50) + 1 }, (_, i) => i * 50).map((x) => (
-                  <g key={`gx${x}`}>
-                    <line x1={margin + x} y1={margin} x2={margin + x} y2={margin + partH} />
-                    <text
-                      x={margin + x}
-                      y={margin - px(6)}
-                      fontSize={fontGrid}
-                      fill="var(--color-muted-foreground)"
-                      textAnchor="middle"
-                    >
-                      {x}
-                    </text>
-                  </g>
-                ))}
-                {Array.from({ length: Math.floor(partH / 50) + 1 }, (_, i) => i * 50).map((y) => (
-                  <g key={`gy${y}`}>
-                    <line x1={margin} y1={margin + y} x2={margin + partW} y2={margin + y} />
-                    <text
-                      x={margin - px(6)}
-                      y={margin + y + px(3)}
-                      fontSize={fontGrid}
-                      fill="var(--color-muted-foreground)"
-                      textAnchor="end"
-                    >
-                      {y}
-                    </text>
-                  </g>
-                ))}
-              </g>
+              {/* Grade / régua (opcional) */}
+              {mostrarRegua && (
+                <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
+                  {Array.from({ length: Math.floor(partW / 50) + 1 }, (_, i) => i * 50).map((x) => (
+                    <g key={`gx${x}`}>
+                      <line x1={margin + x} y1={margin} x2={margin + x} y2={margin + partH} />
+                      <text x={margin + x} y={margin - px(6)} fontSize={fontGrid} fill="var(--color-muted-foreground)" textAnchor="middle">{x}</text>
+                    </g>
+                  ))}
+                  {Array.from({ length: Math.floor(partH / 50) + 1 }, (_, i) => i * 50).map((y) => (
+                    <g key={`gy${y}`}>
+                      <line x1={margin} y1={margin + y} x2={margin + partW} y2={margin + y} />
+                      <text x={margin - px(6)} y={margin + y + px(3)} fontSize={fontGrid} fill="var(--color-muted-foreground)" textAnchor="end">{y}</text>
+                    </g>
+                  ))}
+                </g>
+              )}
 
               {/* Peça (com contornos externos integrados ao formato) */}
               {outline.temContornoAplicado ? (
