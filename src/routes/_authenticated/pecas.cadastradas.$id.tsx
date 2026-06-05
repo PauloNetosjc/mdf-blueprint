@@ -520,6 +520,7 @@ function PecaCadastradaDetalhe() {
                 x2: payload.x2,
                 largura: payload.largura,
                 comprimento: payload.comprimento,
+                pontos_json: payload.pontos_json ?? [],
                 ordem: (ops.data?.length ?? 0) + 1,
                 confianca_parser: "alta",
               });
@@ -546,6 +547,7 @@ function PecaCadastradaDetalhe() {
                   x2: payload.x2,
                   largura: payload.largura,
                   comprimento: payload.comprimento,
+                  pontos_json: payload.pontos_json ?? [],
                 })
                 .eq("id", payload.id);
               if (error) {
