@@ -1102,6 +1102,7 @@ function GrupoOperacoesFace({
                 <div>
                   {contornosExternosIds?.has(o.id) ? "Tipo: Contorno externo | " : ""}
                   {pontos.length > 0 ? `Pontos: ${pontos.length}` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
+                  {contornosExternosIds?.has(o.id) ? " | Afeta geometria: Sim" : ""}
                   {o.profundidade != null ? ` | Prof ${o.profundidade}` : ""}
                 </div>
               )}
