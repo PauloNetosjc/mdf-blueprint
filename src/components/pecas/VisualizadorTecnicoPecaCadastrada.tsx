@@ -375,7 +375,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Tamanhos visuais (compensados pelo zoom para manter px na tela)
   const px = (v: number) => v / zoom; // converte px de tela → unidades do SVG (mm)
   const minHoleR = px(4); // 4px de tela mínimo
-  const fontCota = px(14);
+  const fontCota = px(16);
   const fontGrid = px(10);
   const fontOp = px(11);
 
