@@ -722,14 +722,14 @@ function PecasCadastradasPage() {
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
-        <StatCard label="Total" value={stats.total} />
+        <StatCard label="Peças ativas" value={stats.ativas} />
         <StatCard label="OK" value={stats.ok} tone={stats.ok ? "ok" : undefined} />
         <StatCard label="Com alertas" value={stats.com_alerta} tone={stats.com_alerta ? "warn" : undefined} />
         <StatCard label="Pendente revisão" value={stats.pendente_revisao} tone={stats.pendente_revisao ? "warn" : undefined} />
         <StatCard label="Com erros" value={stats.com_erro} tone={stats.com_erro ? "error" : undefined} />
+        <StatCard label="Módulos ignorados" value={stats.ignorado_modulo} tone={stats.ignorado_modulo ? "warn" : undefined} />
+        <StatCard label="Pendente classif." value={stats.pendente_classificacao} tone={stats.pendente_classificacao ? "warn" : undefined} />
         <StatCard label="Divisórias" value={stats.divisorias} />
-        <StatCard label="Com fita" value={stats.com_fita} />
-        <StatCard label="Com Face 5" value={stats.face5} />
       </div>
 
       {progresso && (
