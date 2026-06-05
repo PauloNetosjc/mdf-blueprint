@@ -921,6 +921,11 @@ export function VisualizadorTecnicoPecaCadastrada({
             {tipo ? ` • ${tipo}` : ""}
             {nome ? ` • ${nome}` : ""}
           </span>
+          {modoTodasFaces && !temLayoutMultiFaces && (
+            <span className="rounded border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] text-warning-foreground">
+              Layout múltiplo de faces não definido — usando layout padrão.
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1">
             <Button
               size="sm"
