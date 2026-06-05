@@ -564,33 +564,40 @@ function PecasCadastradasPage() {
   const getCont = (id: string) => cont?.get(id) ?? { furos: 0, rasgos: 0, bordas: 0, face5: false };
 
   const pecas = lista.data ?? [];
-  const filtradas = pecas.filter((p) => {
-    const c = getCont(p.id);
-    if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
-    if (filtro === "com_fita" && !p.fita_ref) return false;
-    if (filtro === "com_furos" && c.furos === 0) return false;
-    if (filtro === "com_rasgos" && c.rasgos === 0) return false;
-    if (filtro === "face5" && !c.face5) return false;
-    if (filtro === "sem_nome" && p.nome_peca) return false;
-    if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
-    if (filtro === "sem_bordas" && c.bordas > 0) return false;
-    if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
-    if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
-    if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
-    if (filtro === "ok" && p.status_parser !== "ok") return false;
-    if (!busca) return true;
-    const q = busca.toLowerCase();
-    return (
-      (p.codigo_completo ?? "").toLowerCase().includes(q) ||
-      (p.codigo_principal ?? "").toLowerCase().includes(q) ||
-      (p.nome_peca ?? "").toLowerCase().includes(q) ||
-      (p.tipo_peca ?? "").toLowerCase().includes(q) ||
-      (p.modulo_origem ?? "").toLowerCase().includes(q) ||
-      (p.fita_ref ?? "").toLowerCase().includes(q)
-    );
-  });
 
-  const stats = {
+  // Debounce busca (~200ms) via useDeferredValue para não travar a digitação.
+  const buscaDeferred = useDeferredValue(busca);
+
+  const filtradas = useMemo(() => {
+    const q = buscaDeferred.trim().toLowerCase();
+    return pecas.filter((p) => {
+      const c = getCont(p.id);
+      if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
+      if (filtro === "com_fita" && !p.fita_ref) return false;
+      if (filtro === "com_furos" && c.furos === 0) return false;
+      if (filtro === "com_rasgos" && c.rasgos === 0) return false;
+      if (filtro === "face5" && !c.face5) return false;
+      if (filtro === "sem_nome" && p.nome_peca) return false;
+      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
+      if (filtro === "sem_bordas" && c.bordas > 0) return false;
+      if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
+      if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
+      if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+      if (filtro === "ok" && p.status_parser !== "ok") return false;
+      if (!q) return true;
+      return (
+        (p.codigo_completo ?? "").toLowerCase().includes(q) ||
+        (p.codigo_principal ?? "").toLowerCase().includes(q) ||
+        (p.nome_peca ?? "").toLowerCase().includes(q) ||
+        (p.tipo_peca ?? "").toLowerCase().includes(q) ||
+        (p.modulo_origem ?? "").toLowerCase().includes(q) ||
+        (p.fita_ref ?? "").toLowerCase().includes(q)
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pecas, cont, buscaDeferred, filtro]);
+
+  const stats = useMemo(() => ({
     total: pecas.length,
     ok: pecas.filter((p) => p.status_parser === "ok").length,
     com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
@@ -599,7 +606,14 @@ function PecasCadastradasPage() {
     divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
     com_fita: pecas.filter((p) => p.fita_ref).length,
     face5: pecas.filter((p) => getCont(p.id).face5).length,
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [pecas, cont]);
+
+  // Paginação simples no client: renderiza em blocos para listas grandes.
+  const PAGE_SIZE = 200;
+  const [visiveis, setVisiveis] = useState(PAGE_SIZE);
+  useEffect(() => { setVisiveis(PAGE_SIZE); }, [buscaDeferred, filtro]);
+  const exibidas = filtradas.slice(0, visiveis);
   const importando = importar.isPending || Boolean(progresso?.ativo);
   const progressoPct = progresso?.total ? Math.round((progresso.atual / progresso.total) * 100) : 0;
 
