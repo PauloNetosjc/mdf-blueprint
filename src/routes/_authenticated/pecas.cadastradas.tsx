@@ -794,6 +794,9 @@ function PecasCadastradasPage() {
         </Select>
         <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
       </div>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Clique em uma peça para abrir o visualizador técnico.
+      </p>
 
       <div className="overflow-auto rounded border border-border bg-surface">
         <table className="w-full text-sm">
