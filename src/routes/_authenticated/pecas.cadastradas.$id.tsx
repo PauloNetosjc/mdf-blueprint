@@ -492,24 +492,30 @@ function PecaCadastradaDetalhe() {
         {/* ───── VISUALIZADOR ───── */}
         <TabsContent value="visualizador" className="space-y-4">
           <EngenhariaResumo ops={ops.data ?? []} bordas={bordas.data ?? []} />
-          <div className="rounded border border-border bg-surface p-3 text-sm">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Faces detectadas no PDF
-            </h3>
-            {facesDetectadas.length === 0 ? (
-              <p className="text-muted-foreground">Nenhuma face detectada.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {facesDetectadas.map((f) => (
-                  <Badge key={f} variant="outline" className="font-mono">Face {f}</Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          <VisualizadorTecnicoPecaCadastrada
+            codigo={p.codigo_completo}
+            nome={p.nome_peca}
+            tipo={tipo}
+            largura={p.largura_ref}
+            altura={p.altura_ref}
+            espessura={p.espessura_ref}
+            operacoes={ops.data ?? []}
+            bordas={bordas.data ?? []}
+            faceAlinhamento={faceAlinhamento}
+            indicadoresBorda={indicadoresBorda}
+            facesDetectadas={facesDetectadas}
+          />
           {p.pdf_url && (
-            <Button variant="outline" size="sm" onClick={() => setAba("pdf")}>
-              <FileText className="mr-1 h-4 w-4" /> Abrir PDF original
-            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <FileText className="h-3 w-3" />
+              PDF original disponível apenas como referência —{" "}
+              <button
+                className="underline hover:text-foreground"
+                onClick={() => setAba("pdf")}
+              >
+                abrir aba PDF
+              </button>
+            </div>
           )}
         </TabsContent>
 
