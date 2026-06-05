@@ -423,7 +423,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
   const outline = useMemo(
-    () => getPecaOutlinePath({ largura: partW, altura: partH, margem: margin, contornosExternos }),
+    () => gerarOutlineDaPeca({ largura: partW, altura: partH, margem: margin, operacoesContornoExterno: contornosExternos }),
     [contornosExternos, partW, partH, margin],
   );
 
