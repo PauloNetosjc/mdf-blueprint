@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Plus, Save, Trash2, FileText } from "lucide-react";
+import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { ehDivisoria, FACE_LABELS } from "@/lib/pecas-cadastradas-parser";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ehDivisoria, FACE_LABELS, getTipoPecaPorPrefixo } from "@/lib/pecas-cadastradas-parser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -96,8 +97,9 @@ const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseir
 function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
+  const [aba, setAba] = useState<string>("visualizador");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [mostrarPdf, setMostrarPdf] = useState(false);
+  const [pdfCarregando, setPdfCarregando] = useState(false);
 
   const peca = useQuery({
     queryKey: ["peca-cadastrada", id],
@@ -134,23 +136,33 @@ function PecaCadastradaDetalhe() {
     },
   });
 
+  // PDF: signed URL é gerada apenas quando a aba PDF Original é aberta.
   useEffect(() => {
-    if (!peca.data?.pdf_url) return;
+    if (aba !== "pdf") return;
+    if (pdfUrl) return;
+    const path = peca.data?.pdf_url;
+    if (!path) return;
     let cancel = false;
+    setPdfCarregando(true);
     supabase.storage
       .from("pecas-cadastradas")
-      .createSignedUrl(peca.data.pdf_url, 3600)
+      .createSignedUrl(path, 3600)
       .then(({ data }) => {
-        if (!cancel) setPdfUrl(data?.signedUrl ?? null);
+        if (cancel) return;
+        setPdfUrl(data?.signedUrl ?? null);
+        setPdfCarregando(false);
+      })
+      .catch(() => {
+        if (!cancel) setPdfCarregando(false);
       });
     return () => {
       cancel = true;
     };
-  }, [peca.data?.pdf_url]);
+  }, [aba, peca.data?.pdf_url, pdfUrl]);
 
   const ehDiv = ehDivisoria(peca.data?.prefixo);
 
-  // Agrupar ops por face
+  // Agrupar ops por face (mantém valor original do PDF, sem nomes automáticos)
   const opsPorFace = new Map<string, Operacao[]>();
   for (const o of ops.data ?? []) {
     const k = o.face == null ? "—" : String(o.face);
@@ -270,33 +282,69 @@ function PecaCadastradaDetalhe() {
   if (peca.isLoading) return <div className="p-6">Carregando...</div>;
   if (!peca.data) return <div className="p-6">Peça não encontrada.</div>;
   const p = peca.data;
+  const tipo = p.tipo_peca || getTipoPecaPorPrefixo(p.prefixo);
+  const dadosBrutos = p.dados_brutos_json ?? {};
+  const faceAlinhamento = (dadosBrutos.face_alinhamento as string | null) ?? null;
+  const indicadoresBorda = Array.isArray(dadosBrutos.indicadores_borda)
+    ? (dadosBrutos.indicadores_borda as string[])
+    : [];
+  const facesDetectadas = Array.isArray(dadosBrutos.faces_detectadas)
+    ? (dadosBrutos.faces_detectadas as string[])
+    : [];
 
   return (
     <div className="p-6">
-      <header className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/pecas/cadastradas">← Biblioteca</Link>
-            </Button>
-            {ehDiv && <Badge>Divisória</Badge>}
-            <StatusBadgeDetalhe status={p.status_parser} motivo={p.motivo_status} />
-          </div>
-          {p.motivo_status && (
-            <p className="mt-1 text-xs text-muted-foreground">{p.motivo_status}</p>
-          )}
-          <h1 className="mt-1 font-mono text-2xl font-semibold">{p.codigo_completo}</h1>
-          <p className="text-sm text-muted-foreground">
-            {p.nome_peca ?? "—"} {p.modulo_origem ? `• módulo ${p.modulo_origem}` : ""}
-          </p>
-          <p className="mt-1 font-mono text-xs text-muted-foreground">
-            Ref: {p.largura_ref ?? "—"} × {p.altura_ref ?? "—"} × {p.espessura_ref ?? "—"} mm
-            {p.material_ref ? ` • ${p.material_ref}` : ""}
-          </p>
+      <header className="mb-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/pecas/cadastradas">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Voltar para Peças Cadastradas
+            </Link>
+          </Button>
         </div>
-      </header>
 
-      <MarcadoresDesenho dados={p.dados_brutos_json} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-mono text-2xl font-semibold">{p.codigo_completo}</h1>
+              <StatusBadgeDetalhe status={p.status_parser} motivo={p.motivo_status} />
+              {ehDiv && <Badge>Divisória</Badge>}
+              {p.prefixo === "DIV" && facesDetectadas.includes("5") && (
+                <Badge variant="secondary">Face 5</Badge>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {p.nome_peca ?? "—"}
+              {p.modulo_origem ? ` • módulo ${p.modulo_origem}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
+          <CampoCab label="Tipo" valor={tipo} />
+          <CampoCab label="Prefixo" valor={p.prefixo ?? "—"} mono />
+          <CampoCab label="Módulo" valor={p.modulo_origem ?? "—"} />
+          <CampoCab
+            label="Medidas (L×A×E)"
+            valor={`${p.largura_ref ?? "—"} × ${p.altura_ref ?? "—"} × ${p.espessura_ref ?? "—"}`}
+            mono
+          />
+          <CampoCab label="Fita" valor={p.fita_ref ?? "—"} mono />
+          <CampoCab label="Material" valor={p.material_ref ?? "—"} />
+        </div>
+
+        {(faceAlinhamento || indicadoresBorda.length > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
+            <span className="font-semibold text-muted-foreground">Marcadores do PDF:</span>
+            {faceAlinhamento && (
+              <Badge variant="outline" className="font-mono">Alinhamento: {faceAlinhamento}</Badge>
+            )}
+            {indicadoresBorda.map((m) => (
+              <Badge key={m} variant="secondary" className="font-mono">{m}</Badge>
+            ))}
+          </div>
+        )}
+      </header>
 
       {p.erros_parser?.length > 0 && (
         <div className="mb-4 rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
@@ -320,59 +368,49 @@ function PecaCadastradaDetalhe() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-        {/* PDF */}
-        <div className="rounded border border-border bg-surface">
-          <div className="flex items-center justify-between border-b border-border p-2 text-sm">
-            <span className="flex items-center gap-2">
-              <FileText className="h-4 w-4" /> {p.pdf_nome_arquivo ?? "PDF original"}
-            </span>
-            {pdfUrl && (
-              <Button asChild size="sm" variant="ghost">
-                <a href={pdfUrl} target="_blank" rel="noreferrer">
-                  Abrir
-                </a>
-              </Button>
-            )}
-          </div>
-          <div className="h-[600px] bg-surface-2">
-            {pdfUrl ? (
-              mostrarPdf ? (
-                <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="h-8 w-8 opacity-50" />
-                  <span>PDF carregado sob demanda para acelerar a abertura.</span>
-                  <Button size="sm" variant="outline" onClick={() => setMostrarPdf(true)}>
-                    Carregar PDF aqui
-                  </Button>
-                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-xs underline">
-                    ou abrir em nova aba
-                  </a>
-                </div>
-              )
+      <Tabs value={aba} onValueChange={setAba} className="w-full">
+        <TabsList>
+          <TabsTrigger value="visualizador">Visualizador</TabsTrigger>
+          <TabsTrigger value="operacoes">Operações ({ops.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="bordas">Bordas ({bordas.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="pdf">PDF Original</TabsTrigger>
+          <TabsTrigger value="debug">Debug / Logs</TabsTrigger>
+        </TabsList>
+
+        {/* ───── VISUALIZADOR ───── */}
+        <TabsContent value="visualizador" className="space-y-4">
+          <EngenhariaResumo ops={ops.data ?? []} bordas={bordas.data ?? []} />
+          <div className="rounded border border-border bg-surface p-3 text-sm">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Faces detectadas no PDF
+            </h3>
+            {facesDetectadas.length === 0 ? (
+              <p className="text-muted-foreground">Nenhuma face detectada.</p>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Sem PDF
+              <div className="flex flex-wrap gap-1">
+                {facesDetectadas.map((f) => (
+                  <Badge key={f} variant="outline" className="font-mono">Face {f}</Badge>
+                ))}
               </div>
             )}
           </div>
-        </div>
+          {p.pdf_url && (
+            <Button variant="outline" size="sm" onClick={() => setAba("pdf")}>
+              <FileText className="mr-1 h-4 w-4" /> Abrir PDF original
+            </Button>
+          )}
+        </TabsContent>
 
-        {/* Operações + Bordas */}
-        <div className="space-y-4">
-          <EngenhariaResumo ops={ops.data ?? []} bordas={bordas.data ?? []} />
-
+        {/* ───── OPERAÇÕES ───── */}
+        <TabsContent value="operacoes">
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
-              <h2 className="text-sm font-semibold">
-                Engenharia fixa — operações ({ops.data?.length ?? 0})
-              </h2>
+              <h2 className="text-sm font-semibold">Operações ({ops.data?.length ?? 0})</h2>
               <Button size="sm" variant="outline" onClick={() => novaOp.mutate()}>
                 <Plus className="mr-1 h-3 w-3" /> Adicionar
               </Button>
             </div>
-            <div className="max-h-[600px] overflow-auto p-2">
+            <div className="max-h-[700px] overflow-auto p-2">
               {facesOrdenadas.length === 0 && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   Nenhuma operação detectada.
@@ -400,51 +438,27 @@ function PecaCadastradaDetalhe() {
                       <strong className="text-foreground">Face {face}</strong>
                       <span className="text-[10px]">({opsFace.length} op.)</span>
                     </div>
-
-
                     {furos.length > 0 && (
-                      <SecaoOps
-                        titulo="Furações"
-                        count={furos.length}
-                        ops={furos}
-                        salvar={salvarOp.mutate}
-                        apagar={apagarOp.mutate}
-                      />
+                      <SecaoOps titulo="Furações" count={furos.length} ops={furos} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
                     )}
                     {rasgos.length > 0 && (
-                      <SecaoOps
-                        titulo="Rasgos"
-                        count={rasgos.length}
-                        ops={rasgos}
-                        salvar={salvarOp.mutate}
-                        apagar={apagarOp.mutate}
-                      />
+                      <SecaoOps titulo="Rasgos" count={rasgos.length} ops={rasgos} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
                     )}
                     {usinagens.length > 0 && (
-                      <SecaoOps
-                        titulo="Usinagens / Contornos"
-                        count={usinagens.length}
-                        ops={usinagens}
-                        salvar={salvarOp.mutate}
-                        apagar={apagarOp.mutate}
-                      />
+                      <SecaoOps titulo="Usinagens / Contornos" count={usinagens.length} ops={usinagens} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
                     )}
                     {outras.length > 0 && (
-                      <SecaoOps
-                        titulo="Outras"
-                        count={outras.length}
-                        ops={outras}
-                        salvar={salvarOp.mutate}
-                        apagar={apagarOp.mutate}
-                      />
+                      <SecaoOps titulo="Outras" count={outras.length} ops={outras} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
                     )}
                   </div>
                 );
               })}
             </div>
           </div>
+        </TabsContent>
 
-
+        {/* ───── BORDAS ───── */}
+        <TabsContent value="bordas">
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
               <h2 className="text-sm font-semibold">Fita de borda ({bordas.data?.length ?? 0})</h2>
@@ -452,14 +466,20 @@ function PecaCadastradaDetalhe() {
                 <Plus className="mr-1 h-3 w-3" /> Adicionar
               </Button>
             </div>
-            <div className="space-y-1 p-2">
+            <div className="space-y-2 p-2">
               {(bordas.data ?? []).map((b) => (
-                <BordaRow
-                  key={b.id}
-                  borda={b}
-                  onSave={(u) => salvarBorda.mutate(u)}
-                  onDelete={() => apagarBorda.mutate(b.id)}
-                />
+                <div key={b.id}>
+                  {(!b.lado || b.lado === "desconhecido") && (
+                    <div className="mb-1 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-3 w-3" /> Lado não identificado no PDF
+                    </div>
+                  )}
+                  <BordaRow
+                    borda={b}
+                    onSave={(u) => salvarBorda.mutate(u)}
+                    onDelete={() => apagarBorda.mutate(b.id)}
+                  />
+                </div>
               ))}
               {!bordas.data?.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
@@ -468,22 +488,91 @@ function PecaCadastradaDetalhe() {
               )}
             </div>
           </div>
+        </TabsContent>
 
+        {/* ───── PDF ORIGINAL ───── */}
+        <TabsContent value="pdf">
+          <div className="rounded border border-border bg-surface">
+            <div className="flex items-center justify-between border-b border-border p-2 text-sm">
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4" /> {p.pdf_nome_arquivo ?? "PDF original"}
+              </span>
+              {pdfUrl && (
+                <Button asChild size="sm" variant="ghost">
+                  <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir em nova aba</a>
+                </Button>
+              )}
+            </div>
+            <div className="h-[720px] bg-surface-2">
+              {!p.pdf_url ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  Nenhum PDF disponível para esta peça.
+                </div>
+              ) : pdfCarregando ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  Carregando PDF...
+                </div>
+              ) : pdfUrl ? (
+                <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  Não foi possível gerar o link do PDF.
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ───── DEBUG / LOGS ───── */}
+        <TabsContent value="debug" className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <CampoCab label="Face alinhamento" valor={faceAlinhamento ?? "—"} mono />
+            <CampoCab label="Indicadores" valor={indicadoresBorda.join(", ") || "—"} mono />
+            <CampoCab label="Faces detectadas" valor={facesDetectadas.join(", ") || "—"} mono />
+            <CampoCab label="Operações por face" valor={facesOrdenadas.map((f) => `${f}:${opsPorFace.get(f)!.length}`).join("  ") || "—"} mono />
+          </div>
+
+          {p.erros_parser?.length > 0 && (
+            <details open className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
+              <summary className="cursor-pointer font-medium text-destructive">Erros ({p.erros_parser.length})</summary>
+              <ul className="mt-1 ml-5 list-disc">{p.erros_parser.map((e, i) => <li key={i}>{e}</li>)}</ul>
+            </details>
+          )}
+          {Array.isArray(p.parser_alertas_json) && p.parser_alertas_json.length > 0 && (
+            <details className="rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+              <summary className="cursor-pointer font-medium text-amber-700 dark:text-amber-400">Alertas ({p.parser_alertas_json.length})</summary>
+              <ul className="mt-1 ml-5 list-disc">{p.parser_alertas_json.map((a, i) => <li key={i}>{String(a)}</li>)}</ul>
+            </details>
+          )}
           {p.logs_parser?.length > 0 && (
-            <details className="rounded border border-border bg-surface p-2">
-              <summary className="cursor-pointer text-xs font-medium">
-                Logs de leitura ({p.logs_parser.length})
-              </summary>
-              <pre className="mt-2 max-h-60 overflow-auto bg-surface-2 p-2 text-[10px] text-muted-foreground">
+            <details className="rounded border border-border bg-surface p-2 text-xs">
+              <summary className="cursor-pointer font-medium">Logs do parser ({p.logs_parser.length})</summary>
+              <pre className="mt-2 max-h-72 overflow-auto bg-surface-2 p-2 text-[10px] text-muted-foreground">
                 {p.logs_parser.join("\n")}
               </pre>
             </details>
           )}
-        </div>
-      </div>
+          <details className="rounded border border-border bg-surface p-2 text-xs">
+            <summary className="cursor-pointer font-medium">dados_brutos_json</summary>
+            <pre className="mt-2 max-h-[500px] overflow-auto bg-surface-2 p-2 text-[10px] text-muted-foreground">
+              {JSON.stringify(dadosBrutos, null, 2)}
+            </pre>
+          </details>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+function CampoCab({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
+  return (
+    <div className="rounded bg-surface-2 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`text-sm ${mono ? "font-mono" : ""}`}>{valor}</div>
+    </div>
+  );
+}
+
 
 function OpRow({
   op,
