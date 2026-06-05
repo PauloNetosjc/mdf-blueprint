@@ -931,7 +931,16 @@ export async function parseTechnicalDrawingPdf(
     erros,
     alertas,
     resumo,
-    dados_brutos: { total_linhas: linhas.length },
+    dados_brutos: {
+      total_linhas: linhas.length,
+      face_alinhamento: faceAlinhamento?.letra ?? null,
+      face_alinhamento_regiao: faceAlinhamento?.regiao ?? null,
+      face_alinhamento_detalhe: faceAlinhamento,
+      indicadores_borda: indicadoresBorda.map((b) => b.marcador),
+      indicadores_borda_detalhe: indicadoresBorda,
+      faces_detectadas: facesVisuais.faces_detectadas,
+      face_principal_visual: facesVisuais.face_principal_visual,
+    },
     classificacao,
   };
 }
