@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Plus, Save, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { ehDivisoria, nomeFace, FACE_LABELS } from "@/lib/pecas-cadastradas-parser";
+import { ehDivisoria, FACE_LABELS } from "@/lib/pecas-cadastradas-parser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -210,7 +210,7 @@ function PecaCadastradaDetalhe() {
         peca_cadastrada_id: id,
         tipo: "furo",
         tipo_operacao: "furo",
-        face: ehDiv ? 5 : 0,
+        face: 0,
         x: 0,
         y: 0,
         diametro: 8,
@@ -379,7 +379,6 @@ function PecaCadastradaDetalhe() {
                 </div>
               )}
               {facesOrdenadas.map((face) => {
-                const alertaFace5 = face === "5" && !ehDiv;
                 const opsFace = opsPorFace.get(face)!;
                 const furos = opsFace.filter((o) => o.tipo_operacao === "furo");
                 const rasgos = opsFace.filter((o) => o.tipo_operacao === "rasgo");
@@ -398,17 +397,10 @@ function PecaCadastradaDetalhe() {
                 return (
                   <div key={face} className="mb-4">
                     <div className="mb-2 flex items-center gap-2 border-b border-border pb-1 text-xs uppercase tracking-wider text-muted-foreground">
-                      <strong className="text-foreground">
-                        Face {face} — {nomeFace(face)}
-                      </strong>
+                      <strong className="text-foreground">Face {face}</strong>
                       <span className="text-[10px]">({opsFace.length} op.)</span>
-                      {alertaFace5 && (
-                        <Badge variant="destructive" className="gap-1 text-[10px]">
-                          <AlertTriangle className="h-3 w-3" />
-                          Face 5 normalmente é só de Divisória
-                        </Badge>
-                      )}
                     </div>
+
 
                     {furos.length > 0 && (
                       <SecaoOps
@@ -515,8 +507,8 @@ function OpRow({
         <Select value={String(local.face ?? "0")} onValueChange={(v) => setLocal({ ...local, face: v })}>
           <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {Object.entries(FACE_LABELS).map(([f, n]) => (
-              <SelectItem key={f} value={f}>{f} — {n}</SelectItem>
+            {Object.keys(FACE_LABELS).map((f) => (
+              <SelectItem key={f} value={f}>Face {f}</SelectItem>
             ))}
           </SelectContent>
         </Select>
