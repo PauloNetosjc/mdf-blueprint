@@ -1082,6 +1082,7 @@ function OperacaoDialog({
   const [x2, setX2] = useState<string>(op?.x2?.toString() ?? "");
   const [largura, setLargura] = useState<string>(op?.largura?.toString() ?? "");
   const [comprimento, setComprimento] = useState<string>(op?.comprimento?.toString() ?? "");
+  const [pontos, setPontos] = useState<Array<{ x: string; y: string; profundidade: string; tipo: string }>>([]);
 
   useEffect(() => {
     if (open) {
@@ -1096,10 +1097,21 @@ function OperacaoDialog({
       setX2(op?.x2?.toString() ?? "");
       setLargura(op?.largura?.toString() ?? "");
       setComprimento(op?.comprimento?.toString() ?? "");
+      setPontos(
+        (op?.pontos_json ?? []).map((p) => ({
+          x: p.x?.toString() ?? "",
+          y: p.y?.toString() ?? "",
+          profundidade: p.profundidade?.toString() ?? "",
+          tipo: p.tipo ?? "",
+        })),
+      );
     }
   }, [open, face, op]);
 
   const num = (s: string) => (s.trim() === "" ? null : Number(s));
+  const setPonto = (idx: number, key: "x" | "y" | "profundidade" | "tipo", value: string) => {
+    setPontos((atuais) => atuais.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1163,6 +1175,24 @@ function OperacaoDialog({
                   <div><Label className="mb-1 block text-xs">Comprimento</Label><Input value={comprimento} onChange={(e) => setComprimento(e.target.value)} /></div>
                 </>
               )}
+              {ehUsinagem(tipo) && pontos.length > 0 && (
+                <div className="col-span-2 rounded border border-border bg-surface-2 p-2">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Pontos do contorno
+                  </div>
+                  <div className="space-y-2">
+                    {pontos.map((p, i) => (
+                      <div key={i} className="grid grid-cols-[48px_1fr_1fr_1fr_1.5fr] items-end gap-2">
+                        <div className="pb-2 text-[10px] font-mono text-muted-foreground">P{i + 1}</div>
+                        <div><Label className="mb-1 block text-[10px]">X</Label><Input value={p.x} onChange={(e) => setPonto(i, "x", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Y</Label><Input value={p.y} onChange={(e) => setPonto(i, "y", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Prof</Label><Input value={p.profundidade} onChange={(e) => setPonto(i, "profundidade", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Tipo</Label><Input value={p.tipo} onChange={(e) => setPonto(i, "tipo", e.target.value)} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1182,6 +1212,14 @@ function OperacaoDialog({
                 x2: num(x2),
                 largura: num(largura),
                 comprimento: num(comprimento),
+                pontos_json: pontos.length > 0
+                  ? pontos.map((p) => ({
+                    x: num(p.x),
+                    y: num(p.y),
+                    profundidade: num(p.profundidade),
+                    tipo: p.tipo.trim() === "" ? null : p.tipo,
+                  }))
+                  : op?.pontos_json ?? null,
               })
             }
           >
