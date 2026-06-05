@@ -153,10 +153,38 @@ function touchesSameEdge(raw: Pt[], W: number, H: number) {
   return hasInwardPoint ? edge : null;
 }
 
+/** Largura/profundidade padrão de um recuo visual sem cota explícita (mm). */
+const RECUO_PADRAO = { largura: 65, profundidade: 40 } as const;
+
+export type RecuoInfo = {
+  opId: string;
+  lado: "top" | "bottom" | "left" | "right";
+  origem: "pdf" | "padrao_65x40";
+  largura: number;
+  profundidade: number;
+  ini: number;
+  fim: number;
+};
+
+function ladoInferidoPorPontos(pts: Pt[], W: number, H: number): "top" | "bottom" | "left" | "right" {
+  if (pts.length === 0) return "top";
+  const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+  const distTop = Math.abs(H - cy);
+  const distBot = Math.abs(cy);
+  const distLeft = Math.abs(cx);
+  const distRight = Math.abs(W - cx);
+  const m = Math.min(distTop, distBot, distLeft, distRight);
+  if (m === distTop) return "top";
+  if (m === distBot) return "bottom";
+  if (m === distLeft) return "left";
+  return "right";
+}
+
 /**
  * Gera o contorno real da peça em coordenadas técnicas (Y para cima).
- * Recortes que começam e terminam na mesma borda entram no próprio outline;
- * usinagens internas ficam fora daqui e continuam desenhadas como operação.
+ * - Quando os pontos do PDF tocam a mesma borda, usa os pontos reais.
+ * - Quando não dá para resolver pelos pontos, aplica recuo padrão 65×40 mm.
  */
 function gerarOutlineDaPeca({
   largura,
@@ -171,22 +199,48 @@ function gerarOutlineDaPeca({
 }) {
   type Edge = "bottom" | "right" | "top" | "left";
   const byEdge: Record<Edge, { order: number; pts: Pt[]; opId: string }[]> = {
-    bottom: [],
-    right: [],
-    top: [],
-    left: [],
+    bottom: [], right: [], top: [], left: [],
   };
-  const contornoFalhouIds: string[] = [];
+  const recuos: RecuoInfo[] = [];
+
+  function aplicarRecuoPadrao(op: VisualizadorOperacao, lado: Edge, refPts: Pt[]) {
+    const lar = RECUO_PADRAO.largura;
+    const prof = RECUO_PADRAO.profundidade;
+    if (lado === "top" || lado === "bottom") {
+      const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.x, 0) / refPts.length : largura / 2;
+      let ini = centro - lar / 2, fim = centro + lar / 2;
+      if (ini < 0) { fim -= ini; ini = 0; }
+      if (fim > largura) { ini -= (fim - largura); fim = largura; }
+      ini = Math.max(0, ini); fim = Math.min(largura, fim);
+      const yBorda = lado === "top" ? altura : 0;
+      const yFundo = lado === "top" ? altura - prof : prof;
+      const pts: Pt[] = lado === "top"
+        ? [{ x: fim, y: yBorda }, { x: fim, y: yFundo }, { x: ini, y: yFundo }, { x: ini, y: yBorda }]
+        : [{ x: ini, y: yBorda }, { x: ini, y: yFundo }, { x: fim, y: yFundo }, { x: fim, y: yBorda }];
+      byEdge[lado].push({ order: lado === "top" ? -fim : ini, pts, opId: op.id });
+      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
+    } else {
+      const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.y, 0) / refPts.length : altura / 2;
+      let ini = centro - lar / 2, fim = centro + lar / 2;
+      if (ini < 0) { fim -= ini; ini = 0; }
+      if (fim > altura) { ini -= (fim - altura); fim = altura; }
+      ini = Math.max(0, ini); fim = Math.min(altura, fim);
+      const xBorda = lado === "right" ? largura : 0;
+      const xFundo = lado === "right" ? largura - prof : prof;
+      const pts: Pt[] = lado === "right"
+        ? [{ x: xBorda, y: ini }, { x: xFundo, y: ini }, { x: xFundo, y: fim }, { x: xBorda, y: fim }]
+        : [{ x: xBorda, y: fim }, { x: xFundo, y: fim }, { x: xFundo, y: ini }, { x: xBorda, y: ini }];
+      byEdge[lado].push({ order: lado === "right" ? ini : -fim, pts, opId: op.id });
+      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
+    }
+  }
 
   for (const op of operacoesContornoExterno) {
     const raw = pontosValidosDaOp(op);
-    if (raw.length < 3) {
-      contornoFalhouIds.push(op.id);
-      continue;
-    }
-    const edge = touchesSameEdge(raw, largura, altura);
+    const edge = raw.length >= 3 ? touchesSameEdge(raw, largura, altura) : null;
     if (!edge) {
-      contornoFalhouIds.push(op.id);
+      const lado = ladoInferidoPorPontos(raw, largura, altura);
+      aplicarRecuoPadrao(op, lado, raw);
       continue;
     }
     let pts = raw.slice();
@@ -202,6 +256,16 @@ function gerarOutlineDaPeca({
     } else {
       if (pts[0].y < pts[pts.length - 1].y) pts = pts.reverse();
       byEdge.left.push({ order: -pts[0].y, pts, opId: op.id });
+    }
+    const xs = raw.map((p) => p.x), ys = raw.map((p) => p.y);
+    if (edge === "top") {
+      recuos.push({ opId: op.id, lado: "top", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: altura - Math.min(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
+    } else if (edge === "bottom") {
+      recuos.push({ opId: op.id, lado: "bottom", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: Math.max(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
+    } else if (edge === "left") {
+      recuos.push({ opId: op.id, lado: "left", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: Math.max(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
+    } else {
+      recuos.push({ opId: op.id, lado: "right", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: largura - Math.min(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
     }
   }
 
@@ -228,7 +292,8 @@ function gerarOutlineDaPeca({
     temContornoExterno: operacoesContornoExterno.length > 0,
     temContornoAplicado: contornoAplicadoIds.length > 0,
     contornoAplicadoIds,
-    contornoFalhouIds,
+    contornoFalhouIds: [] as string[],
+    recuos,
   };
 }
 
