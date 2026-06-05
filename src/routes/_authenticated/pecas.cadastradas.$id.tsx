@@ -17,6 +17,7 @@ import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft } from "lucide-r
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ehDivisoria, FACE_LABELS, getTipoPecaPorPrefixo } from "@/lib/pecas-cadastradas-parser";
+import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
