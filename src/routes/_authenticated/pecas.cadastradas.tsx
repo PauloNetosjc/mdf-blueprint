@@ -844,7 +844,7 @@ const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNo
   com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
 };
 
-function StatusBadge({ peca }: { peca: PecaRow }) {
+const StatusBadge = memo(function StatusBadge({ peca }: { peca: PecaRow }) {
   const status = peca.status_parser || "ok";
   const v = STATUS_VARIANT[status] ?? STATUS_VARIANT.ok;
   const erros = Array.isArray(peca.erros_parser) ? (peca.erros_parser as string[]) : [];
