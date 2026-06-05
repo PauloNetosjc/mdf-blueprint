@@ -654,6 +654,14 @@ function PecasCadastradasPage() {
       if (filtro === "ignorado_modulo" && !isModulo(p)) return false;
       if (filtro === "pendente_classificacao" && p.status_parser !== "pendente_classificacao") return false;
       if (filtro === "ok" && p.status_parser !== "ok") return false;
+      if (filtro.startsWith("geo_")) {
+        const g = statusGeometria(p.dados_brutos_json);
+        if (filtro === "geo_pendente" && g !== "pendente") return false;
+        if (filtro === "geo_retangular" && g !== "retangular") return false;
+        if (filtro === "geo_contorno" && g !== "contorno_pdf") return false;
+        if (filtro === "geo_fallback" && g !== "fallback") return false;
+        if (filtro === "geo_manual" && g !== "manual" && g !== "misto") return false;
+      }
       if (!q) return true;
       return (
         (p.codigo_completo ?? "").toLowerCase().includes(q) ||
