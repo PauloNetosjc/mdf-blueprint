@@ -102,6 +102,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   faceAlinhamento,
   indicadoresBorda = [],
   facesDetectadas = [],
+  onAddOperacao,
 }: Props) {
   // Agrupa por face
   const opsPorFace = useMemo(() => {
@@ -115,14 +116,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [operacoes]);
 
   const faces = useMemo(() => {
-    const s = new Set<string>([...opsPorFace.keys(), ...facesDetectadas.map(String)]);
-    if (s.size === 0) s.add("0");
-    return Array.from(s).sort();
+    // Sempre mostrar as 6 faces padrão + qualquer outra detectada/com operações.
+    const s = new Set<string>([
+      ...FACES_PADRAO,
+      ...opsPorFace.keys(),
+      ...facesDetectadas.map(String),
+    ]);
+    s.delete("—");
+    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [opsPorFace, facesDetectadas]);
 
   const [faceSel, setFaceSel] = useState<string>(faces[0] ?? "0");
   const [opSel, setOpSel] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [addOpen, setAddOpen] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
