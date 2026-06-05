@@ -13,10 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ehDivisoria, FACE_LABELS, getTipoPecaPorPrefixo } from "@/lib/pecas-cadastradas-parser";
+import {
+  ehDivisoria,
+  FACE_LABELS,
+  getTipoPecaPorPrefixo,
+  parseTechnicalDrawingPdf,
+  classificarStatusParser,
+} from "@/lib/pecas-cadastradas-parser";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
