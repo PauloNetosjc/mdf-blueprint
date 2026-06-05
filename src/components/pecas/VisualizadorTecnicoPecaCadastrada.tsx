@@ -1193,23 +1193,31 @@ export function VisualizadorTecnicoPecaCadastrada({
           </div>
         )}
 
-        {import.meta.env.DEV && (
-          <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
-            <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
-              Debug geometria
-            </summary>
-            <div className="mt-2 space-y-1 font-mono">
-              <Linha k="temContornoExterno" v={String(outline.temContornoExterno)} />
-              <Linha k="pathSvg" v={outline.pathSvg} />
-              <div className="break-all text-muted-foreground">
-                pontos: {JSON.stringify(outline.pontosTecnicos)}
+        <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
+          <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
+            Diagnóstico de Geometria
+          </summary>
+          <div className="mt-2 space-y-1 font-mono">
+            <Linha k="tem_contorno_externo" v={contornoSalvo ? "sim" : "não"} />
+            <Linha k="origem" v={contornoSalvo?.origem ?? "—"} />
+            <Linha k="pontos" v={String(contornoSalvo?.pontos.length ?? 0)} />
+            <Linha k="rect fallback ativo" v={rectFallbackAtivo ? "sim" : "não"} />
+            <Linha k="operações contorno" v={String(contornosExternos.length)} />
+            <Linha k="presets" v={(contornoSalvo?.presets_aplicados ?? []).join(", ") || "—"} />
+            <Linha k="pathSvg" v={outline.pathSvg} />
+            {temOperacaoContornoSemContornoSalvo && (
+              <div className="rounded border border-warning/40 bg-warning/10 p-1 text-warning-foreground">
+                Operação de contorno detectada, mas o contorno externo da peça ainda não foi definido.
               </div>
-              <div className="break-all text-muted-foreground">
-                contornos: {JSON.stringify(outline.contornosAplicados.map((c) => ({ opId: c.opId, operacao: c.operacao, tipo_contorno: c.tipo_contorno, origem: c.origem, pontos: c.pontos })))}
-              </div>
+            )}
+            <div className="break-all text-muted-foreground">
+              pontos: {JSON.stringify(contornoSalvo?.pontos ?? [])}
             </div>
-          </details>
-        )}
+            <div className="break-all text-muted-foreground">
+              operações que afetam contorno: {JSON.stringify(contornosExternos.map((o) => ({ id: o.id, nome: o.nome_operacao, pontos: pontosValidosDaOp(o) })))}
+            </div>
+          </div>
+        </details>
 
         <div className="mt-2 border-t border-border pt-2">
           <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Detalhes</h3>
