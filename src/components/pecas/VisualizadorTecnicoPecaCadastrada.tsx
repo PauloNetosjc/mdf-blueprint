@@ -125,9 +125,10 @@ function ehTipoOuNomeDeContorno(op: VisualizadorOperacao): boolean {
 
 function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
   if (!ehTipoOuNomeDeContorno(op)) return false;
+  const nome = (op.nome_operacao ?? "").toLowerCase();
   const pts = pontosValidosDaOp(op);
-  if (pts.length < 2) return false;
-  return pts.some((p) => edgeOf(p, W, H) !== null);
+  if (pts.length < 2) return op.tipo_operacao === "contorno" || nome.includes("contorno");
+  return pts.some((p) => edgeOf(p, W, H) !== null) || nome.includes("contorno");
 }
 
 function samePoint(a: Pt | undefined, b: Pt) {
@@ -181,119 +182,156 @@ function ladoInferidoPorPontos(pts: Pt[], W: number, H: number): "top" | "bottom
   return "right";
 }
 
+type Edge = "bottom" | "right" | "top" | "left";
+
+type ContornoAplicado = RecuoInfo & {
+  tipo_contorno: "recuo_superior" | "recuo_inferior" | "recuo_esquerdo" | "recuo_direito";
+  pontos: Pt[];
+  operacao: string;
+};
+
+const TIPO_CONTORNO_POR_LADO: Record<Edge, ContornoAplicado["tipo_contorno"]> = {
+  top: "recuo_superior",
+  bottom: "recuo_inferior",
+  left: "recuo_esquerdo",
+  right: "recuo_direito",
+};
+
+function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
+  return pontos.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${altura - p.y}`).join(" ") + " Z";
+}
+
+function ordenarPontosParaBorda(edge: Edge, pts: Pt[]) {
+  const p = pts.slice();
+  const first = p[0];
+  const last = p[p.length - 1];
+  if (!first || !last) return p;
+  if (edge === "bottom" && first.x > last.x) return p.reverse();
+  if (edge === "right" && first.y > last.y) return p.reverse();
+  if (edge === "top" && first.x < last.x) return p.reverse();
+  if (edge === "left" && first.y < last.y) return p.reverse();
+  return p;
+}
+
+function orderDaBorda(edge: Edge, pts: Pt[]) {
+  const first = pts[0];
+  if (!first) return 0;
+  if (edge === "bottom") return first.x;
+  if (edge === "right") return first.y;
+  if (edge === "top") return -first.x;
+  return -first.y;
+}
+
 /**
- * Gera o contorno real da peça em coordenadas técnicas (Y para cima).
- * - Quando os pontos do PDF tocam a mesma borda, usa os pontos reais.
- * - Quando não dá para resolver pelos pontos, aplica recuo padrão 65×40 mm.
+ * Gera a geometria externa real da peça em coordenadas técnicas (Y para cima)
+ * e o path SVG correspondente (Y para baixo, sem margem).
  */
-function gerarOutlineDaPeca({
+function gerarPathExternoPeca({
   largura,
   altura,
-  margem,
-  operacoesContornoExterno,
+  operacoes,
 }: {
   largura: number;
   altura: number;
-  margem: number;
-  operacoesContornoExterno: VisualizadorOperacao[];
+  operacoes: VisualizadorOperacao[];
 }) {
-  type Edge = "bottom" | "right" | "top" | "left";
-  const byEdge: Record<Edge, { order: number; pts: Pt[]; opId: string }[]> = {
+  const byEdge: Record<Edge, { order: number; pts: Pt[]; op: VisualizadorOperacao; origem: RecuoInfo["origem"] }[]> = {
     bottom: [], right: [], top: [], left: [],
   };
-  const recuos: RecuoInfo[] = [];
+  const contornoFalhouIds: string[] = [];
 
   function aplicarRecuoPadrao(op: VisualizadorOperacao, lado: Edge, refPts: Pt[]) {
     const lar = RECUO_PADRAO.largura;
     const prof = RECUO_PADRAO.profundidade;
+    let pts: Pt[];
     if (lado === "top" || lado === "bottom") {
       const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.x, 0) / refPts.length : largura / 2;
-      let ini = centro - lar / 2, fim = centro + lar / 2;
+      let ini = centro - lar / 2;
+      let fim = centro + lar / 2;
       if (ini < 0) { fim -= ini; ini = 0; }
       if (fim > largura) { ini -= (fim - largura); fim = largura; }
       ini = Math.max(0, ini); fim = Math.min(largura, fim);
       const yBorda = lado === "top" ? altura : 0;
       const yFundo = lado === "top" ? altura - prof : prof;
-      const pts: Pt[] = lado === "top"
+      pts = lado === "top"
         ? [{ x: fim, y: yBorda }, { x: fim, y: yFundo }, { x: ini, y: yFundo }, { x: ini, y: yBorda }]
         : [{ x: ini, y: yBorda }, { x: ini, y: yFundo }, { x: fim, y: yFundo }, { x: fim, y: yBorda }];
-      byEdge[lado].push({ order: lado === "top" ? -fim : ini, pts, opId: op.id });
-      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
     } else {
       const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.y, 0) / refPts.length : altura / 2;
-      let ini = centro - lar / 2, fim = centro + lar / 2;
+      let ini = centro - lar / 2;
+      let fim = centro + lar / 2;
       if (ini < 0) { fim -= ini; ini = 0; }
       if (fim > altura) { ini -= (fim - altura); fim = altura; }
       ini = Math.max(0, ini); fim = Math.min(altura, fim);
       const xBorda = lado === "right" ? largura : 0;
       const xFundo = lado === "right" ? largura - prof : prof;
-      const pts: Pt[] = lado === "right"
+      pts = lado === "right"
         ? [{ x: xBorda, y: ini }, { x: xFundo, y: ini }, { x: xFundo, y: fim }, { x: xBorda, y: fim }]
         : [{ x: xBorda, y: fim }, { x: xFundo, y: fim }, { x: xFundo, y: ini }, { x: xBorda, y: ini }];
-      byEdge[lado].push({ order: lado === "right" ? ini : -fim, pts, opId: op.id });
-      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
     }
+    byEdge[lado].push({ order: orderDaBorda(lado, pts), pts, op, origem: "padrao_65x40" });
   }
 
-  for (const op of operacoesContornoExterno) {
+  for (const op of operacoes) {
+    if (!ehTipoOuNomeDeContorno(op)) continue;
     const raw = pontosValidosDaOp(op);
     const edge = raw.length >= 3 ? touchesSameEdge(raw, largura, altura) : null;
     if (!edge) {
-      const lado = ladoInferidoPorPontos(raw, largura, altura);
-      aplicarRecuoPadrao(op, lado, raw);
+      if (raw.length > 0 || (op.nome_operacao ?? "").toLowerCase().includes("contorno")) {
+        aplicarRecuoPadrao(op, ladoInferidoPorPontos(raw, largura, altura), raw);
+      } else {
+        contornoFalhouIds.push(op.id);
+      }
       continue;
     }
-    let pts = raw.slice();
-    if (edge === "bottom") {
-      if (pts[0].x > pts[pts.length - 1].x) pts = pts.reverse();
-      byEdge.bottom.push({ order: pts[0].x, pts, opId: op.id });
-    } else if (edge === "right") {
-      if (pts[0].y > pts[pts.length - 1].y) pts = pts.reverse();
-      byEdge.right.push({ order: pts[0].y, pts, opId: op.id });
-    } else if (edge === "top") {
-      if (pts[0].x < pts[pts.length - 1].x) pts = pts.reverse();
-      byEdge.top.push({ order: -pts[0].x, pts, opId: op.id });
-    } else {
-      if (pts[0].y < pts[pts.length - 1].y) pts = pts.reverse();
-      byEdge.left.push({ order: -pts[0].y, pts, opId: op.id });
-    }
-    const xs = raw.map((p) => p.x), ys = raw.map((p) => p.y);
-    if (edge === "top") {
-      recuos.push({ opId: op.id, lado: "top", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: altura - Math.min(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
-    } else if (edge === "bottom") {
-      recuos.push({ opId: op.id, lado: "bottom", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: Math.max(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
-    } else if (edge === "left") {
-      recuos.push({ opId: op.id, lado: "left", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: Math.max(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
-    } else {
-      recuos.push({ opId: op.id, lado: "right", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: largura - Math.min(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
-    }
+    const pts = ordenarPontosParaBorda(edge, raw);
+    byEdge[edge].push({ order: orderDaBorda(edge, pts), pts, op, origem: "pdf" });
   }
 
   (Object.keys(byEdge) as Edge[]).forEach((k) => byEdge[k].sort((a, b) => a.order - b.order));
 
-  const polygon: Pt[] = [];
-  pushPt(polygon, { x: 0, y: 0 });
-  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: largura, y: 0 });
-  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: largura, y: altura });
-  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: 0, y: altura });
-  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  const pontosTecnicos: Pt[] = [];
+  pushPt(pontosTecnicos, { x: 0, y: 0 });
+  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: largura, y: 0 });
+  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: largura, y: altura });
+  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: 0, y: altura });
+  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
 
-  const path = polygon
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
-    .join(" ") + " Z";
-  const contornoAplicadoIds = (Object.keys(byEdge) as Edge[]).flatMap((edge) => byEdge[edge].map((n) => n.opId));
+  const aplicados = (Object.keys(byEdge) as Edge[]).flatMap((lado) => byEdge[lado].map((n) => {
+    const xs = n.pts.map((p) => p.x);
+    const ys = n.pts.map((p) => p.y);
+    const info: ContornoAplicado = {
+      opId: n.op.id,
+      lado,
+      tipo_contorno: TIPO_CONTORNO_POR_LADO[lado],
+      origem: n.origem,
+      largura: lado === "top" || lado === "bottom" ? Math.max(...xs) - Math.min(...xs) : Math.max(...ys) - Math.min(...ys),
+      profundidade: lado === "top" ? altura - Math.min(...ys) : lado === "bottom" ? Math.max(...ys) : lado === "left" ? Math.max(...xs) : largura - Math.min(...xs),
+      ini: lado === "top" || lado === "bottom" ? Math.min(...xs) : Math.min(...ys),
+      fim: lado === "top" || lado === "bottom" ? Math.max(...xs) : Math.max(...ys),
+      pontos: n.pts,
+      operacao: n.op.nome_operacao ?? n.op.tipo_operacao,
+    };
+    return info;
+  }));
+  const contornoAplicadoIds = aplicados.map((c) => c.opId);
+  const temContornoExterno = operacoes.length > 0;
+  const pathSvg = pathTecnicoParaSvg(pontosTecnicos, altura);
 
   return {
-    path,
-    polygon,
-    temContornoExterno: operacoesContornoExterno.length > 0,
-    temContornoAplicado: contornoAplicadoIds.length > 0,
+    pathSvg,
+    pontosTecnicos,
+    temContornoExterno,
+    contornosAplicados: aplicados,
     contornoAplicadoIds,
-    contornoFalhouIds: [] as string[],
-    recuos,
+    contornoFalhouIds,
+    recuos: aplicados,
+    path: pathSvg,
+    polygon: pontosTecnicos,
+    temContornoAplicado: contornoAplicadoIds.length > 0,
   };
 }
 
@@ -489,8 +527,8 @@ export function VisualizadorTecnicoPecaCadastrada({
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
   const outline = useMemo(
-    () => gerarOutlineDaPeca({ largura: partW, altura: partH, margem: margin, operacoesContornoExterno: contornosExternos }),
-    [contornosExternos, partW, partH, margin],
+    () => gerarPathExternoPeca({ largura: partW, altura: partH, operacoes: contornosExternos }),
+    [contornosExternos, partW, partH],
   );
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const recuoPorOpId = useMemo(() => {
@@ -500,6 +538,30 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [outline.recuos]);
   const temRecuoFallback = outline.recuos.some((r) => r.origem === "padrao_65x40");
   const contornosComFalha = outline.contornoFalhouIds.length > 0;
+  const isLat3854A = codigo.trim().toUpperCase() === "LAT3854A";
+  const lat3854AInvalida = isLat3854A && contornosExternos.some((o) => (o.nome_operacao ?? "").includes("UsinagemParametrica01")) && (
+    !outline.temContornoExterno ||
+    !outline.temContornoAplicado ||
+    !outline.pathSvg.includes("371.5 0") ||
+    !outline.pathSvg.includes("371.5 40") ||
+    !outline.pathSvg.includes("291.5 40") ||
+    !outline.pathSvg.includes("291.5 0")
+  );
+  const erroPathReal = (outline.temContornoExterno && !outline.temContornoAplicado) || lat3854AInvalida;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (!isLat3854A) return;
+    console.info("[GEOMETRIA PECA]", {
+      codigo,
+      largura: partW,
+      altura: partH,
+      temContornoExterno: outline.temContornoExterno,
+      pathSvg: outline.pathSvg,
+      pontosTecnicos: outline.pontosTecnicos,
+      contornosAplicados: outline.contornosAplicados,
+    });
+  }, [codigo, isLat3854A, outline.pathSvg, outline.temContornoExterno, partW, partH, outline.pontosTecnicos, outline.contornosAplicados]);
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
@@ -614,9 +676,6 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </pattern>
               </defs>
 
-              {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
-              <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
-
               {/* Grade / régua (opcional) */}
               {mostrarRegua && (
                 <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
@@ -635,10 +694,14 @@ export function VisualizadorTecnicoPecaCadastrada({
                 </g>
               )}
 
+              {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
+              <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
+
               {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoAplicado ? (
+              {outline.temContornoExterno ? (
                 <path
-                  d={outline.path}
+                  d={outline.pathSvg}
+                  transform={`translate(${margin} ${margin})`}
                   fill="var(--color-surface)"
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
@@ -657,7 +720,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               )}
 
 
-              {(contornosComFalha || temRecuoFallback) && (
+              {(erroPathReal || contornosComFalha || temRecuoFallback) && (
                 <g>
                   <rect
                     x={margin + px(10)}
@@ -669,7 +732,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     strokeWidth={px(1)}
                   />
                   <text x={margin + px(20)} y={margin + px(31)} fontSize={px(11)} fill="var(--color-warning)" fontFamily="monospace">
-                    {temRecuoFallback
+                    {erroPathReal
+                      ? "Contorno externo detectado, mas o path real da peça não foi aplicado."
+                      : temRecuoFallback
                       ? "Recuo sem medida explícita. Aplicada medida padrão 65 × 40 mm."
                       : "Contorno externo detectado, mas não foi possível aplicar ao formato da peça."}
                   </text>
@@ -914,6 +979,24 @@ export function VisualizadorTecnicoPecaCadastrada({
           </div>
         )}
 
+        {import.meta.env.DEV && (
+          <details className="mb-2 rounded border border-border bg-surface-2 p-2 text-[10px]">
+            <summary className="cursor-pointer font-semibold uppercase tracking-wider text-muted-foreground">
+              Debug geometria
+            </summary>
+            <div className="mt-2 space-y-1 font-mono">
+              <Linha k="temContornoExterno" v={String(outline.temContornoExterno)} />
+              <Linha k="pathSvg" v={outline.pathSvg} />
+              <div className="break-all text-muted-foreground">
+                pontos: {JSON.stringify(outline.pontosTecnicos)}
+              </div>
+              <div className="break-all text-muted-foreground">
+                contornos: {JSON.stringify(outline.contornosAplicados.map((c) => ({ opId: c.opId, operacao: c.operacao, tipo_contorno: c.tipo_contorno, origem: c.origem, pontos: c.pontos })))}
+              </div>
+            </div>
+          </details>
+        )}
+
         <div className="mt-2 border-t border-border pt-2">
           <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Detalhes</h3>
           {!opSelObj ? (
@@ -940,10 +1023,11 @@ export function VisualizadorTecnicoPecaCadastrada({
                     {(() => {
                       const r = recuoPorOpId.get(opSelObj.id);
                       if (!r) return null;
-                      const ladoLabel = { top: "Recuo superior", bottom: "Recuo inferior", left: "Recuo esquerdo", right: "Recuo direito" }[r.lado];
+                      const ladoLabel: Record<Edge, string> = { top: "Recuo superior", bottom: "Recuo inferior", left: "Recuo esquerdo", right: "Recuo direito" };
                       return (
                         <>
-                          <Linha k="Tipo do recuo" v={ladoLabel} />
+                          <Linha k="Tipo do recuo" v={ladoLabel[r.lado]} />
+                          <Linha k="tipo_contorno" v={r.tipo_contorno} />
                           <Linha k="Largura do recuo" v={`${r.largura.toFixed(1)} mm`} />
                           <Linha k="Profundidade do recuo" v={`${r.profundidade.toFixed(1)} mm`} />
                           <Linha k="Origem da medida" v={r.origem === "padrao_65x40" ? "padrão 65×40" : "PDF"} />
