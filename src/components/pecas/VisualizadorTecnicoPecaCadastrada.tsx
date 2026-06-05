@@ -522,9 +522,9 @@ export function VisualizadorTecnicoPecaCadastrada({
               </g>
 
               {/* Peça (com contornos externos integrados ao formato) */}
-              {piecePathD ? (
+              {outline.temContornoExterno ? (
                 <path
-                  d={piecePathD}
+                  d={outline.path}
                   fill="var(--color-surface)"
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
