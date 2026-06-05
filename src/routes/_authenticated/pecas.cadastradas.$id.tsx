@@ -482,8 +482,7 @@ function PecaCadastradaDetalhe() {
 
       <Tabs value={aba} onValueChange={setAba} className="w-full">
         <TabsList>
-          <TabsTrigger value="visualizador">Visualizador</TabsTrigger>
-          <TabsTrigger value="operacoes">Operações ({ops.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="visualizador">Visualizador ({ops.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="bordas">Bordas ({bordas.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="pdf">PDF Original</TabsTrigger>
           <TabsTrigger value="debug">Debug / Logs</TabsTrigger>
@@ -511,6 +510,7 @@ function PecaCadastradaDetalhe() {
                 peca_cadastrada_id: id,
                 tipo: payload.tipo_operacao,
                 tipo_operacao: payload.tipo_operacao,
+                nome_operacao: payload.nome_operacao ?? null,
                 face: Number(payload.face) || 0,
                 x: payload.x,
                 y: payload.y,
@@ -530,6 +530,43 @@ function PecaCadastradaDetalhe() {
               toast.success("Operação adicionada.");
               qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
             }}
+            onEditOperacao={async (payload) => {
+              const { error } = await db
+                .from("peca_cadastrada_operacoes")
+                .update({
+                  tipo: payload.tipo_operacao,
+                  tipo_operacao: payload.tipo_operacao,
+                  nome_operacao: payload.nome_operacao ?? null,
+                  face: Number(payload.face) || 0,
+                  x: payload.x,
+                  y: payload.y,
+                  diametro: payload.diametro,
+                  profundidade: payload.profundidade,
+                  x1: payload.x1,
+                  x2: payload.x2,
+                  largura: payload.largura,
+                  comprimento: payload.comprimento,
+                })
+                .eq("id", payload.id);
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              toast.success("Operação atualizada.");
+              qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+            }}
+            onDeleteOperacao={async (opId) => {
+              const { error } = await db
+                .from("peca_cadastrada_operacoes")
+                .delete()
+                .eq("id", opId);
+              if (error) {
+                toast.error(error.message);
+                return;
+              }
+              toast.success("Operação excluída.");
+              qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+            }}
           />
           {p.pdf_url && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -545,61 +582,6 @@ function PecaCadastradaDetalhe() {
           )}
         </TabsContent>
 
-        {/* ───── OPERAÇÕES ───── */}
-        <TabsContent value="operacoes">
-          <div className="rounded border border-border bg-surface">
-            <div className="flex items-center justify-between border-b border-border p-2">
-              <h2 className="text-sm font-semibold">Operações ({ops.data?.length ?? 0})</h2>
-              <Button size="sm" variant="outline" onClick={() => novaOp.mutate()}>
-                <Plus className="mr-1 h-3 w-3" /> Adicionar
-              </Button>
-            </div>
-            <div className="max-h-[700px] overflow-auto p-2">
-              {facesOrdenadas.length === 0 && (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  Nenhuma operação detectada.
-                </div>
-              )}
-              {facesOrdenadas.map((face) => {
-                const opsFace = opsPorFace.get(face)!;
-                const furos = opsFace.filter((o) => o.tipo_operacao === "furo");
-                const rasgos = opsFace.filter((o) => o.tipo_operacao === "rasgo");
-                const usinagens = opsFace.filter(
-                  (o) =>
-                    o.tipo_operacao === "usinagem_parametrica" ||
-                    o.tipo_operacao === "contorno" ||
-                    o.tipo_operacao === "usinagem",
-                );
-                const outras = opsFace.filter(
-                  (o) =>
-                    !["furo", "rasgo", "usinagem_parametrica", "contorno", "usinagem"].includes(
-                      o.tipo_operacao,
-                    ),
-                );
-                return (
-                  <div key={face} className="mb-4">
-                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1 text-xs uppercase tracking-wider text-muted-foreground">
-                      <strong className="text-foreground">Face {face}</strong>
-                      <span className="text-[10px]">({opsFace.length} op.)</span>
-                    </div>
-                    {furos.length > 0 && (
-                      <SecaoOps titulo="Furações" count={furos.length} ops={furos} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
-                    )}
-                    {rasgos.length > 0 && (
-                      <SecaoOps titulo="Rasgos" count={rasgos.length} ops={rasgos} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
-                    )}
-                    {usinagens.length > 0 && (
-                      <SecaoOps titulo="Usinagens / Contornos" count={usinagens.length} ops={usinagens} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
-                    )}
-                    {outras.length > 0 && (
-                      <SecaoOps titulo="Outras" count={outras.length} ops={outras} salvar={salvarOp.mutate} apagar={apagarOp.mutate} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </TabsContent>
 
         {/* ───── BORDAS ───── */}
         <TabsContent value="bordas">
