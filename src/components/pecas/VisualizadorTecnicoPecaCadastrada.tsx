@@ -493,6 +493,12 @@ export function VisualizadorTecnicoPecaCadastrada({
     [contornosExternos, partW, partH, margin],
   );
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
+  const recuoPorOpId = useMemo(() => {
+    const m = new Map<string, typeof outline.recuos[number]>();
+    outline.recuos.forEach((r) => m.set(r.opId, r));
+    return m;
+  }, [outline.recuos]);
+  const temRecuoFallback = outline.recuos.some((r) => r.origem === "padrao_65x40");
   const contornosComFalha = outline.contornoFalhouIds.length > 0;
 
   return (
