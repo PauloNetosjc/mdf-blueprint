@@ -181,119 +181,156 @@ function ladoInferidoPorPontos(pts: Pt[], W: number, H: number): "top" | "bottom
   return "right";
 }
 
+type Edge = "bottom" | "right" | "top" | "left";
+
+type ContornoAplicado = RecuoInfo & {
+  tipo_contorno: "recuo_superior" | "recuo_inferior" | "recuo_esquerdo" | "recuo_direito";
+  pontos: Pt[];
+  operacao: string;
+};
+
+const TIPO_CONTORNO_POR_LADO: Record<Edge, ContornoAplicado["tipo_contorno"]> = {
+  top: "recuo_superior",
+  bottom: "recuo_inferior",
+  left: "recuo_esquerdo",
+  right: "recuo_direito",
+};
+
+function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
+  return pontos.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${altura - p.y}`).join(" ") + " Z";
+}
+
+function ordenarPontosParaBorda(edge: Edge, pts: Pt[]) {
+  const p = pts.slice();
+  const first = p[0];
+  const last = p[p.length - 1];
+  if (!first || !last) return p;
+  if (edge === "bottom" && first.x > last.x) return p.reverse();
+  if (edge === "right" && first.y > last.y) return p.reverse();
+  if (edge === "top" && first.x < last.x) return p.reverse();
+  if (edge === "left" && first.y < last.y) return p.reverse();
+  return p;
+}
+
+function orderDaBorda(edge: Edge, pts: Pt[]) {
+  const first = pts[0];
+  if (!first) return 0;
+  if (edge === "bottom") return first.x;
+  if (edge === "right") return first.y;
+  if (edge === "top") return -first.x;
+  return -first.y;
+}
+
 /**
- * Gera o contorno real da peça em coordenadas técnicas (Y para cima).
- * - Quando os pontos do PDF tocam a mesma borda, usa os pontos reais.
- * - Quando não dá para resolver pelos pontos, aplica recuo padrão 65×40 mm.
+ * Gera a geometria externa real da peça em coordenadas técnicas (Y para cima)
+ * e o path SVG correspondente (Y para baixo, sem margem).
  */
-function gerarOutlineDaPeca({
+function gerarPathExternoPeca({
   largura,
   altura,
-  margem,
-  operacoesContornoExterno,
+  operacoes,
 }: {
   largura: number;
   altura: number;
-  margem: number;
-  operacoesContornoExterno: VisualizadorOperacao[];
+  operacoes: VisualizadorOperacao[];
 }) {
-  type Edge = "bottom" | "right" | "top" | "left";
-  const byEdge: Record<Edge, { order: number; pts: Pt[]; opId: string }[]> = {
+  const byEdge: Record<Edge, { order: number; pts: Pt[]; op: VisualizadorOperacao; origem: RecuoInfo["origem"] }[]> = {
     bottom: [], right: [], top: [], left: [],
   };
-  const recuos: RecuoInfo[] = [];
+  const contornoFalhouIds: string[] = [];
 
   function aplicarRecuoPadrao(op: VisualizadorOperacao, lado: Edge, refPts: Pt[]) {
     const lar = RECUO_PADRAO.largura;
     const prof = RECUO_PADRAO.profundidade;
+    let pts: Pt[];
     if (lado === "top" || lado === "bottom") {
       const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.x, 0) / refPts.length : largura / 2;
-      let ini = centro - lar / 2, fim = centro + lar / 2;
+      let ini = centro - lar / 2;
+      let fim = centro + lar / 2;
       if (ini < 0) { fim -= ini; ini = 0; }
       if (fim > largura) { ini -= (fim - largura); fim = largura; }
       ini = Math.max(0, ini); fim = Math.min(largura, fim);
       const yBorda = lado === "top" ? altura : 0;
       const yFundo = lado === "top" ? altura - prof : prof;
-      const pts: Pt[] = lado === "top"
+      pts = lado === "top"
         ? [{ x: fim, y: yBorda }, { x: fim, y: yFundo }, { x: ini, y: yFundo }, { x: ini, y: yBorda }]
         : [{ x: ini, y: yBorda }, { x: ini, y: yFundo }, { x: fim, y: yFundo }, { x: fim, y: yBorda }];
-      byEdge[lado].push({ order: lado === "top" ? -fim : ini, pts, opId: op.id });
-      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
     } else {
       const centro = refPts.length > 0 ? refPts.reduce((s, p) => s + p.y, 0) / refPts.length : altura / 2;
-      let ini = centro - lar / 2, fim = centro + lar / 2;
+      let ini = centro - lar / 2;
+      let fim = centro + lar / 2;
       if (ini < 0) { fim -= ini; ini = 0; }
       if (fim > altura) { ini -= (fim - altura); fim = altura; }
       ini = Math.max(0, ini); fim = Math.min(altura, fim);
       const xBorda = lado === "right" ? largura : 0;
       const xFundo = lado === "right" ? largura - prof : prof;
-      const pts: Pt[] = lado === "right"
+      pts = lado === "right"
         ? [{ x: xBorda, y: ini }, { x: xFundo, y: ini }, { x: xFundo, y: fim }, { x: xBorda, y: fim }]
         : [{ x: xBorda, y: fim }, { x: xFundo, y: fim }, { x: xFundo, y: ini }, { x: xBorda, y: ini }];
-      byEdge[lado].push({ order: lado === "right" ? ini : -fim, pts, opId: op.id });
-      recuos.push({ opId: op.id, lado, origem: "padrao_65x40", largura: lar, profundidade: prof, ini, fim });
     }
+    byEdge[lado].push({ order: orderDaBorda(lado, pts), pts, op, origem: "padrao_65x40" });
   }
 
-  for (const op of operacoesContornoExterno) {
+  for (const op of operacoes) {
+    if (!ehTipoOuNomeDeContorno(op)) continue;
     const raw = pontosValidosDaOp(op);
     const edge = raw.length >= 3 ? touchesSameEdge(raw, largura, altura) : null;
     if (!edge) {
-      const lado = ladoInferidoPorPontos(raw, largura, altura);
-      aplicarRecuoPadrao(op, lado, raw);
+      if (raw.length > 0 || (op.nome_operacao ?? "").toLowerCase().includes("contorno")) {
+        aplicarRecuoPadrao(op, ladoInferidoPorPontos(raw, largura, altura), raw);
+      } else {
+        contornoFalhouIds.push(op.id);
+      }
       continue;
     }
-    let pts = raw.slice();
-    if (edge === "bottom") {
-      if (pts[0].x > pts[pts.length - 1].x) pts = pts.reverse();
-      byEdge.bottom.push({ order: pts[0].x, pts, opId: op.id });
-    } else if (edge === "right") {
-      if (pts[0].y > pts[pts.length - 1].y) pts = pts.reverse();
-      byEdge.right.push({ order: pts[0].y, pts, opId: op.id });
-    } else if (edge === "top") {
-      if (pts[0].x < pts[pts.length - 1].x) pts = pts.reverse();
-      byEdge.top.push({ order: -pts[0].x, pts, opId: op.id });
-    } else {
-      if (pts[0].y < pts[pts.length - 1].y) pts = pts.reverse();
-      byEdge.left.push({ order: -pts[0].y, pts, opId: op.id });
-    }
-    const xs = raw.map((p) => p.x), ys = raw.map((p) => p.y);
-    if (edge === "top") {
-      recuos.push({ opId: op.id, lado: "top", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: altura - Math.min(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
-    } else if (edge === "bottom") {
-      recuos.push({ opId: op.id, lado: "bottom", origem: "pdf", largura: Math.max(...xs) - Math.min(...xs), profundidade: Math.max(...ys), ini: Math.min(...xs), fim: Math.max(...xs) });
-    } else if (edge === "left") {
-      recuos.push({ opId: op.id, lado: "left", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: Math.max(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
-    } else {
-      recuos.push({ opId: op.id, lado: "right", origem: "pdf", largura: Math.max(...ys) - Math.min(...ys), profundidade: largura - Math.min(...xs), ini: Math.min(...ys), fim: Math.max(...ys) });
-    }
+    const pts = ordenarPontosParaBorda(edge, raw);
+    byEdge[edge].push({ order: orderDaBorda(edge, pts), pts, op, origem: "pdf" });
   }
 
   (Object.keys(byEdge) as Edge[]).forEach((k) => byEdge[k].sort((a, b) => a.order - b.order));
 
-  const polygon: Pt[] = [];
-  pushPt(polygon, { x: 0, y: 0 });
-  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: largura, y: 0 });
-  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: largura, y: altura });
-  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
-  pushPt(polygon, { x: 0, y: altura });
-  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(polygon, p)));
+  const pontosTecnicos: Pt[] = [];
+  pushPt(pontosTecnicos, { x: 0, y: 0 });
+  byEdge.bottom.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: largura, y: 0 });
+  byEdge.right.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: largura, y: altura });
+  byEdge.top.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
+  pushPt(pontosTecnicos, { x: 0, y: altura });
+  byEdge.left.forEach((n) => n.pts.forEach((p) => pushPt(pontosTecnicos, p)));
 
-  const path = polygon
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
-    .join(" ") + " Z";
-  const contornoAplicadoIds = (Object.keys(byEdge) as Edge[]).flatMap((edge) => byEdge[edge].map((n) => n.opId));
+  const aplicados = (Object.keys(byEdge) as Edge[]).flatMap((lado) => byEdge[lado].map((n) => {
+    const xs = n.pts.map((p) => p.x);
+    const ys = n.pts.map((p) => p.y);
+    const info: ContornoAplicado = {
+      opId: n.op.id,
+      lado,
+      tipo_contorno: TIPO_CONTORNO_POR_LADO[lado],
+      origem: n.origem,
+      largura: lado === "top" || lado === "bottom" ? Math.max(...xs) - Math.min(...xs) : Math.max(...ys) - Math.min(...ys),
+      profundidade: lado === "top" ? altura - Math.min(...ys) : lado === "bottom" ? Math.max(...ys) : lado === "left" ? Math.max(...xs) : largura - Math.min(...xs),
+      ini: lado === "top" || lado === "bottom" ? Math.min(...xs) : Math.min(...ys),
+      fim: lado === "top" || lado === "bottom" ? Math.max(...xs) : Math.max(...ys),
+      pontos: n.pts,
+      operacao: n.op.nome_operacao ?? n.op.tipo_operacao,
+    };
+    return info;
+  }));
+  const contornoAplicadoIds = aplicados.map((c) => c.opId);
+  const temContornoExterno = operacoes.length > 0;
+  const pathSvg = pathTecnicoParaSvg(pontosTecnicos, altura);
 
   return {
-    path,
-    polygon,
-    temContornoExterno: operacoesContornoExterno.length > 0,
-    temContornoAplicado: contornoAplicadoIds.length > 0,
+    pathSvg,
+    pontosTecnicos,
+    temContornoExterno,
+    contornosAplicados: aplicados,
     contornoAplicadoIds,
-    contornoFalhouIds: [] as string[],
-    recuos,
+    contornoFalhouIds,
+    recuos: aplicados,
+    path: pathSvg,
+    polygon: pontosTecnicos,
+    temContornoAplicado: contornoAplicadoIds.length > 0,
   };
 }
 
