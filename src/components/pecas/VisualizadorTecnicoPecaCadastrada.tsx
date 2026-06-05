@@ -488,8 +488,13 @@ export function VisualizadorTecnicoPecaCadastrada({
           </svg>
 
           {opsFace.length === 0 && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-              Nenhuma furação, rasgo ou usinagem nesta face.
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+              <span>Nenhuma operação cadastrada nesta face.</span>
+              {onAddOperacao && (
+                <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Adicionar operação nesta face
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -497,11 +502,18 @@ export function VisualizadorTecnicoPecaCadastrada({
 
       {/* Painel direito: detalhes / lista */}
       <aside className="rounded border border-border bg-surface p-2">
-        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Operações da Face {faceSel}
-        </h3>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Operações da Face {faceSel}
+          </h3>
+          {onAddOperacao && (
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1 h-3 w-3" /> Adicionar
+            </Button>
+          )}
+        </div>
         {opsFace.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma operação.</p>
+          <p className="text-xs text-muted-foreground">Nenhuma operação cadastrada nesta face.</p>
         ) : (
           <div className="mb-3 max-h-48 space-y-1 overflow-auto">
             {opsFace.map((o) => {
