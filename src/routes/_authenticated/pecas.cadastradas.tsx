@@ -174,16 +174,20 @@ function PecasCadastradasPage() {
         db.from("peca_cadastrada_operacoes").select("peca_cadastrada_id,tipo,face"),
         db.from("peca_cadastrada_bordas").select("peca_cadastrada_id"),
       ]);
-      const mapa = new Map<string, { furos: number; rasgos: number; bordas: number; face5: boolean }>();
+      const mapa = new Map<
+        string,
+        { furos: number; rasgos: number; usinagens: number; bordas: number; face5: boolean }
+      >();
       const get = (id: string) => {
         let v = mapa.get(id);
-        if (!v) { v = { furos: 0, rasgos: 0, bordas: 0, face5: false }; mapa.set(id, v); }
+        if (!v) { v = { furos: 0, rasgos: 0, usinagens: 0, bordas: 0, face5: false }; mapa.set(id, v); }
         return v;
       };
       for (const o of (ops ?? []) as { peca_cadastrada_id: string; tipo: string; face: number }[]) {
         const v = get(o.peca_cadastrada_id);
         if (o.tipo === "furo") v.furos++;
         else if (o.tipo === "rasgo") v.rasgos++;
+        else if (o.tipo === "usinagem_parametrica" || o.tipo === "contorno" || o.tipo === "usinagem") v.usinagens++;
         if (Number(o.face) === 5) v.face5 = true;
       }
       for (const b of (brds ?? []) as { peca_cadastrada_id: string }[]) {
@@ -374,6 +378,7 @@ function PecasCadastradasPage() {
           peca_cadastrada_id: pecaId,
           tipo: o.tipo_operacao,
           tipo_operacao: o.tipo_operacao,
+          nome_operacao: o.nome_operacao,
           face: faceToNumber(o.face),
           x: o.x,
           y: o.y,
@@ -391,6 +396,7 @@ function PecasCadastradasPage() {
           ancora_y: o.ancora_y,
           offset_x: o.offset_x,
           offset_y: o.offset_y,
+          pontos_json: o.pontos ?? [],
           confianca: o.confianca_parser,
           confianca_parser: o.confianca_parser,
           dados_brutos: o.dados_brutos,
@@ -586,7 +592,8 @@ function PecasCadastradasPage() {
   }
 
   const cont = contadores.data;
-  const getCont = (id: string) => cont?.get(id) ?? { furos: 0, rasgos: 0, bordas: 0, face5: false };
+  const getCont = (id: string) =>
+    cont?.get(id) ?? { furos: 0, rasgos: 0, usinagens: 0, bordas: 0, face5: false };
 
   const pecas = lista.data ?? [];
 
@@ -614,7 +621,8 @@ function PecasCadastradasPage() {
       if (filtro === "com_rasgos" && c.rasgos === 0) return false;
       if (filtro === "face5" && !c.face5) return false;
       if (filtro === "sem_nome" && p.nome_peca) return false;
-      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
+      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0 || c.usinagens > 0)) return false;
+      if (filtro === "com_usinagens" && c.usinagens === 0) return false;
       if (filtro === "sem_bordas" && c.bordas > 0) return false;
       if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
       if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
@@ -778,6 +786,7 @@ function PecasCadastradasPage() {
             <SelectItem value="ignorado_modulo">Módulos ignorados</SelectItem>
             <SelectItem value="pendente_classificacao">Pendente classificação</SelectItem>
             <SelectItem value="sem_nome">Sem nome</SelectItem>
+            <SelectItem value="com_usinagens">Com usinagens</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
             <SelectItem value="sem_bordas">Sem bordas</SelectItem>
           </SelectContent>
@@ -798,6 +807,7 @@ function PecasCadastradasPage() {
               <th className="px-3 py-2 text-left">Fita</th>
               <th className="px-3 py-2 text-center">Furos</th>
               <th className="px-3 py-2 text-center">Rasgos</th>
+              <th className="px-3 py-2 text-center">Usinag.</th>
               <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
             </tr>
@@ -830,6 +840,7 @@ function PecasCadastradasPage() {
                   <td className="px-3 py-2 font-mono text-xs">{p.fita_ref ?? "—"}</td>
                   <td className="px-3 py-2 text-center">{c.furos || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.rasgos || <span className="text-muted-foreground">0</span>}</td>
+                  <td className="px-3 py-2 text-center">{c.usinagens || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.bordas || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
@@ -842,7 +853,7 @@ function PecasCadastradasPage() {
             })}
             {!filtradas.length && (
               <tr>
-                <td colSpan={11} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
                   <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   Nenhuma peça encontrada.
                 </td>

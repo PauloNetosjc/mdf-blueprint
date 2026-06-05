@@ -47,9 +47,18 @@ type Peca = {
   logs_parser: string[];
 };
 
+type PontoUsinagem = {
+  x: number | null;
+  y: number | null;
+  profundidade: number | null;
+  tipo?: string | null;
+  ordem: number;
+};
+
 type Operacao = {
   id: string;
   tipo_operacao: string;
+  nome_operacao: string | null;
   face: string | number | null;
   x: number | null;
   y: number | null;
@@ -59,10 +68,13 @@ type Operacao = {
   comprimento: number | null;
   x1: number | null;
   x2: number | null;
+  y1: number | null;
+  y2: number | null;
   ancora_x: string | null;
   ancora_y: string | null;
   offset_x: number | null;
   offset_y: number | null;
+  pontos_json: PontoUsinagem[] | null;
   confianca_parser: string;
   ordem: number;
 };
@@ -77,7 +89,7 @@ type Borda = {
   cor: string | null;
 };
 
-const TIPOS_OP = ["furo", "rasgo", "rebaixo", "friso", "cava", "contorno", "usinagem", "outro"];
+const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
 const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseira", "desconhecido"];
 
 function PecaCadastradaDetalhe() {
@@ -153,6 +165,7 @@ function PecaCadastradaDetalhe() {
         .update({
           tipo: o.tipo_operacao,
           tipo_operacao: o.tipo_operacao,
+          nome_operacao: o.nome_operacao,
           face: Number(o.face ?? 0),
           x: o.x,
           y: o.y,
@@ -160,6 +173,15 @@ function PecaCadastradaDetalhe() {
           profundidade: o.profundidade,
           largura: o.largura,
           comprimento: o.comprimento,
+          x1: o.x1,
+          x2: o.x2,
+          y1: o.y1,
+          y2: o.y2,
+          ancora_x: o.ancora_x,
+          ancora_y: o.ancora_y,
+          offset_x: o.offset_x,
+          offset_y: o.offset_y,
+          pontos_json: o.pontos_json ?? [],
         })
         .eq("id", o.id);
       if (error) throw error;
@@ -336,14 +358,18 @@ function PecaCadastradaDetalhe() {
 
         {/* Operações + Bordas */}
         <div className="space-y-4">
+          <EngenhariaResumo ops={ops.data ?? []} bordas={bordas.data ?? []} />
+
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
-              <h2 className="text-sm font-semibold">Operações ({ops.data?.length ?? 0})</h2>
+              <h2 className="text-sm font-semibold">
+                Engenharia fixa — operações ({ops.data?.length ?? 0})
+              </h2>
               <Button size="sm" variant="outline" onClick={() => novaOp.mutate()}>
                 <Plus className="mr-1 h-3 w-3" /> Adicionar
               </Button>
             </div>
-            <div className="max-h-[500px] overflow-auto p-2">
+            <div className="max-h-[600px] overflow-auto p-2">
               {facesOrdenadas.length === 0 && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   Nenhuma operação detectada.
@@ -351,13 +377,28 @@ function PecaCadastradaDetalhe() {
               )}
               {facesOrdenadas.map((face) => {
                 const alertaFace5 = face === "5" && !ehDiv;
+                const opsFace = opsPorFace.get(face)!;
+                const furos = opsFace.filter((o) => o.tipo_operacao === "furo");
+                const rasgos = opsFace.filter((o) => o.tipo_operacao === "rasgo");
+                const usinagens = opsFace.filter(
+                  (o) =>
+                    o.tipo_operacao === "usinagem_parametrica" ||
+                    o.tipo_operacao === "contorno" ||
+                    o.tipo_operacao === "usinagem",
+                );
+                const outras = opsFace.filter(
+                  (o) =>
+                    !["furo", "rasgo", "usinagem_parametrica", "contorno", "usinagem"].includes(
+                      o.tipo_operacao,
+                    ),
+                );
                 return (
-                  <div key={face} className="mb-3">
-                    <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                      <strong>
+                  <div key={face} className="mb-4">
+                    <div className="mb-2 flex items-center gap-2 border-b border-border pb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                      <strong className="text-foreground">
                         Face {face} — {nomeFace(face)}
                       </strong>
-                      <span className="text-[10px]">({opsPorFace.get(face)!.length})</span>
+                      <span className="text-[10px]">({opsFace.length} op.)</span>
                       {alertaFace5 && (
                         <Badge variant="destructive" className="gap-1 text-[10px]">
                           <AlertTriangle className="h-3 w-3" />
@@ -365,21 +406,49 @@ function PecaCadastradaDetalhe() {
                         </Badge>
                       )}
                     </div>
-                    <div className="space-y-1">
-                      {opsPorFace.get(face)!.map((o) => (
-                        <OpRow
-                          key={o.id}
-                          op={o}
-                          onSave={(updated) => salvarOp.mutate(updated)}
-                          onDelete={() => apagarOp.mutate(o.id)}
-                        />
-                      ))}
-                    </div>
+
+                    {furos.length > 0 && (
+                      <SecaoOps
+                        titulo="Furações"
+                        count={furos.length}
+                        ops={furos}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {rasgos.length > 0 && (
+                      <SecaoOps
+                        titulo="Rasgos"
+                        count={rasgos.length}
+                        ops={rasgos}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {usinagens.length > 0 && (
+                      <SecaoOps
+                        titulo="Usinagens / Contornos"
+                        count={usinagens.length}
+                        ops={usinagens}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
+                    {outras.length > 0 && (
+                      <SecaoOps
+                        titulo="Outras"
+                        count={outras.length}
+                        ops={outras}
+                        salvar={salvarOp.mutate}
+                        apagar={apagarOp.mutate}
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
           </div>
+
 
           <div className="rounded border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border p-2">
@@ -459,6 +528,9 @@ function OpRow({
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
+      {local.nome_operacao && (
+        <div className="mt-1 px-1 text-[10px] font-semibold text-foreground">{local.nome_operacao}</div>
+      )}
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-[10px] text-muted-foreground">
         {local.largura != null && <span>L: {local.largura}</span>}
         {local.comprimento != null && <span>C: {local.comprimento}</span>}
@@ -468,6 +540,35 @@ function OpRow({
         {local.ancora_y && <span>↕ {local.ancora_y}{local.offset_y != null ? ` (${local.offset_y})` : ""}</span>}
         <span>conf: {local.confianca_parser}</span>
       </div>
+      {Array.isArray(local.pontos_json) && local.pontos_json.length > 0 && (
+        <div className="mt-1 rounded bg-surface p-1.5">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Pontos ({local.pontos_json.length})
+          </div>
+          <table className="w-full text-[10px]">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="px-1 text-left">#</th>
+                <th className="px-1 text-right">X</th>
+                <th className="px-1 text-right">Y</th>
+                <th className="px-1 text-right">Prof.</th>
+                <th className="px-1 text-left">Tipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {local.pontos_json.map((p, i) => (
+                <tr key={i} className="border-t border-border/50">
+                  <td className="px-1">{i + 1}</td>
+                  <td className="px-1 text-right font-mono">{p.x ?? "—"}</td>
+                  <td className="px-1 text-right font-mono">{p.y ?? "—"}</td>
+                  <td className="px-1 text-right font-mono">{p.profundidade ?? "—"}</td>
+                  <td className="px-1">{p.tipo ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -553,5 +654,67 @@ function StatusBadgeDetalhe({ status, motivo }: { status: string; motivo: string
     <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${cls}`} title={motivo ?? undefined}>
       {label}
     </span>
+  );
+}
+
+function EngenhariaResumo({ ops, bordas }: { ops: Operacao[]; bordas: Borda[] }) {
+  const furos = ops.filter((o) => o.tipo_operacao === "furo").length;
+  const rasgos = ops.filter((o) => o.tipo_operacao === "rasgo").length;
+  const usinagens = ops.filter(
+    (o) =>
+      o.tipo_operacao === "usinagem_parametrica" ||
+      o.tipo_operacao === "contorno" ||
+      o.tipo_operacao === "usinagem",
+  ).length;
+  const faces = Array.from(new Set(ops.map((o) => String(o.face ?? "—")))).sort();
+  return (
+    <div className="rounded border border-border bg-surface p-3">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Engenharia fixa da peça
+      </h2>
+      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+        <Resumo label="Furos" valor={furos} />
+        <Resumo label="Rasgos" valor={rasgos} />
+        <Resumo label="Usinagens" valor={usinagens} />
+        <Resumo label="Bordas" valor={bordas.length} />
+        <Resumo label="Faces" valor={faces.join(", ") || "—"} />
+      </div>
+    </div>
+  );
+}
+
+function Resumo({ label, valor }: { label: string; valor: number | string }) {
+  return (
+    <div className="rounded bg-surface-2 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="font-mono text-base font-semibold">{valor}</div>
+    </div>
+  );
+}
+
+function SecaoOps({
+  titulo,
+  count,
+  ops,
+  salvar,
+  apagar,
+}: {
+  titulo: string;
+  count: number;
+  ops: Operacao[];
+  salvar: (o: Operacao) => void;
+  apagar: (id: string) => void;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+        <span>{titulo} ({count})</span>
+      </div>
+      <div className="space-y-1">
+        {ops.map((o) => (
+          <OpRow key={o.id} op={o} onSave={salvar} onDelete={() => apagar(o.id)} />
+        ))}
+      </div>
+    </div>
   );
 }

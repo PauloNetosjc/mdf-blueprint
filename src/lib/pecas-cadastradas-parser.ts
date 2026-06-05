@@ -102,8 +102,24 @@ export function nomeFace(face: string | null | undefined): string {
   return FACE_LABELS[String(face)] ?? `Face ${face}`;
 }
 
+export type PontoUsinagem = {
+  x: number | null;
+  y: number | null;
+  profundidade: number | null;
+  tipo?: string | null;
+  ordem: number;
+};
+
 export type OperacaoExtraida = {
-  tipo_operacao: "furo" | "rasgo" | "rebaixo" | "usinagem" | "outro";
+  tipo_operacao:
+    | "furo"
+    | "rasgo"
+    | "rebaixo"
+    | "usinagem_parametrica"
+    | "contorno"
+    | "usinagem"
+    | "outro";
+  nome_operacao: string | null;
   face: string | null;
   x: number | null;
   y: number | null;
@@ -121,6 +137,7 @@ export type OperacaoExtraida = {
   ancora_y: "inferior" | "superior" | "centro" | "absoluto" | null;
   offset_x: number | null;
   offset_y: number | null;
+  pontos: PontoUsinagem[];
   confianca_parser: "alta" | "media" | "baixa";
   dados_brutos: Record<string, unknown>;
 };
@@ -139,6 +156,7 @@ export type BordaExtraida = {
 export type ResumoParser = {
   furos_detectados: number;
   rasgos_detectados: number;
+  usinagens_detectadas: number;
   bordas_detectadas: number;
   fita_detectada: boolean;
   nome_detectado: boolean;
@@ -147,6 +165,7 @@ export type ResumoParser = {
   pdf_lido: boolean;
   codigo_detectado: boolean;
   total_operacoes: number;
+  faces_com_operacao: number[];
 };
 
 export type ClassificacaoPdf = "peca_individual" | "modulo_explodido" | "desconhecido";
@@ -227,6 +246,23 @@ export function inferOperationAnchors(
           ? "superior"
           : (a.ancora as "centro" | "absoluto");
     out.offset_y = a.offset;
+  }
+  // Âncoras para extremos do rasgo (x1/x2) e para cada ponto de usinagem
+  const ancorasExtras: Record<string, unknown> = {};
+  if (op.x1 != null) ancorasExtras.x1 = inferirAncoraEixo(op.x1, largura_ref);
+  if (op.x2 != null) ancorasExtras.x2 = inferirAncoraEixo(op.x2, largura_ref);
+  if (op.y1 != null) ancorasExtras.y1 = inferirAncoraEixo(op.y1, altura_ref);
+  if (op.y2 != null) ancorasExtras.y2 = inferirAncoraEixo(op.y2, altura_ref);
+  if (op.pontos && op.pontos.length > 0) {
+    ancorasExtras.pontos = op.pontos.map((p) => ({
+      ordem: p.ordem,
+      tipo: p.tipo ?? null,
+      x: p.x != null ? inferirAncoraEixo(p.x, largura_ref) : null,
+      y: p.y != null ? inferirAncoraEixo(p.y, altura_ref) : null,
+    }));
+  }
+  if (Object.keys(ancorasExtras).length > 0) {
+    out.dados_brutos = { ...(out.dados_brutos ?? {}), ancoras_extras: ancorasExtras };
   }
   return out;
 }
@@ -313,16 +349,69 @@ function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
 function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   const ops: OperacaoExtraida[] = [];
   const faceCtx = extrairFacesPorContexto(linhas);
-  let modo: "furo" | "rasgo" | null = null;
+  let modo: "furo" | "rasgo" | "usinagem" | null = null;
   let ordem = 0;
+  let usinagemAtual: OperacaoExtraida | null = null;
+  let ordemPonto = 0;
+
+  const flushUsinagem = () => {
+    if (usinagemAtual && usinagemAtual.pontos.length > 0) {
+      ops.push(usinagemAtual);
+    }
+    usinagemAtual = null;
+    ordemPonto = 0;
+  };
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const t = linha.texto.toLowerCase();
 
-    if (/\bfura(c|ç)(a|õ|o)e?s?\b/.test(t)) modo = "furo";
-    else if (/\brasgo?s?\b/.test(t)) modo = "rasgo";
-    else if (/\businage(m|ns)\b|\brebaixo\b|\bcanal\b/.test(t)) modo = "furo"; // tratado como op genérica abaixo
+    // Detecta cabeçalhos de seção
+    const mUsin = linha.texto.match(
+      /\b(usinagem\s*param[eé]trica\s*\d*|usinagem|contorno)\b\s*[-–:]?\s*([A-Za-zÀ-ÿ0-9 .\-]*)/i,
+    );
+    if (mUsin && /usinagem|contorno/i.test(linha.texto) && !isNumericCells(linha.cels)) {
+      flushUsinagem();
+      modo = "usinagem";
+      const face = faceCtx.get(i) || null;
+      const isContorno = /contorno/i.test(linha.texto);
+      usinagemAtual = {
+        tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
+        nome_operacao: linha.texto.replace(/\s+/g, " ").trim().slice(0, 120),
+        face,
+        x: null,
+        y: null,
+        z: null,
+        diametro: null,
+        profundidade: null,
+        largura: null,
+        comprimento: null,
+        x1: null,
+        x2: null,
+        y1: null,
+        y2: null,
+        ordem: ordem++,
+        ancora_x: null,
+        ancora_y: null,
+        offset_x: null,
+        offset_y: null,
+        pontos: [],
+        confianca_parser: "alta",
+        dados_brutos: { cabecalho: linha.texto },
+      };
+      continue;
+    }
+
+    if (/\bfura(c|ç)(a|õ|o)e?s?\b/.test(t)) {
+      flushUsinagem();
+      modo = "furo";
+      continue;
+    }
+    if (/\brasgo?s?\b/.test(t)) {
+      flushUsinagem();
+      modo = "rasgo";
+      continue;
+    }
 
     if (!modo) continue;
     if (!isNumericCells(linha.cels)) continue;
@@ -332,13 +421,13 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       .filter((v): v is number => v != null);
     if (valores.length < 2) continue;
 
-    const face = faceCtx.get(i) || null;
+    const face = faceCtx.get(i) || (usinagemAtual?.face ?? null);
 
     if (modo === "furo") {
-      // Esperado X Y Diam Prof (4 colunas); às vezes só 2 ou 3.
       const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
       ops.push({
         tipo_operacao: "furo",
+        nome_operacao: null,
         face,
         x,
         y,
@@ -356,11 +445,11 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         ancora_y: null,
         offset_x: null,
         offset_y: null,
+        pontos: [],
         confianca_parser: valores.length >= 4 ? "alta" : "media",
         dados_brutos: { linha: linha.texto, valores },
       });
     } else if (modo === "rasgo") {
-      // Y X1 X2 Larg Prof — 5 colunas
       if (valores.length < 4) continue;
       const [y, x1, x2, larg, prof] = [
         valores[0],
@@ -371,6 +460,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       ];
       ops.push({
         tipo_operacao: "rasgo",
+        nome_operacao: null,
         face,
         x: (x1 + x2) / 2,
         y,
@@ -388,11 +478,28 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         ancora_y: null,
         offset_x: null,
         offset_y: null,
+        pontos: [],
         confianca_parser: valores.length >= 5 ? "alta" : "media",
         dados_brutos: { linha: linha.texto, valores },
       });
+    } else if (modo === "usinagem" && usinagemAtual) {
+      // X, Y, Profundidade [+ rótulo "Ponto Inicial/Final" no texto]
+      const [x, y, prof] = [valores[0], valores[1], valores[2] ?? null];
+      const rotuloMatch = linha.texto.match(/ponto\s+(inicial|final|intermedi[aá]rio)/i);
+      usinagemAtual.pontos.push({
+        x,
+        y,
+        profundidade: prof,
+        tipo: rotuloMatch ? `Ponto ${rotuloMatch[1]}` : null,
+        ordem: ordemPonto++,
+      });
+      // Profundidade representativa: a mais profunda dos pontos
+      if (prof != null && (usinagemAtual.profundidade == null || prof > usinagemAtual.profundidade)) {
+        usinagemAtual.profundidade = prof;
+      }
     }
   }
+  flushUsinagem();
   return ops;
 }
 
@@ -516,6 +623,7 @@ export async function parseTechnicalDrawingPdf(
   const baseResumo: ResumoParser = {
     furos_detectados: 0,
     rasgos_detectados: 0,
+    usinagens_detectadas: 0,
     bordas_detectadas: 0,
     fita_detectada: false,
     nome_detectado: false,
@@ -524,6 +632,7 @@ export async function parseTechnicalDrawingPdf(
     pdf_lido: false,
     codigo_detectado: !!codigo,
     total_operacoes: 0,
+    faces_com_operacao: [],
   };
 
   let itens: Item[] = [];
@@ -586,6 +695,15 @@ export async function parseTechnicalDrawingPdf(
 
   const furos = operacoes.filter((o) => o.tipo_operacao === "furo").length;
   const rasgos = operacoes.filter((o) => o.tipo_operacao === "rasgo").length;
+  const usinagens = operacoes.filter(
+    (o) =>
+      o.tipo_operacao === "usinagem_parametrica" ||
+      o.tipo_operacao === "contorno" ||
+      o.tipo_operacao === "usinagem",
+  ).length;
+  const facesComOp = Array.from(
+    new Set(operacoes.map((o) => (o.face != null ? Number(o.face) : null)).filter((v): v is number => v != null)),
+  ).sort();
   const temFace5 = operacoes.some((o) => o.face === "5");
   const medidasOk = medidas.largura != null && medidas.altura != null && medidas.espessura != null;
 
@@ -598,7 +716,9 @@ export async function parseTechnicalDrawingPdf(
   }
 
   if (!nomeDeFato) alertas.push("Nome da peça não encontrado no PDF (usando tipo + código).");
-  if (operacoes.length === 0) alertas.push("Nenhuma operação (furo/rasgo) detectada no PDF.");
+  if (operacoes.length === 0) {
+    alertas.push("Nenhuma furação, rasgo ou usinagem encontrada.");
+  }
   if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
 
   for (const b of bordas) {
@@ -622,6 +742,7 @@ export async function parseTechnicalDrawingPdf(
   const resumo: ResumoParser = {
     furos_detectados: furos,
     rasgos_detectados: rasgos,
+    usinagens_detectadas: usinagens,
     bordas_detectadas: bordas.length,
     fita_detectada: bordas.length > 0,
     nome_detectado: nomeDeFato,
@@ -630,6 +751,7 @@ export async function parseTechnicalDrawingPdf(
     pdf_lido: true,
     codigo_detectado: !!codigo,
     total_operacoes: operacoes.length,
+    faces_com_operacao: facesComOp,
   };
 
   const classificacao = classificarDocumentoPdf(linhas, resumo);
@@ -805,15 +927,27 @@ export function classificarStatusParser(r: ResultadoParserPDF): {
       motivo: r.classificacao.motivo,
     };
   }
-  if (r.erros.length > 0) {
-    return { status: "com_erros", motivo: r.erros[0] };
+  // Erro crítico: não conseguiu identificar código ou medidas mínimas (largura × altura)
+  if (!r.codigo) {
+    return { status: "com_erros", motivo: "Código da peça não identificado" };
   }
-  if (!r.codigo || !r.resumo.medidas_detectadas) {
+  const temMedidasMinimas = r.largura_ref != null && r.altura_ref != null;
+  if (!temMedidasMinimas) {
+    return { status: "com_erros", motivo: "Medidas mínimas (largura × altura) não detectadas" };
+  }
+  // Acima de qualquer outro erro crítico do parser
+  const errosCriticos = r.erros.filter((e) => !/medidas/i.test(e));
+  if (errosCriticos.length > 0) {
+    return { status: "com_erros", motivo: errosCriticos[0] };
+  }
+  // Engenharia parcial: tem código + medidas mas nenhuma operação encontrada
+  if (r.resumo.total_operacoes === 0) {
     return {
-      status: "pendente_revisao",
-      motivo: !r.codigo ? "Código da peça não identificado" : "Medidas incompletas",
+      status: "com_alertas",
+      motivo: "Nenhuma furação, rasgo ou usinagem encontrada.",
     };
   }
+  // Demais alertas (não críticos)
   if (r.alertas.length > 0) {
     return { status: "com_alertas", motivo: r.alertas[0] };
   }
