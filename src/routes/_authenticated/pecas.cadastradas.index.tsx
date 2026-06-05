@@ -950,7 +950,34 @@ function PecasCadastradasPage() {
           </div>
         )}
       </div>
+
+      <ReprocessarGeometriaDialog
+        open={reprocessOpen}
+        onOpenChange={setReprocessOpen}
+        pecaIds={pecas.filter((p) => !isModulo(p) && p.largura_ref && p.altura_ref).map((p) => p.id)}
+        onConcluido={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+        }}
+      />
     </div>
+  );
+}
+
+const GEO_VARIANT: Record<GeometriaStatus, { label: string; cls: string }> = {
+  contorno_pdf: { label: "Contorno detectado", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
+  retangular: { label: "Retangular", cls: "border-border bg-surface-2 text-muted-foreground" },
+  fallback: { label: "Fallback 65×40", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  manual: { label: "Manual", cls: "border-primary/40 bg-primary/10 text-primary" },
+  misto: { label: "Misto", cls: "border-primary/40 bg-primary/10 text-primary" },
+  pendente: { label: "Geometria pendente", cls: "border-destructive/40 bg-destructive/10 text-destructive" },
+};
+
+function GeometriaBadge({ status }: { status: GeometriaStatus }) {
+  const v = GEO_VARIANT[status];
+  return (
+    <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-medium ${v.cls}`}>
+      {v.label}
+    </span>
   );
 }
 
