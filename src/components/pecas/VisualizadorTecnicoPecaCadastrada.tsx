@@ -601,6 +601,16 @@ export function VisualizadorTecnicoPecaCadastrada({
               viewBox={`0 0 ${viewW} ${viewH}`}
               style={{ display: "block", overflow: "visible" }}
             >
+              <defs>
+                <pattern id="hatch-fora" width={px(8)} height={px(8)} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width={px(8)} height={px(8)} fill="var(--color-surface-2)" />
+                  <line x1="0" y1="0" x2="0" y2={px(8)} stroke="var(--color-muted-foreground)" strokeWidth={px(0.6)} opacity="0.35" />
+                </pattern>
+              </defs>
+
+              {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
+              <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
+
               {/* Grade / régua (opcional) */}
               {mostrarRegua && (
                 <g stroke="var(--color-grid-strong)" strokeWidth={px(0.5)}>
@@ -639,6 +649,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                   strokeWidth={px(1.5)}
                 />
               )}
+
 
               {contornosComFalha && (
                 <g>
