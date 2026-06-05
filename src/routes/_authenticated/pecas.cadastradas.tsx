@@ -814,6 +814,7 @@ function PecasCadastradasPage() {
               <th className="px-3 py-2 text-center">Usinag.</th>
               <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -821,10 +822,22 @@ function PecasCadastradasPage() {
               const c = getCont(p.id);
               const tipoAmigavel = p.tipo_peca || getTipoPecaPorPrefixo(p.prefixo);
               const nome = p.nome_peca || (p.prefixo ? `${tipoAmigavel} ${p.codigo_principal ?? ""}${p.sufixo ?? ""}` : "—");
+              const abrir = () => navigate({ to: "/pecas/cadastradas/$id", params: { id: p.id } });
               return (
-                <tr key={p.id} className="border-t border-border hover:bg-surface-2">
+                <tr
+                  key={p.id}
+                  className="cursor-pointer border-t border-border transition-colors hover:bg-surface-2"
+                  onClick={abrir}
+                  onMouseEnter={() => qc.prefetchQuery({ queryKey: ["peca-cadastrada", p.id] }).catch(() => {})}
+                >
                   <td className="px-3 py-2 font-mono font-semibold">
-                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent" className="hover:underline">
+                    <Link
+                      to="/pecas/cadastradas/$id"
+                      params={{ id: p.id }}
+                      preload="intent"
+                      className="hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {p.codigo_completo}
                     </Link>
                   </td>
@@ -852,12 +865,19 @@ function PecasCadastradasPage() {
                       {c.face5 && <Badge variant="secondary" className="text-[10px]">Face 5</Badge>}
                     </div>
                   </td>
+                  <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent">
+                        Abrir
+                      </Link>
+                    </Button>
+                  </td>
                 </tr>
               );
             })}
             {!filtradas.length && (
               <tr>
-                <td colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={13} className="px-3 py-10 text-center text-muted-foreground">
                   <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   Nenhuma peça encontrada.
                 </td>
