@@ -1000,6 +1000,15 @@ export async function parseTechnicalDrawingPdf(
     erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
   }
 
+  // Furos com diâmetro absurdo são quase sempre rasgos mal classificados.
+  for (const op of operacoes) {
+    if (op.tipo_operacao === "furo" && op.diametro != null && op.diametro > 100) {
+      alertas.push(
+        `Possível rasgo interpretado como furo. Diâmetro muito alto: ${op.diametro}.`,
+      );
+    }
+  }
+
   if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
 
   for (const b of bordas) {
