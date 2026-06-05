@@ -302,6 +302,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 }); // px na tela
+  const [mostrarRegua, setMostrarRegua] = useState(false);
   const panState = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   function fitToView() {
