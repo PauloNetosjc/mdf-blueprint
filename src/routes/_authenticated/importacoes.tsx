@@ -851,6 +851,19 @@ function NovaImportacao() {
       await insertBatch("importacao_etiquetas", etiquetasImp, "Erro ao registrar etiquetas");
       addLog("Metadados técnicos registrados");
 
+      // Vínculo automático com a biblioteca Peças Cadastradas
+      setProgresso("Vinculando com Peças Cadastradas...");
+      let logVinc: Awaited<ReturnType<typeof processarVinculosProjeto>> | null = null;
+      try {
+        logVinc = await processarVinculosProjeto(projetoId, { modo: "todos" });
+        for (const m of logVinc.mensagens) addLog(m);
+        for (const e of logVinc.erros) erros.push({ msg: e });
+      } catch (e) {
+        const msg = `Erro no vínculo com biblioteca: ${(e as Error).message}`;
+        erros.push({ msg });
+        addLog(msg);
+      }
+
       const totalUploadaveis = arquivos.filter((a) => a.categoria !== "ignorado").length;
       const logsFinais = [
         ...logsExec,
@@ -862,6 +875,7 @@ function NovaImportacao() {
         `CYC de chapas encontrados: ${(resumo.por_categoria.nc_cyc ?? 0) + (resumo.por_categoria.xml_cyc ?? 0)}`,
         `Parts encontrados: ${(resumo.por_categoria.parts_nc ?? 0) + (resumo.por_categoria.parts_info ?? 0)}`,
         `Profile encontrados: ${(resumo.por_categoria.profile_nc ?? 0) + (resumo.por_categoria.profile_info ?? 0)}`,
+        ...(logVinc?.mensagens ?? []),
       ];
       await supabase
         .from("importacoes")
