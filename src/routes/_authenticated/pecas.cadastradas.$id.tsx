@@ -686,6 +686,29 @@ function PecaCadastradaDetalhe() {
             <CampoCab label="Operações por face" valor={facesOrdenadas.map((f) => `${f}:${opsPorFace.get(f)!.length}`).join("  ") || "—"} mono />
           </div>
 
+          <details open className="rounded border border-border bg-surface p-2 text-xs">
+            <summary className="cursor-pointer font-medium">Diagnóstico de Geometria</summary>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <CampoCab label="tem_contorno_externo" valor={contornoExterno ? "sim" : "não"} mono />
+              <CampoCab label="origem" valor={contornoExterno?.origem ?? "—"} mono />
+              <CampoCab label="qtd pontos" valor={String(contornoExterno?.pontos.length ?? 0)} mono />
+              <CampoCab label="rect fallback" valor={contornoExterno ? "não" : "sim"} mono />
+            </div>
+            {operacoesContorno.length > 0 && !contornoExterno && (
+              <div className="mt-2 rounded border border-warning/40 bg-warning/10 p-2 text-warning-foreground">
+                Operação de contorno detectada, mas o contorno externo da peça ainda não foi definido.
+              </div>
+            )}
+            <pre className="mt-2 max-h-80 overflow-auto bg-surface-2 p-2 text-[10px] text-muted-foreground">
+              {JSON.stringify({
+                pontos_do_contorno: contornoExterno?.pontos ?? [],
+                path_svg_gerado: pathContorno(contornoExterno),
+                operacoes_que_afetam_contorno: operacoesContorno.map((o) => ({ id: o.id, nome: o.nome_operacao, pontos: o.pontos_json })),
+                presets_aplicados: contornoExterno?.presets_aplicados ?? [],
+              }, null, 2)}
+            </pre>
+          </details>
+
           {p.erros_parser?.length > 0 && (
             <details open className="rounded border border-destructive/40 bg-destructive/5 p-2 text-xs">
               <summary className="cursor-pointer font-medium text-destructive">Erros ({p.erros_parser.length})</summary>
