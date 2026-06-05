@@ -566,25 +566,43 @@ export function VisualizadorTecnicoPecaCadastrada({
             </p>
           ) : (
             <div className="space-y-1 text-[11px]">
-              <Linha k="Tipo" v={opSelObj.tipo_operacao} />
-              {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
-              <Linha k="Face" v={String(opSelObj.face ?? "—")} />
-              {opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
-              {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
-              {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
-              {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
-              {opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
-              {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
-              {opSelObj.comprimento != null && <Linha k="Comprimento" v={String(opSelObj.comprimento)} />}
-              {opSelObj.profundidade != null && <Linha k="Profundidade" v={String(opSelObj.profundidade)} />}
-              {opSelObj.ancora_x && (
-                <Linha k="Âncora X" v={`${opSelObj.ancora_x}${opSelObj.offset_x != null ? ` (${opSelObj.offset_x})` : ""}`} />
-              )}
-              {opSelObj.ancora_y && (
-                <Linha k="Âncora Y" v={`${opSelObj.ancora_y}${opSelObj.offset_y != null ? ` (${opSelObj.offset_y})` : ""}`} />
-              )}
-              <Linha k="Confiança" v={opSelObj.confianca_parser} />
-              <Linha k="Origem" v="biblioteca de peças cadastradas" />
+              {(() => {
+                const isRasgo = opSelObj.tipo_operacao === "rasgo";
+                const ancoras = (opSelObj.dados_brutos_json as { ancoras_extras?: { x1?: { ancora: string; offset: number }; x2?: { ancora: string; offset: number } } } | null | undefined)?.ancoras_extras;
+                return (
+                  <>
+                    <Linha k="Tipo" v={opSelObj.tipo_operacao} />
+                    {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
+                    <Linha k="Face" v={String(opSelObj.face ?? "—")} />
+                    {!isRasgo && opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
+                    {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
+                    {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
+                    {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
+                    {!isRasgo && opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
+                    {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
+                    {!isRasgo && opSelObj.comprimento != null && (
+                      <Linha k="Comprimento" v={String(opSelObj.comprimento)} />
+                    )}
+                    {opSelObj.profundidade != null && (
+                      <Linha k="Profundidade" v={String(opSelObj.profundidade)} />
+                    )}
+                    {isRasgo && ancoras?.x1 && (
+                      <Linha k="X1 âncora" v={`${ancoras.x1.ancora}, offset ${ancoras.x1.offset}`} />
+                    )}
+                    {isRasgo && ancoras?.x2 && (
+                      <Linha k="X2 âncora" v={`${ancoras.x2.ancora}, offset ${ancoras.x2.offset}`} />
+                    )}
+                    {!isRasgo && opSelObj.ancora_x && (
+                      <Linha k="Âncora X" v={`${opSelObj.ancora_x}${opSelObj.offset_x != null ? ` (${opSelObj.offset_x})` : ""}`} />
+                    )}
+                    {opSelObj.ancora_y && (
+                      <Linha k="Âncora Y" v={`${opSelObj.ancora_y}${opSelObj.offset_y != null ? ` (${opSelObj.offset_y})` : ""}`} />
+                    )}
+                    <Linha k="Confiança" v={opSelObj.confianca_parser} />
+                    <Linha k="Origem" v="biblioteca de peças cadastradas" />
+                  </>
+                );
+              })()}
 
               {(() => {
                 const al = alertasOp(opSelObj);
