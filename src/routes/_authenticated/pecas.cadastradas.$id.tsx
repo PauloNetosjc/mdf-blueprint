@@ -89,7 +89,7 @@ type Borda = {
   cor: string | null;
 };
 
-const TIPOS_OP = ["furo", "rasgo", "rebaixo", "friso", "cava", "contorno", "usinagem", "outro"];
+const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
 const LADOS = ["superior", "inferior", "esquerda", "direita", "frente", "traseira", "desconhecido"];
 
 function PecaCadastradaDetalhe() {
