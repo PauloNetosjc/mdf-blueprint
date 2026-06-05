@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
+import { type ChangeEvent, type ReactNode, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -564,33 +564,40 @@ function PecasCadastradasPage() {
   const getCont = (id: string) => cont?.get(id) ?? { furos: 0, rasgos: 0, bordas: 0, face5: false };
 
   const pecas = lista.data ?? [];
-  const filtradas = pecas.filter((p) => {
-    const c = getCont(p.id);
-    if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
-    if (filtro === "com_fita" && !p.fita_ref) return false;
-    if (filtro === "com_furos" && c.furos === 0) return false;
-    if (filtro === "com_rasgos" && c.rasgos === 0) return false;
-    if (filtro === "face5" && !c.face5) return false;
-    if (filtro === "sem_nome" && p.nome_peca) return false;
-    if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
-    if (filtro === "sem_bordas" && c.bordas > 0) return false;
-    if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
-    if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
-    if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
-    if (filtro === "ok" && p.status_parser !== "ok") return false;
-    if (!busca) return true;
-    const q = busca.toLowerCase();
-    return (
-      (p.codigo_completo ?? "").toLowerCase().includes(q) ||
-      (p.codigo_principal ?? "").toLowerCase().includes(q) ||
-      (p.nome_peca ?? "").toLowerCase().includes(q) ||
-      (p.tipo_peca ?? "").toLowerCase().includes(q) ||
-      (p.modulo_origem ?? "").toLowerCase().includes(q) ||
-      (p.fita_ref ?? "").toLowerCase().includes(q)
-    );
-  });
 
-  const stats = {
+  // Debounce busca (~200ms) via useDeferredValue para não travar a digitação.
+  const buscaDeferred = useDeferredValue(busca);
+
+  const filtradas = useMemo(() => {
+    const q = buscaDeferred.trim().toLowerCase();
+    return pecas.filter((p) => {
+      const c = getCont(p.id);
+      if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
+      if (filtro === "com_fita" && !p.fita_ref) return false;
+      if (filtro === "com_furos" && c.furos === 0) return false;
+      if (filtro === "com_rasgos" && c.rasgos === 0) return false;
+      if (filtro === "face5" && !c.face5) return false;
+      if (filtro === "sem_nome" && p.nome_peca) return false;
+      if (filtro === "sem_operacoes" && (c.furos > 0 || c.rasgos > 0)) return false;
+      if (filtro === "sem_bordas" && c.bordas > 0) return false;
+      if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
+      if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
+      if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+      if (filtro === "ok" && p.status_parser !== "ok") return false;
+      if (!q) return true;
+      return (
+        (p.codigo_completo ?? "").toLowerCase().includes(q) ||
+        (p.codigo_principal ?? "").toLowerCase().includes(q) ||
+        (p.nome_peca ?? "").toLowerCase().includes(q) ||
+        (p.tipo_peca ?? "").toLowerCase().includes(q) ||
+        (p.modulo_origem ?? "").toLowerCase().includes(q) ||
+        (p.fita_ref ?? "").toLowerCase().includes(q)
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pecas, cont, buscaDeferred, filtro]);
+
+  const stats = useMemo(() => ({
     total: pecas.length,
     ok: pecas.filter((p) => p.status_parser === "ok").length,
     com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
@@ -599,7 +606,14 @@ function PecasCadastradasPage() {
     divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
     com_fita: pecas.filter((p) => p.fita_ref).length,
     face5: pecas.filter((p) => getCont(p.id).face5).length,
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [pecas, cont]);
+
+  // Paginação simples no client: renderiza em blocos para listas grandes.
+  const PAGE_SIZE = 200;
+  const [visiveis, setVisiveis] = useState(PAGE_SIZE);
+  useEffect(() => { setVisiveis(PAGE_SIZE); }, [buscaDeferred, filtro]);
+  const exibidas = filtradas.slice(0, visiveis);
   const importando = importar.isPending || Boolean(progresso?.ativo);
   const progressoPct = progresso?.total ? Math.round((progresso.atual / progresso.total) * 100) : 0;
 
@@ -746,14 +760,14 @@ function PecasCadastradasPage() {
             </tr>
           </thead>
           <tbody>
-            {filtradas.map((p) => {
+            {exibidas.map((p) => {
               const c = getCont(p.id);
               const tipoAmigavel = p.tipo_peca || getTipoPecaPorPrefixo(p.prefixo);
               const nome = p.nome_peca || (p.prefixo ? `${tipoAmigavel} ${p.codigo_principal ?? ""}${p.sufixo ?? ""}` : "—");
               return (
                 <tr key={p.id} className="border-t border-border hover:bg-surface-2">
                   <td className="px-3 py-2 font-mono font-semibold">
-                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} className="hover:underline">
+                    <Link to="/pecas/cadastradas/$id" params={{ id: p.id }} preload="intent" className="hover:underline">
                       {p.codigo_completo}
                     </Link>
                   </td>
@@ -793,6 +807,17 @@ function PecasCadastradasPage() {
             )}
           </tbody>
         </table>
+        {filtradas.length > exibidas.length && (
+          <div className="flex items-center justify-center gap-3 border-t border-border p-3 text-sm text-muted-foreground">
+            <span>Mostrando {exibidas.length} de {filtradas.length}</span>
+            <Button size="sm" variant="outline" onClick={() => setVisiveis((n) => n + PAGE_SIZE)}>
+              Carregar mais {Math.min(PAGE_SIZE, filtradas.length - exibidas.length)}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setVisiveis(filtradas.length)}>
+              Mostrar todas
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -819,7 +844,7 @@ const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNo
   com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
 };
 
-function StatusBadge({ peca }: { peca: PecaRow }) {
+const StatusBadge = memo(function StatusBadge({ peca }: { peca: PecaRow }) {
   const status = peca.status_parser || "ok";
   const v = STATUS_VARIANT[status] ?? STATUS_VARIANT.ok;
   const erros = Array.isArray(peca.erros_parser) ? (peca.erros_parser as string[]) : [];
@@ -858,4 +883,4 @@ function StatusBadge({ peca }: { peca: PecaRow }) {
       </Tooltip>
     </TooltipProvider>
   );
-}
+});
