@@ -922,7 +922,16 @@ export function VisualizadorTecnicoPecaCadastrada({
             {nome ? ` • ${nome}` : ""}
           </span>
           <div className="ml-auto flex items-center gap-1">
-            {onSaveContorno && podeUsarContornoSalvo && (
+            <Button
+              size="sm"
+              variant={modoTodasFaces ? "default" : "outline"}
+              className="h-7"
+              onClick={() => { setModoTodasFaces((v) => !v); setOpSel(null); }}
+              title="Alternar entre face selecionada e visão geral de todas as faces"
+            >
+              {modoTodasFaces ? "Face selecionada" : "Ver todas as faces"}
+            </Button>
+            {onSaveContorno && podeUsarContornoSalvo && !modoTodasFaces && (
               <>
                 <Button size="sm" variant="outline" className="h-7" onClick={() => setContornoOpen(true)}>
                   Editar contorno da peça
