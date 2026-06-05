@@ -174,16 +174,20 @@ function PecasCadastradasPage() {
         db.from("peca_cadastrada_operacoes").select("peca_cadastrada_id,tipo,face"),
         db.from("peca_cadastrada_bordas").select("peca_cadastrada_id"),
       ]);
-      const mapa = new Map<string, { furos: number; rasgos: number; bordas: number; face5: boolean }>();
+      const mapa = new Map<
+        string,
+        { furos: number; rasgos: number; usinagens: number; bordas: number; face5: boolean }
+      >();
       const get = (id: string) => {
         let v = mapa.get(id);
-        if (!v) { v = { furos: 0, rasgos: 0, bordas: 0, face5: false }; mapa.set(id, v); }
+        if (!v) { v = { furos: 0, rasgos: 0, usinagens: 0, bordas: 0, face5: false }; mapa.set(id, v); }
         return v;
       };
       for (const o of (ops ?? []) as { peca_cadastrada_id: string; tipo: string; face: number }[]) {
         const v = get(o.peca_cadastrada_id);
         if (o.tipo === "furo") v.furos++;
         else if (o.tipo === "rasgo") v.rasgos++;
+        else if (o.tipo === "usinagem_parametrica" || o.tipo === "contorno" || o.tipo === "usinagem") v.usinagens++;
         if (Number(o.face) === 5) v.face5 = true;
       }
       for (const b of (brds ?? []) as { peca_cadastrada_id: string }[]) {
