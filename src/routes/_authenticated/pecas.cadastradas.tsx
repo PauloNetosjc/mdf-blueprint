@@ -853,7 +853,7 @@ function PecasCadastradasPage() {
             })}
             {!filtradas.length && (
               <tr>
-                <td colSpan={11} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={12} className="px-3 py-10 text-center text-muted-foreground">
                   <FileText className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   Nenhuma peça encontrada.
                 </td>
