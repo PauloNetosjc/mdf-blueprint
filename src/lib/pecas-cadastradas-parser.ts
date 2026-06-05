@@ -245,6 +245,23 @@ export function inferOperationAnchors(
           : (a.ancora as "centro" | "absoluto");
     out.offset_y = a.offset;
   }
+  // Âncoras para extremos do rasgo (x1/x2) e para cada ponto de usinagem
+  const ancorasExtras: Record<string, unknown> = {};
+  if (op.x1 != null) ancorasExtras.x1 = inferirAncoraEixo(op.x1, largura_ref);
+  if (op.x2 != null) ancorasExtras.x2 = inferirAncoraEixo(op.x2, largura_ref);
+  if (op.y1 != null) ancorasExtras.y1 = inferirAncoraEixo(op.y1, altura_ref);
+  if (op.y2 != null) ancorasExtras.y2 = inferirAncoraEixo(op.y2, altura_ref);
+  if (op.pontos && op.pontos.length > 0) {
+    ancorasExtras.pontos = op.pontos.map((p) => ({
+      ordem: p.ordem,
+      tipo: p.tipo ?? null,
+      x: p.x != null ? inferirAncoraEixo(p.x, largura_ref) : null,
+      y: p.y != null ? inferirAncoraEixo(p.y, altura_ref) : null,
+    }));
+  }
+  if (Object.keys(ancorasExtras).length > 0) {
+    out.dados_brutos = { ...(out.dados_brutos ?? {}), ancoras_extras: ancorasExtras };
+  }
   return out;
 }
 
