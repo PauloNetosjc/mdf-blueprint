@@ -497,6 +497,15 @@ export function VisualizadorTecnicoPecaCadastrada({
             <span className="w-14 text-center font-mono text-[11px]">{(zoom * 100).toFixed(0)}%</span>
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1 / 1.25)}>−</Button>
             <Button size="sm" variant="outline" className="h-7" onClick={fitToView}>Ajustar</Button>
+            <Button
+              size="sm"
+              variant={mostrarRegua ? "default" : "outline"}
+              className="h-7"
+              onClick={() => setMostrarRegua((v) => !v)}
+              title="Mostrar/ocultar régua e escala numérica"
+            >
+              Régua
+            </Button>
           </div>
         </div>
 
