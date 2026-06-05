@@ -1200,11 +1200,13 @@ export type Database = {
           face: number
           id: string
           largura: number | null
+          nome_operacao: string | null
           observacao: string | null
           offset_x: number | null
           offset_y: number | null
           ordem: number | null
           peca_cadastrada_id: string
+          pontos_json: Json
           profundidade: number | null
           tipo: string
           tipo_operacao: string | null
@@ -1230,11 +1232,13 @@ export type Database = {
           face?: number
           id?: string
           largura?: number | null
+          nome_operacao?: string | null
           observacao?: string | null
           offset_x?: number | null
           offset_y?: number | null
           ordem?: number | null
           peca_cadastrada_id: string
+          pontos_json?: Json
           profundidade?: number | null
           tipo: string
           tipo_operacao?: string | null
@@ -1260,11 +1264,13 @@ export type Database = {
           face?: number
           id?: string
           largura?: number | null
+          nome_operacao?: string | null
           observacao?: string | null
           offset_x?: number | null
           offset_y?: number | null
           ordem?: number | null
           peca_cadastrada_id?: string
+          pontos_json?: Json
           profundidade?: number | null
           tipo?: string
           tipo_operacao?: string | null
@@ -1300,10 +1306,12 @@ export type Database = {
           ferramenta: string | null
           id: string
           largura: number | null
+          nome_operacao: string | null
           ordem: number | null
           origem: string | null
           peca_cadastrada_id: string | null
           peca_id: string | null
+          pontos_json: Json
           profundidade: number | null
           projeto_id: string | null
           projeto_peca_id: string | null
@@ -1331,10 +1339,12 @@ export type Database = {
           ferramenta?: string | null
           id?: string
           largura?: number | null
+          nome_operacao?: string | null
           ordem?: number | null
           origem?: string | null
           peca_cadastrada_id?: string | null
           peca_id?: string | null
+          pontos_json?: Json
           profundidade?: number | null
           projeto_id?: string | null
           projeto_peca_id?: string | null
@@ -1362,10 +1372,12 @@ export type Database = {
           ferramenta?: string | null
           id?: string
           largura?: number | null
+          nome_operacao?: string | null
           ordem?: number | null
           origem?: string | null
           peca_cadastrada_id?: string | null
           peca_id?: string | null
+          pontos_json?: Json
           profundidade?: number | null
           projeto_id?: string | null
           projeto_peca_id?: string | null
