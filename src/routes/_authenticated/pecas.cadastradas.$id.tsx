@@ -17,6 +17,7 @@ import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft } from "lucide-r
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ehDivisoria, FACE_LABELS, getTipoPecaPorPrefixo } from "@/lib/pecas-cadastradas-parser";
+import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -98,8 +99,7 @@ function PecaCadastradaDetalhe() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [aba, setAba] = useState<string>("visualizador");
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfCarregando, setPdfCarregando] = useState(false);
+  const [pdfTabAberta, setPdfTabAberta] = useState(false);
 
   const peca = useQuery({
     queryKey: ["peca-cadastrada", id],
@@ -136,29 +136,10 @@ function PecaCadastradaDetalhe() {
     },
   });
 
-  // PDF: signed URL é gerada apenas quando a aba PDF Original é aberta.
+  // PDF: o componente PdfViewerPeca cuida da signed URL com cache + blob.
   useEffect(() => {
-    if (aba !== "pdf") return;
-    if (pdfUrl) return;
-    const path = peca.data?.pdf_url;
-    if (!path) return;
-    let cancel = false;
-    setPdfCarregando(true);
-    supabase.storage
-      .from("pecas-cadastradas")
-      .createSignedUrl(path, 3600)
-      .then(({ data }) => {
-        if (cancel) return;
-        setPdfUrl(data?.signedUrl ?? null);
-        setPdfCarregando(false);
-      })
-      .catch(() => {
-        if (!cancel) setPdfCarregando(false);
-      });
-    return () => {
-      cancel = true;
-    };
-  }, [aba, peca.data?.pdf_url, pdfUrl]);
+    if (aba === "pdf") setPdfTabAberta(true);
+  }, [aba]);
 
   const ehDiv = ehDivisoria(peca.data?.prefixo);
 
@@ -492,36 +473,19 @@ function PecaCadastradaDetalhe() {
 
         {/* ───── PDF ORIGINAL ───── */}
         <TabsContent value="pdf">
-          <div className="rounded border border-border bg-surface">
-            <div className="flex items-center justify-between border-b border-border p-2 text-sm">
-              <span className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> {p.pdf_nome_arquivo ?? "PDF original"}
-              </span>
-              {pdfUrl && (
-                <Button asChild size="sm" variant="ghost">
-                  <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir em nova aba</a>
-                </Button>
-              )}
+          {!p.pdf_url ? (
+            <div className="flex h-[720px] items-center justify-center rounded border border-border bg-surface text-sm text-muted-foreground">
+              Nenhum PDF disponível para esta peça.
             </div>
-            <div className="h-[720px] bg-surface-2">
-              {!p.pdf_url ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Nenhum PDF disponível para esta peça.
-                </div>
-              ) : pdfCarregando ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Carregando PDF...
-                </div>
-              ) : pdfUrl ? (
-                <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Não foi possível gerar o link do PDF.
-                </div>
-              )}
-            </div>
-          </div>
+          ) : pdfTabAberta ? (
+            <PdfViewerPeca
+              pecaId={p.id}
+              storagePath={p.pdf_url}
+              nomeArquivo={p.pdf_nome_arquivo}
+            />
+          ) : null}
         </TabsContent>
+
 
         {/* ───── DEBUG / LOGS ───── */}
         <TabsContent value="debug" className="space-y-3">
