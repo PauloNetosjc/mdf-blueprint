@@ -507,8 +507,8 @@ function OpRow({
         <Select value={String(local.face ?? "0")} onValueChange={(v) => setLocal({ ...local, face: v })}>
           <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {Object.entries(FACE_LABELS).map(([f, n]) => (
-              <SelectItem key={f} value={f}>{f} — {n}</SelectItem>
+            {Object.keys(FACE_LABELS).map((f) => (
+              <SelectItem key={f} value={f}>Face {f}</SelectItem>
             ))}
           </SelectContent>
         </Select>
