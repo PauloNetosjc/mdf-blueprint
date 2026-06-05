@@ -830,6 +830,16 @@ export function VisualizadorTecnicoPecaCadastrada({
             {nome ? ` • ${nome}` : ""}
           </span>
           <div className="ml-auto flex items-center gap-1">
+            {onSaveContorno && podeUsarContornoSalvo && (
+              <>
+                <Button size="sm" variant="outline" className="h-7" onClick={() => setContornoOpen(true)}>
+                  Editar contorno da peça
+                </Button>
+                <Button size="sm" variant="outline" className="h-7" onClick={gerarContornoDasOperacoes} disabled={contornosExternos.length === 0}>
+                  Gerar contorno a partir das operações
+                </Button>
+              </>
+            )}
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1.25)}>+</Button>
             <span className="w-14 text-center font-mono text-[11px]">{(zoom * 100).toFixed(0)}%</span>
             <Button size="sm" variant="outline" className="h-7" onClick={() => zoomBy(1 / 1.25)}>−</Button>
