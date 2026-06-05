@@ -597,7 +597,24 @@ function PecasCadastradasPage() {
   const getCont = (id: string) =>
     cont?.get(id) ?? { furos: 0, rasgos: 0, usinagens: 0, bordas: 0, face5: false };
 
-  const pecas = lista.data ?? [];
+  // Dedup defensivo por codigo_completo (mantém a última entrada por atualizado_em)
+  // para evitar linhas duplicadas mesmo se a query retornar múltiplos registros.
+  const pecas = useMemo(() => {
+    const raw = lista.data ?? [];
+    const mapa = new Map<string, PecaRow>();
+    for (const p of raw) {
+      const key = p.codigo_completo ?? p.id;
+      const existente = mapa.get(key);
+      if (!existente) {
+        mapa.set(key, p);
+        continue;
+      }
+      const aDate = new Date((p as any).atualizado_em ?? (p as any).criado_em ?? 0).getTime();
+      const bDate = new Date((existente as any).atualizado_em ?? (existente as any).criado_em ?? 0).getTime();
+      if (aDate >= bDate) mapa.set(key, p);
+    }
+    return Array.from(mapa.values());
+  }, [lista.data]);
 
   // Debounce busca (~200ms) via useDeferredValue para não travar a digitação.
   const buscaDeferred = useDeferredValue(busca);
