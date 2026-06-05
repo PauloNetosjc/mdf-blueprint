@@ -296,6 +296,8 @@ function PecaCadastradaDetalhe() {
         </div>
       </header>
 
+      <MarcadoresDesenho dados={p.dados_brutos_json} />
+
       {p.erros_parser?.length > 0 && (
         <div className="mb-4 rounded border border-destructive/50 bg-destructive/5 p-3 text-sm">
           <div className="mb-1 flex items-center gap-2 font-medium text-destructive">
