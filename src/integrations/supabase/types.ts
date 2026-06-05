@@ -1058,6 +1058,69 @@ export type Database = {
           },
         ]
       }
+      peca_bordas_importadas: {
+        Row: {
+          cor: string | null
+          criado_em: string
+          divergencia: string | null
+          espessura: number | null
+          fita_codigo: string | null
+          fita_descricao: string | null
+          id: string
+          indicador_desenho: string | null
+          lado: string
+          largura: number | null
+          observacao: string | null
+          origem: string
+          peca_cadastrada_id: string | null
+          projeto_id: string | null
+          projeto_peca_id: string
+          status: string
+          tem_fita: boolean
+          user_id: string
+        }
+        Insert: {
+          cor?: string | null
+          criado_em?: string
+          divergencia?: string | null
+          espessura?: number | null
+          fita_codigo?: string | null
+          fita_descricao?: string | null
+          id?: string
+          indicador_desenho?: string | null
+          lado: string
+          largura?: number | null
+          observacao?: string | null
+          origem?: string
+          peca_cadastrada_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id: string
+          status?: string
+          tem_fita?: boolean
+          user_id?: string
+        }
+        Update: {
+          cor?: string | null
+          criado_em?: string
+          divergencia?: string | null
+          espessura?: number | null
+          fita_codigo?: string | null
+          fita_descricao?: string | null
+          id?: string
+          indicador_desenho?: string | null
+          lado?: string
+          largura?: number | null
+          observacao?: string | null
+          origem?: string
+          peca_cadastrada_id?: string | null
+          projeto_id?: string | null
+          projeto_peca_id?: string
+          status?: string
+          tem_fita?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       peca_cadastrada_bordas: {
         Row: {
           codigo_borda: string | null
@@ -1239,14 +1302,21 @@ export type Database = {
           largura: number | null
           ordem: number | null
           origem: string | null
+          peca_cadastrada_id: string | null
           peca_id: string | null
           profundidade: number | null
           projeto_id: string | null
+          projeto_peca_id: string | null
+          revisada: boolean
           status_vinculo: string
           tipo_operacao: string | null
           user_id: string
           x: number | null
+          x1: number | null
+          x2: number | null
           y: number | null
+          y1: number | null
+          y2: number | null
           z: number | null
         }
         Insert: {
@@ -1263,14 +1333,21 @@ export type Database = {
           largura?: number | null
           ordem?: number | null
           origem?: string | null
+          peca_cadastrada_id?: string | null
           peca_id?: string | null
           profundidade?: number | null
           projeto_id?: string | null
+          projeto_peca_id?: string | null
+          revisada?: boolean
           status_vinculo?: string
           tipo_operacao?: string | null
           user_id?: string
           x?: number | null
+          x1?: number | null
+          x2?: number | null
           y?: number | null
+          y1?: number | null
+          y2?: number | null
           z?: number | null
         }
         Update: {
@@ -1287,14 +1364,21 @@ export type Database = {
           largura?: number | null
           ordem?: number | null
           origem?: string | null
+          peca_cadastrada_id?: string | null
           peca_id?: string | null
           profundidade?: number | null
           projeto_id?: string | null
+          projeto_peca_id?: string | null
+          revisada?: boolean
           status_vinculo?: string
           tipo_operacao?: string | null
           user_id?: string
           x?: number | null
+          x1?: number | null
+          x2?: number | null
           y?: number | null
+          y1?: number | null
+          y2?: number | null
           z?: number | null
         }
         Relationships: []
@@ -2095,6 +2179,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vinculos_peca_cadastrada: {
+        Row: {
+          atualizado_em: string
+          confianca: string
+          criado_em: string
+          id: string
+          metadados_json: Json
+          motivo: string | null
+          peca_cadastrada_id: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          status: string
+          tipo_vinculo: string
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          confianca?: string
+          criado_em?: string
+          id?: string
+          metadados_json?: Json
+          motivo?: string | null
+          peca_cadastrada_id?: string | null
+          projeto_id: string
+          projeto_peca_id: string
+          status?: string
+          tipo_vinculo?: string
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          confianca?: string
+          criado_em?: string
+          id?: string
+          metadados_json?: Json
+          motivo?: string | null
+          peca_cadastrada_id?: string | null
+          projeto_id?: string
+          projeto_peca_id?: string
+          status?: string
+          tipo_vinculo?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
