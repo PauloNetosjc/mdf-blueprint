@@ -81,6 +81,7 @@ type Props = {
   faceAlinhamento?: string | null;
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
+  onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
 };
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem"];
