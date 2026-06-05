@@ -935,6 +935,22 @@ export async function parseTechnicalDrawingPdf(
   if (operacoes.length === 0) {
     alertas.push("Nenhuma furação, rasgo ou usinagem encontrada.");
   }
+
+  // Validação por seção: se a tabela existe mas nada foi extraído, registra alerta de parser.
+  const secoes = detectarSecoes(linhas);
+  if (secoes.furacao && furos === 0) {
+    alertas.push("Tabela de furação detectada, mas nenhum furo foi extraído.");
+    erros.push("Furação: tabela encontrada no PDF mas o parser não conseguiu extrair os furos.");
+  }
+  if (secoes.rasgos && rasgos === 0) {
+    alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
+    erros.push("Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.");
+  }
+  if (secoes.usinagens && usinagens === 0) {
+    alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
+    erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
+  }
+
   if (bordas.length === 0) alertas.push("Nenhuma borda/fita detectada no PDF.");
 
   for (const b of bordas) {
@@ -943,6 +959,7 @@ export async function parseTechnicalDrawingPdf(
       break;
     }
   }
+
 
   const opsBaixaConfianca = operacoes.filter((o) => o.confianca_parser === "baixa").length;
   if (opsBaixaConfianca > 0) {
