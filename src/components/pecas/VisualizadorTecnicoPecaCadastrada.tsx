@@ -623,7 +623,113 @@ export function VisualizadorTecnicoPecaCadastrada({
           )}
         </div>
       </aside>
+
+      {onAddOperacao && (
+        <AddOperacaoDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          face={faceSel}
+          onSubmit={async (payload) => {
+            await onAddOperacao(payload);
+            setAddOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AddOperacaoDialog({
+  open,
+  onOpenChange,
+  face,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  face: string;
+  onSubmit: (payload: NovaOperacaoPayload) => void | Promise<void>;
+}) {
+  const [tipo, setTipo] = useState("furo");
+  const [x, setX] = useState("");
+  const [y, setY] = useState("");
+  const [diametro, setDiametro] = useState("");
+  const [profundidade, setProfundidade] = useState("");
+  const [x1, setX1] = useState("");
+  const [x2, setX2] = useState("");
+  const [largura, setLargura] = useState("");
+  const [comprimento, setComprimento] = useState("");
+
+  const num = (s: string) => (s.trim() === "" ? null : Number(s));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar operação — Face {face}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="col-span-2">
+            <Label className="mb-1 block text-xs">Tipo</Label>
+            <Select value={tipo} onValueChange={setTipo}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="furo">Furação</SelectItem>
+                <SelectItem value="rasgo">Rasgo</SelectItem>
+                <SelectItem value="usinagem_parametrica">Usinagem</SelectItem>
+                <SelectItem value="contorno">Contorno</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {tipo === "rasgo" ? (
+            <>
+              <div><Label className="mb-1 block text-xs">Y</Label><Input value={y} onChange={(e) => setY(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">Largura</Label><Input value={largura} onChange={(e) => setLargura(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">X1</Label><Input value={x1} onChange={(e) => setX1(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">X2</Label><Input value={x2} onChange={(e) => setX2(e.target.value)} /></div>
+              <div className="col-span-2"><Label className="mb-1 block text-xs">Profundidade</Label><Input value={profundidade} onChange={(e) => setProfundidade(e.target.value)} /></div>
+            </>
+          ) : (
+            <>
+              <div><Label className="mb-1 block text-xs">X</Label><Input value={x} onChange={(e) => setX(e.target.value)} /></div>
+              <div><Label className="mb-1 block text-xs">Y</Label><Input value={y} onChange={(e) => setY(e.target.value)} /></div>
+              {tipo === "furo" && (
+                <div><Label className="mb-1 block text-xs">Diâmetro</Label><Input value={diametro} onChange={(e) => setDiametro(e.target.value)} /></div>
+              )}
+              <div><Label className="mb-1 block text-xs">Profundidade</Label><Input value={profundidade} onChange={(e) => setProfundidade(e.target.value)} /></div>
+              {tipo !== "furo" && (
+                <>
+                  <div><Label className="mb-1 block text-xs">Largura</Label><Input value={largura} onChange={(e) => setLargura(e.target.value)} /></div>
+                  <div><Label className="mb-1 block text-xs">Comprimento</Label><Input value={comprimento} onChange={(e) => setComprimento(e.target.value)} /></div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={() =>
+              onSubmit({
+                face,
+                tipo_operacao: tipo,
+                x: num(x),
+                y: num(y),
+                diametro: num(diametro),
+                profundidade: num(profundidade),
+                x1: num(x1),
+                x2: num(x2),
+                largura: num(largura),
+                comprimento: num(comprimento),
+              })
+            }
+          >
+            Salvar operação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
