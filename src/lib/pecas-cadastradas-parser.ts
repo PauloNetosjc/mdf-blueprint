@@ -345,7 +345,11 @@ function finalizarLinha(l: Linha): Linha {
 // ---------- Parser principal ----------
 
 function toNum(s: string): number | null {
-  const n = Number(s.replace(",", ".").replace(/[^\d.\-]/g, ""));
+  const normalizado = s.trim().replace(",", ".");
+  if (!/\d/.test(normalizado)) return null;
+  const m = normalizado.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -353,6 +357,10 @@ function isNumericCells(cels: { str: string }[]): boolean {
   if (!cels.length) return false;
   const nums = cels.filter((c) => /^-?\d+([.,]\d+)?$/.test(c.str.trim())).length;
   return nums >= Math.max(2, Math.floor(cels.length * 0.7));
+}
+
+function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
+  return valores.length > qtd ? valores.slice(-qtd) : valores;
 }
 
 function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
@@ -475,55 +483,12 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
     const face: string | null = faceFromCtx || faceFromUsin;
 
     if (modo === "furo") {
-      // Proteção: linha de rasgo (5 números) ou diâmetro absurdo (>100mm) NÃO é furo.
-      const diamCandidato = valores[2] ?? null;
-      if (valores.length >= 5 || (diamCandidato != null && diamCandidato > 100)) {
-        // Reinterpreta como rasgo (Y, X1, X2, Larg, Prof).
-        const [y, x1, x2, larg, prof] = [
-          valores[0],
-          valores[1],
-          valores[2],
-          valores[3] ?? null,
-          valores[4] ?? null,
-        ];
-        ops.push({
-          tipo_operacao: "rasgo",
-          nome_operacao: null,
-          face,
-          x: (x1 + x2) / 2,
-          y,
-          z: null,
-          diametro: null,
-          profundidade: prof,
-          largura: larg,
-          comprimento: Math.abs(x2 - x1),
-          x1,
-          x2,
-          y1: null,
-          y2: null,
-          ordem: ordem++,
-          ancora_x: null,
-          ancora_y: null,
-          offset_x: null,
-          offset_y: null,
-          pontos: [],
-          confianca_parser: "media",
-          dados_brutos: {
-            linha: linha.texto,
-            valores,
-            alerta:
-              valores.length >= 5
-                ? "Linha com 5 números interpretada como rasgo (estava em modo furo)."
-                : `Possível rasgo interpretado como furo. Diâmetro muito alto: ${diamCandidato}.`,
-            reinterpretado_de: "furo",
-          },
-        });
-        // A presença de uma linha de rasgo dentro de "furo" indica que provavelmente
-        // já mudamos de seção sem cabeçalho explícito.
-        modo = "rasgo";
-        continue;
-      }
-      const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
+      // Máquina de estados rígida: dentro de Furação, linha numérica SEMPRE é furo.
+      // Se houver token extra (ex.: marcador visual "A" virou 0), usa os 4 últimos
+      // números da linha para preservar X | Y | Diam | Prof e nunca converter para rasgo.
+      if (valores.length < 4) continue;
+      const valoresFuro = ultimosValoresNumericos(valores, 4);
+      const [x, y, diam, prof] = [valoresFuro[0], valoresFuro[1], valoresFuro[2] ?? null, valoresFuro[3] ?? null];
       ops.push({
         tipo_operacao: "furo",
         nome_operacao: null,
@@ -545,17 +510,25 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         offset_x: null,
         offset_y: null,
         pontos: [],
-        confianca_parser: valores.length >= 4 ? "alta" : "media",
-        dados_brutos: { linha: linha.texto, valores },
+        confianca_parser: valoresFuro.length >= 4 ? "alta" : "media",
+        dados_brutos: {
+          linha: linha.texto,
+          valores,
+          valores_interpretados: valoresFuro,
+          ...(diam != null && diam > 100
+            ? { alerta: "Furo com diâmetro suspeito detectado na seção Furação. Verificar parser." }
+            : {}),
+        },
       });
     } else if (modo === "rasgo") {
-      if (valores.length < 4) continue;
+      if (valores.length < 5) continue;
+      const valoresRasgo = ultimosValoresNumericos(valores, 5);
       const [y, x1, x2, larg, prof] = [
-        valores[0],
-        valores[1],
-        valores[2],
-        valores[3],
-        valores[4] ?? null,
+        valoresRasgo[0],
+        valoresRasgo[1],
+        valoresRasgo[2],
+        valoresRasgo[3],
+        valoresRasgo[4] ?? null,
       ];
       ops.push({
         tipo_operacao: "rasgo",
@@ -578,10 +551,11 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         offset_x: null,
         offset_y: null,
         pontos: [],
-        confianca_parser: valores.length >= 5 ? "alta" : "media",
-        dados_brutos: { linha: linha.texto, valores },
+        confianca_parser: "alta",
+        dados_brutos: { linha: linha.texto, valores, valores_interpretados: valoresRasgo },
       });
     } else if (modo === "usinagem") {
+      if (valores.length < 3) continue;
       // Se vier numeric antes de uma entrada explícita, cria uma usinagem implícita
       if (!usinagemAtual) {
         usinagemAtual = {
@@ -1020,11 +994,11 @@ export async function parseTechnicalDrawingPdf(
     erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
   }
 
-  // Furos com diâmetro absurdo são quase sempre rasgos mal classificados.
+  // Dentro da seção Furação não há conversão automática para rasgo; apenas alerta.
   for (const op of operacoes) {
     if (op.tipo_operacao === "furo" && op.diametro != null && op.diametro > 100) {
       alertas.push(
-        `Possível rasgo interpretado como furo. Diâmetro muito alto: ${op.diametro}.`,
+        `Furo com diâmetro suspeito detectado na seção Furação (${op.diametro}). Verificar parser.`,
       );
     }
   }

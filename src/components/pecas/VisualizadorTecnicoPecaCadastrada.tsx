@@ -90,6 +90,10 @@ function ehUsinagem(t: string) {
   return TIPO_USINAGEM.includes(t);
 }
 
+function fmt(v: number | string | null | undefined) {
+  return v == null || v === "" ? "?" : String(v);
+}
+
 export function VisualizadorTecnicoPecaCadastrada({
   codigo,
   nome,
@@ -181,6 +185,11 @@ export function VisualizadorTecnicoPecaCadastrada({
       total: arr.length,
     };
   };
+
+  const furosFace = opsFace.filter((o) => o.tipo_operacao === "furo");
+  const rasgosFace = opsFace.filter((o) => o.tipo_operacao === "rasgo");
+  const usinagensFace = opsFace.filter((o) => ehUsinagem(o.tipo_operacao));
+  const outrasFace = opsFace.filter((o) => !["furo", "rasgo", ...TIPO_USINAGEM].includes(o.tipo_operacao));
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_280px]">
@@ -526,33 +535,11 @@ export function VisualizadorTecnicoPecaCadastrada({
         {opsFace.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma operação cadastrada nesta face.</p>
         ) : (
-          <div className="mb-3 max-h-48 space-y-1 overflow-auto">
-            {opsFace.map((o) => {
-              const ativo = o.id === opSel;
-              return (
-                <button
-                  key={o.id}
-                  onClick={() => setOpSel(o.id)}
-                  className={`w-full rounded border px-2 py-1 text-left text-[11px] transition ${
-                    ativo
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-surface-2 hover:bg-surface-2/80"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono">#{o.ordem}</span>
-                    <Badge variant="outline" className="h-4 px-1 text-[9px]">
-                      {o.tipo_operacao}
-                    </Badge>
-                  </div>
-                  <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                    {o.tipo_operacao === "rasgo"
-                      ? `Y${o.y ?? "?"} X1 ${o.x1 ?? "?"} X2 ${o.x2 ?? "?"} Larg ${o.largura ?? "?"} Prof ${o.profundidade ?? "?"}`
-                      : `X${o.x ?? "?"} Y${o.y ?? "?"}${o.diametro ? ` Ø${o.diametro}` : ""}`}
-                  </div>
-                </button>
-              );
-            })}
+          <div className="mb-3 max-h-64 space-y-3 overflow-auto">
+            <GrupoOperacoesFace titulo="Furações" ops={furosFace} opSel={opSel} setOpSel={setOpSel} />
+            <GrupoOperacoesFace titulo="Rasgos" ops={rasgosFace} opSel={opSel} setOpSel={setOpSel} />
+            <GrupoOperacoesFace titulo="Usinagens" ops={usinagensFace} opSel={opSel} setOpSel={setOpSel} />
+            <GrupoOperacoesFace titulo="Outras" ops={outrasFace} opSel={opSel} setOpSel={setOpSel} />
           </div>
         )}
 
@@ -665,6 +652,63 @@ export function VisualizadorTecnicoPecaCadastrada({
         />
       )}
     </div>
+  );
+}
+
+function GrupoOperacoesFace({
+  titulo,
+  ops,
+  opSel,
+  setOpSel,
+}: {
+  titulo: string;
+  ops: VisualizadorOperacao[];
+  opSel: string | null;
+  setOpSel: (id: string) => void;
+}) {
+  if (ops.length === 0) return null;
+  return (
+    <section className="space-y-1">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {titulo} ({ops.length})
+      </div>
+      {ops.map((o, i) => {
+        const ativo = o.id === opSel;
+        const pontos = o.pontos_json ?? [];
+        return (
+          <button
+            key={o.id}
+            onClick={() => setOpSel(o.id)}
+            className={`w-full rounded border px-2 py-1 text-left text-[11px] transition ${
+              ativo ? "border-primary bg-primary/10" : "border-border bg-surface-2 hover:bg-surface-2/80"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono">
+                {o.tipo_operacao === "furo" ? `Furo #${i + 1}` : o.tipo_operacao === "rasgo" ? `Rasgo #${i + 1}` : (o.nome_operacao ?? `Usinagem #${i + 1}`)}
+              </span>
+              <Badge variant="outline" className="h-4 px-1 text-[9px]">
+                #{o.ordem}
+              </Badge>
+            </div>
+            <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+              {o.tipo_operacao === "furo" && (
+                <div>X {fmt(o.x)} | Y {fmt(o.y)} | Ø{fmt(o.diametro)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {o.tipo_operacao === "rasgo" && (
+                <div>Y {fmt(o.y)} | X1 {fmt(o.x1)} | X2 {fmt(o.x2)} | Larg {fmt(o.largura)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {ehUsinagem(o.tipo_operacao) && pontos.length === 0 && (
+                <div>X {fmt(o.x)} | Y {fmt(o.y)} | Prof {fmt(o.profundidade)}</div>
+              )}
+              {ehUsinagem(o.tipo_operacao) && pontos.slice(0, 4).map((p, idx) => (
+                <div key={idx}>Ponto {idx + 1}: X {fmt(p.x)} | Y {fmt(p.y)} | Prof {fmt(p.profundidade)}{p.tipo ? ` | ${p.tipo}` : ""}</div>
+              ))}
+            </div>
+          </button>
+        );
+      })}
+    </section>
   );
 }
 
