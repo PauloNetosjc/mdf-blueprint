@@ -155,6 +155,7 @@ function PecasCadastradasPage() {
   const [arquivosComErro, setArquivosComErro] = useState<File[]>([]);
   const [progresso, setProgresso] = useState<ImportProgress | null>(null);
   const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
+  const [mostrarModulos, setMostrarModulos] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -603,18 +604,19 @@ function PecasCadastradasPage() {
 
   // Status que NÃO devem aparecer na visão padrão (peças ativas).
   const STATUS_INATIVOS = new Set(["ignorado_modulo", "pendente_classificacao"]);
+  // Prefixos que representam módulo/armário/explosão — não são peça individual.
+  const MODULE_PREFIXES = new Set(["ARM", "CAN", "BAL", "RET", "SEQ", "SIS"]);
+  const isModulo = (p: PecaRow) =>
+    STATUS_INATIVOS.has(p.status_parser) || (p.prefixo ? MODULE_PREFIXES.has(p.prefixo) : false);
 
   const filtradas = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
+    const filtrosDeModulo = new Set(["ignorado_modulo", "pendente_classificacao"]);
     return pecas.filter((p) => {
       const c = getCont(p.id);
-      // Visão padrão (Todas/Divisórias/etc.) esconde módulos ignorados e pendentes
-      // de classificação — só aparecem nos filtros dedicados.
-      const filtrosInativos = new Set([
-        "ignorado_modulo",
-        "pendente_classificacao",
-      ]);
-      if (!filtrosInativos.has(filtro) && STATUS_INATIVOS.has(p.status_parser)) return false;
+      // Visão padrão esconde módulos (status ignorado_modulo/pendente_classificacao
+      // ou prefixo ARM/CAN/BAL/RET/SEQ/SIS). Toggle ou filtro dedicado revela.
+      if (!mostrarModulos && !filtrosDeModulo.has(filtro) && isModulo(p)) return false;
 
       if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
       if (filtro === "com_fita" && !p.fita_ref) return false;
@@ -628,7 +630,7 @@ function PecasCadastradasPage() {
       if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
       if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
       if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
-      if (filtro === "ignorado_modulo" && p.status_parser !== "ignorado_modulo") return false;
+      if (filtro === "ignorado_modulo" && !isModulo(p)) return false;
       if (filtro === "pendente_classificacao" && p.status_parser !== "pendente_classificacao") return false;
       if (filtro === "ok" && p.status_parser !== "ok") return false;
       if (!q) return true;
@@ -642,20 +644,20 @@ function PecasCadastradasPage() {
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pecas, cont, buscaDeferred, filtro]);
+  }, [pecas, cont, buscaDeferred, filtro, mostrarModulos]);
 
   const stats = useMemo(() => ({
     total: pecas.length,
-    ativas: pecas.filter((p) => !STATUS_INATIVOS.has(p.status_parser)).length,
-    ok: pecas.filter((p) => p.status_parser === "ok").length,
+    ativas: pecas.filter((p) => !isModulo(p)).length,
+    ok: pecas.filter((p) => p.status_parser === "ok" && !isModulo(p)).length,
     com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
     com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
     pendente_revisao: pecas.filter((p) => p.status_parser === "pendente_revisao").length,
-    ignorado_modulo: pecas.filter((p) => p.status_parser === "ignorado_modulo").length,
+    ignorado_modulo: pecas.filter((p) => isModulo(p)).length,
     pendente_classificacao: pecas.filter((p) => p.status_parser === "pendente_classificacao").length,
-    divisorias: pecas.filter((p) => p.prefixo === "DIV" && !STATUS_INATIVOS.has(p.status_parser)).length,
-    com_fita: pecas.filter((p) => p.fita_ref && !STATUS_INATIVOS.has(p.status_parser)).length,
-    face5: pecas.filter((p) => getCont(p.id).face5 && !STATUS_INATIVOS.has(p.status_parser)).length,
+    divisorias: pecas.filter((p) => p.prefixo === "DIV" && !isModulo(p)).length,
+    com_fita: pecas.filter((p) => p.fita_ref && !isModulo(p)).length,
+    face5: pecas.filter((p) => getCont(p.id).face5 && !isModulo(p)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [pecas, cont]);
 
@@ -793,9 +795,18 @@ function PecasCadastradasPage() {
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtradas.length} / {pecas.length}</span>
+        <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5"
+            checked={mostrarModulos}
+            onChange={(e) => setMostrarModulos(e.target.checked)}
+          />
+          Mostrar módulos ignorados {stats.ignorado_modulo ? `(${stats.ignorado_modulo})` : ""}
+        </label>
       </div>
       <p className="mb-2 text-xs text-muted-foreground">
-        Clique em uma peça para abrir o visualizador técnico.
+        Clique em uma peça para abrir o visualizador técnico. Módulos (ARM/CAN/BAL/RET/SEQ/SIS) ficam ocultos por padrão.
       </p>
 
       <div className="overflow-auto rounded border border-border bg-surface">
