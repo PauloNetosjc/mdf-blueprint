@@ -44,6 +44,7 @@ type Peca = {
   erros_parser: string[];
   parser_alertas_json: string[] | null;
   resumo_parser_json: Record<string, unknown> | null;
+  dados_brutos_json: Record<string, unknown> | null;
   logs_parser: string[];
 };
 
