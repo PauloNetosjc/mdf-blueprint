@@ -929,27 +929,15 @@ export function VisualizadorTecnicoPecaCadastrada({
               {/* Fundo hachurado fora da peça (mostra o vazio do recuo) */}
               <rect x={0} y={0} width={viewW} height={viewH} fill="url(#hatch-fora)" />
 
-              {/* Peça (com contornos externos integrados ao formato) */}
-              {outline.temContornoExterno ? (
-                <path
-                  d={outline.pathSvg}
-                  transform={`translate(${margin} ${margin})`}
-                  fill="var(--color-surface)"
-                  stroke="var(--color-foreground)"
-                  strokeWidth={px(1.5)}
-                  strokeLinejoin="miter"
-                />
-              ) : (
-                <rect
-                  x={margin}
-                  y={margin}
-                  width={partW}
-                  height={partH}
-                  fill="var(--color-surface)"
-                  stroke="var(--color-foreground)"
-                  strokeWidth={px(1.5)}
-                />
-              )}
+              {/* Peça (contorno externo sempre via path — nunca rect por cima) */}
+              <path
+                d={outline.pathSvg}
+                transform={`translate(${margin} ${margin})`}
+                fill="var(--color-surface)"
+                stroke="var(--color-foreground)"
+                strokeWidth={px(1.5)}
+                strokeLinejoin="miter"
+              />
 
 
               {(erroPathReal || contornosComFalha || temRecuoFallback) && (
