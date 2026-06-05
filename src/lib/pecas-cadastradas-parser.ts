@@ -548,6 +548,22 @@ export async function parseTechnicalDrawingPdf(
       alertas,
       resumo: baseResumo,
       dados_brutos: {},
+      classificacao: {
+        classificacao: "desconhecido",
+        motivo: "PDF não pôde ser lido",
+        confianca: "baixa",
+        sinais: {
+          tem_composicoes: false,
+          tem_ferragens: false,
+          tem_tabela_composicao: false,
+          referencias_ferragens: [],
+          faces_detectadas: [],
+          tem_furacao_tabela: false,
+          tem_rasgos_tabela: false,
+          tem_face_alinhamento: false,
+          tem_ftabs: false,
+        },
+      },
     };
   }
 
