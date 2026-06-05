@@ -22,6 +22,7 @@ import {
   CHAPA_PADRAO_ALTURA, CHAPA_PADRAO_LARGURA, CATEGORIA_LABEL,
   type ArquivoClassificado, type ResumoImportacao,
 } from "@/lib/importacao-promob";
+import { processarVinculosProjeto } from "@/lib/vinculo-pecas-cadastradas";
 
 export const Route = createFileRoute("/_authenticated/importacoes")({
   beforeLoad: () => {
