@@ -210,7 +210,7 @@ function PecaCadastradaDetalhe() {
         peca_cadastrada_id: id,
         tipo: "furo",
         tipo_operacao: "furo",
-        face: ehDiv ? 5 : 0,
+        face: 0,
         x: 0,
         y: 0,
         diametro: 8,
