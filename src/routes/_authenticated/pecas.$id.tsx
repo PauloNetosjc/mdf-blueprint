@@ -249,3 +249,20 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
     </div>
   );
 }
+
+function EngenhariaCadastradaBoxByPeca({ pecaId }: { pecaId: string }) {
+  const q = useQuery({
+    queryKey: ["projeto-peca-por-peca", pecaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("projeto_pecas")
+        .select("id")
+        .eq("peca_id", pecaId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const ppId = (q.data as any)?.id as string | undefined;
+  if (!ppId) return null;
+  return <EngenhariaCadastradaBox projetoPecaId={ppId} />;
+}
