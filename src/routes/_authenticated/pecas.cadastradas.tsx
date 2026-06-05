@@ -840,6 +840,7 @@ function PecasCadastradasPage() {
                   <td className="px-3 py-2 font-mono text-xs">{p.fita_ref ?? "—"}</td>
                   <td className="px-3 py-2 text-center">{c.furos || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.rasgos || <span className="text-muted-foreground">0</span>}</td>
+                  <td className="px-3 py-2 text-center">{c.usinagens || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2 text-center">{c.bordas || <span className="text-muted-foreground">0</span>}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1">
