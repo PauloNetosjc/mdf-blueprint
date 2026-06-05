@@ -14,6 +14,7 @@ import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
 import { ProjetoNav } from "@/components/projeto-nav";
 import { StatusBadge } from "@/components/status-badge";
+import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
@@ -174,6 +175,7 @@ function ProjetoEditor() {
 
         <TabsList className="mx-6 mt-3 w-fit">
           <TabsTrigger value="pecas">Peças</TabsTrigger>
+          <TabsTrigger value="vinculo">Vínculo Biblioteca</TabsTrigger>
           <TabsTrigger value="identificacao">Identificação</TabsTrigger>
           <TabsTrigger value="engenharia">Engenharia</TabsTrigger>
           <TabsTrigger value="compras">Lista de Compras</TabsTrigger>
@@ -191,6 +193,10 @@ function ProjetoEditor() {
             onAbrirEngenharia={(p) => abrirEngenharia.mutate(p)}
             projetoId={id}
           />
+        </TabsContent>
+
+        <TabsContent value="vinculo" className="flex-1 overflow-auto p-6 pt-3">
+          <VinculoBibliotecaTab projetoId={id} />
         </TabsContent>
 
         <TabsContent value="identificacao" className="flex-1 overflow-auto p-6 pt-3">

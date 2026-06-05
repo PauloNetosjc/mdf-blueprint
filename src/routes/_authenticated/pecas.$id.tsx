@@ -10,6 +10,7 @@ import { validarPecaMaquina, validarOperacoes } from "@/lib/validacoes";
 import { ArrowLeft, FileCode2, Plus, Trash2, Pencil, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { OperacoesImportadas } from "@/components/operacoes-importadas";
+import { EngenhariaCadastradaBox } from "@/components/vinculo-biblioteca-tab";
 
 export const Route = createFileRoute("/_authenticated/pecas/$id")({
   head: () => ({ meta: [{ title: "Editor da peça — Visualizador CNC" }] }),
@@ -158,6 +159,7 @@ function EditorPeca() {
             )}
           </div>
 
+          <EngenhariaCadastradaBoxByPeca pecaId={id} />
           <OperacoesImportadas pecaId={id} nextOrdem={operacoes.length + 1} />
         </aside>
 
@@ -246,4 +248,21 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <span className={mono ? "font-mono" : ""}>{value}</span>
     </div>
   );
+}
+
+function EngenhariaCadastradaBoxByPeca({ pecaId }: { pecaId: string }) {
+  const q = useQuery({
+    queryKey: ["projeto-peca-por-peca", pecaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("projeto_pecas")
+        .select("id")
+        .eq("peca_id", pecaId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const ppId = (q.data as any)?.id as string | undefined;
+  if (!ppId) return null;
+  return <EngenhariaCadastradaBox projetoPecaId={ppId} />;
 }
