@@ -275,6 +275,27 @@ function PecaCadastradaDetalhe() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] }),
   });
 
+  const salvarContorno = useMutation({
+    mutationFn: async (contorno: ContornoExterno) => {
+      const atual = peca.data?.dados_brutos_json ?? {};
+      const { error } = await db
+        .from("pecas_cadastradas")
+        .update({
+          dados_brutos_json: {
+            ...atual,
+            contorno_externo_json: contorno,
+          },
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Contorno externo salvo.");
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const reprocessar = useMutation({
     mutationFn: async () => {
       const pdfPath = peca.data?.pdf_url;
