@@ -824,7 +824,33 @@ export async function parseTechnicalDrawingPdf(
   logs.push(`Operações detectadas: ${operacoes.length}`);
   operacoes = operacoes.map((op) => inferOperationAnchors(op, medidas.largura, medidas.altura));
   const bordas = extrairBordas(linhas);
+
+  // Face de alinhamento (A), indicadores B1/B2... e faces visuais
+  const faceAlinhamento = extrairFaceAlinhamento(itens);
+  const indicadoresBorda = extrairIndicadoresBorda(itens);
+  const facesVisuais = extrairFacesVisuais(linhas);
+
+  if (faceAlinhamento) {
+    logs.push(`Face de alinhamento: ${faceAlinhamento.letra} (${faceAlinhamento.regiao})`);
+  }
+  if (indicadoresBorda.length) {
+    logs.push(
+      `Indicadores de borda: ${indicadoresBorda.map((b) => `${b.marcador}(${b.regiao})`).join(", ")}`,
+    );
+  }
+
+  // Associa cada indicador B# à borda correspondente (ordem do indicador → ordem da borda).
+  for (let i = 0; i < bordas.length; i++) {
+    const ind = indicadoresBorda[i];
+    if (!ind) break;
+    bordas[i].indicador_desenho = ind.marcador;
+    if (bordas[i].lado === "desconhecido") {
+      bordas[i].lado = regiaoToLado(ind.regiao);
+    }
+  }
+
   if (bordas.length) logs.push(`Bordas detectadas: ${bordas.map((b) => b.codigo_borda).join(", ")}`);
+
 
   const furos = operacoes.filter((o) => o.tipo_operacao === "furo").length;
   const rasgos = operacoes.filter((o) => o.tipo_operacao === "rasgo").length;
