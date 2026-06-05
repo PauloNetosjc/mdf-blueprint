@@ -472,36 +472,19 @@ function PecaCadastradaDetalhe() {
 
         {/* ───── PDF ORIGINAL ───── */}
         <TabsContent value="pdf">
-          <div className="rounded border border-border bg-surface">
-            <div className="flex items-center justify-between border-b border-border p-2 text-sm">
-              <span className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> {p.pdf_nome_arquivo ?? "PDF original"}
-              </span>
-              {pdfUrl && (
-                <Button asChild size="sm" variant="ghost">
-                  <a href={pdfUrl} target="_blank" rel="noreferrer">Abrir em nova aba</a>
-                </Button>
-              )}
+          {!p.pdf_url ? (
+            <div className="flex h-[720px] items-center justify-center rounded border border-border bg-surface text-sm text-muted-foreground">
+              Nenhum PDF disponível para esta peça.
             </div>
-            <div className="h-[720px] bg-surface-2">
-              {!p.pdf_url ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Nenhum PDF disponível para esta peça.
-                </div>
-              ) : pdfCarregando ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Carregando PDF...
-                </div>
-              ) : pdfUrl ? (
-                <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Não foi possível gerar o link do PDF.
-                </div>
-              )}
-            </div>
-          </div>
+          ) : pdfTabAberta ? (
+            <PdfViewerPeca
+              pecaId={p.id}
+              storagePath={p.pdf_url}
+              nomeArquivo={p.pdf_nome_arquivo}
+            />
+          ) : null}
         </TabsContent>
+
 
         {/* ───── DEBUG / LOGS ───── */}
         <TabsContent value="debug" className="space-y-3">
