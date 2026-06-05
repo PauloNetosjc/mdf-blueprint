@@ -486,6 +486,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
       // Máquina de estados rígida: dentro de Furação, linha numérica SEMPRE é furo.
       // Se houver token extra (ex.: marcador visual "A" virou 0), usa os 4 últimos
       // números da linha para preservar X | Y | Diam | Prof e nunca converter para rasgo.
+      if (valores.length < 4) continue;
       const valoresFuro = ultimosValoresNumericos(valores, 4);
       const [x, y, diam, prof] = [valoresFuro[0], valoresFuro[1], valoresFuro[2] ?? null, valoresFuro[3] ?? null];
       ops.push({
@@ -520,13 +521,14 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         },
       });
     } else if (modo === "rasgo") {
-      if (valores.length < 4) continue;
+      if (valores.length < 5) continue;
+      const valoresRasgo = ultimosValoresNumericos(valores, 5);
       const [y, x1, x2, larg, prof] = [
-        valores[0],
-        valores[1],
-        valores[2],
-        valores[3],
-        valores[4] ?? null,
+        valoresRasgo[0],
+        valoresRasgo[1],
+        valoresRasgo[2],
+        valoresRasgo[3],
+        valoresRasgo[4] ?? null,
       ];
       ops.push({
         tipo_operacao: "rasgo",
@@ -549,10 +551,11 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
         offset_x: null,
         offset_y: null,
         pontos: [],
-        confianca_parser: valores.length >= 5 ? "alta" : "media",
-        dados_brutos: { linha: linha.texto, valores },
+        confianca_parser: "alta",
+        dados_brutos: { linha: linha.texto, valores, valores_interpretados: valoresRasgo },
       });
     } else if (modo === "usinagem") {
+      if (valores.length < 3) continue;
       // Se vier numeric antes de uma entrada explícita, cria uma usinagem implícita
       if (!usinagemAtual) {
         usinagemAtual = {
