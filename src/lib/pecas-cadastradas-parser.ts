@@ -156,6 +156,7 @@ export type BordaExtraida = {
 export type ResumoParser = {
   furos_detectados: number;
   rasgos_detectados: number;
+  usinagens_detectadas: number;
   bordas_detectadas: number;
   fita_detectada: boolean;
   nome_detectado: boolean;
@@ -164,6 +165,7 @@ export type ResumoParser = {
   pdf_lido: boolean;
   codigo_detectado: boolean;
   total_operacoes: number;
+  faces_com_operacao: number[];
 };
 
 export type ClassificacaoPdf = "peca_individual" | "modulo_explodido" | "desconhecido";
