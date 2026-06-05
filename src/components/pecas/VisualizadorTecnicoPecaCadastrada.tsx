@@ -34,6 +34,7 @@ export type NovaOperacaoPayload = {
   x2: number | null;
   largura: number | null;
   comprimento: number | null;
+  pontos_json?: Array<{ x: number | null; y: number | null; profundidade: number | null; tipo?: string | null }> | null;
   observacao?: string | null;
 };
 
@@ -117,14 +118,16 @@ function pontosValidosDaOp(op: VisualizadorOperacao): Pt[] {
     .map((p) => ({ x: p.x, y: p.y }));
 }
 
-function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
-  if (!ehUsinagem(op.tipo_operacao)) return false;
+function ehTipoOuNomeDeContorno(op: VisualizadorOperacao): boolean {
   const nome = (op.nome_operacao ?? "").toLowerCase();
+  return op.tipo_operacao === "contorno" || op.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
+}
+
+function ehContornoExterno(op: VisualizadorOperacao, W: number, H: number): boolean {
+  if (!ehTipoOuNomeDeContorno(op)) return false;
   const pts = pontosValidosDaOp(op);
   if (pts.length < 2) return false;
-  const tocaBorda = pts.some((p) => edgeOf(p, W, H) !== null);
-  const nomeIndica = nome.includes("contorno") || nome.includes("recorte") || nome.includes("rebaixo");
-  return tocaBorda || nomeIndica;
+  return pts.some((p) => edgeOf(p, W, H) !== null);
 }
 
 /**
@@ -171,6 +174,26 @@ function buildPiecePolygon(W: number, H: number, notches: Pt[][]): Pt[] {
   out.push({ x: 0, y: H });
   byEdge.left.forEach((n) => out.push(...n.pts));
   return out;
+}
+
+function getPecaOutlinePath({
+  largura,
+  altura,
+  margem,
+  contornosExternos,
+}: {
+  largura: number;
+  altura: number;
+  margem: number;
+  contornosExternos: VisualizadorOperacao[];
+}) {
+  const notches = contornosExternos.map(pontosValidosDaOp);
+  const polygon = buildPiecePolygon(largura, altura, notches);
+  const path =
+    polygon
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${margem + p.x} ${margem + altura - p.y}`)
+      .join(" ") + " Z";
+  return { path, polygon, temContornoExterno: contornosExternos.length > 0 };
 }
 
 function fmt(v: number | string | null | undefined) {
@@ -321,6 +344,11 @@ export function VisualizadorTecnicoPecaCadastrada({
 
   const alertasOp = (o: VisualizadorOperacao) => {
     const a: string[] = [];
+    const pontos = pontosValidosDaOp(o);
+    if (ehTipoOuNomeDeContorno(o)) {
+      if ((o.pontos_json ?? []).length === 0) a.push("Contorno sem pontos");
+      if (pontos.some((p) => p.x < 0 || p.x > partW || p.y < 0 || p.y > partH)) a.push("Pontos fora da peça");
+    }
     if (o.tipo_operacao === "rasgo") {
       if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
       if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
@@ -358,21 +386,10 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Contornos externos que alteram o formato da peça
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
-  const piecePolygon = useMemo(() => {
-    if (contornosExternos.length === 0) return null;
-    const notches = contornosExternos.map(pontosValidosDaOp);
-    const poly = buildPiecePolygon(partW, partH, notches);
-    if (poly.length < 3) return null;
-    return poly;
-  }, [contornosExternos, partW, partH]);
-  const piecePathD = useMemo(() => {
-    if (!piecePolygon) return null;
-    return (
-      piecePolygon
-        .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x} ${margin + partH - p.y}`)
-        .join(" ") + " Z"
-    );
-  }, [piecePolygon, margin, partH]);
+  const outline = useMemo(
+    () => getPecaOutlinePath({ largura: partW, altura: partH, margem: margin, contornosExternos }),
+    [contornosExternos, partW, partH, margin],
+  );
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
@@ -504,9 +521,9 @@ export function VisualizadorTecnicoPecaCadastrada({
               </g>
 
               {/* Peça (com contornos externos integrados ao formato) */}
-              {piecePathD ? (
+              {outline.temContornoExterno ? (
                 <path
-                  d={piecePathD}
+                  d={outline.path}
                   fill="var(--color-surface)"
                   stroke="var(--color-foreground)"
                   strokeWidth={px(1.5)}
@@ -757,7 +774,7 @@ export function VisualizadorTecnicoPecaCadastrada({
           <div className="mb-3 max-h-72 space-y-3 overflow-auto pr-1">
             <GrupoOperacoesFace titulo="Furações" ops={furosFace} opSel={opSel} setOpSel={setOpSel} />
             <GrupoOperacoesFace titulo="Rasgos" ops={rasgosFace} opSel={opSel} setOpSel={setOpSel} />
-            <GrupoOperacoesFace titulo="Usinagens" ops={usinagensFace} opSel={opSel} setOpSel={setOpSel} />
+            <GrupoOperacoesFace titulo="Usinagens / Contornos" ops={usinagensFace} opSel={opSel} setOpSel={setOpSel} contornosExternosIds={contornosExternosIds} />
             <GrupoOperacoesFace titulo="Outras" ops={outrasFace} opSel={opSel} setOpSel={setOpSel} />
           </div>
         )}
@@ -778,10 +795,10 @@ export function VisualizadorTecnicoPecaCadastrada({
                 } | null | undefined)?.ancoras_extras;
                 return (
                   <>
-                    <Linha k="Tipo" v={opSelObj.tipo_operacao} />
+                    <Linha k="Tipo" v={contornosExternosIds.has(opSelObj.id) ? "Contorno externo" : opSelObj.tipo_operacao} />
                     {contornosExternosIds.has(opSelObj.id) && (
                       <div className="my-1 inline-flex items-center rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                        Altera contorno externo da peça
+                        Contorno externo
                       </div>
                     )}
                     {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
@@ -882,6 +899,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         x2: opSelObj.x2,
                         largura: opSelObj.largura,
                         comprimento: opSelObj.comprimento,
+                        pontos_json: opSelObj.pontos_json,
                       })
                     }
                   >
@@ -974,11 +992,13 @@ function GrupoOperacoesFace({
   ops,
   opSel,
   setOpSel,
+  contornosExternosIds,
 }: {
   titulo: string;
   ops: VisualizadorOperacao[];
   opSel: string | null;
   setOpSel: (id: string) => void;
+  contornosExternosIds?: Set<string>;
 }) {
   if (ops.length === 0) return null;
   return (
@@ -1007,6 +1027,11 @@ function GrupoOperacoesFace({
               </span>
               <Badge variant="outline" className="h-4 px-1 text-[9px]">#{o.ordem}</Badge>
             </div>
+            {contornosExternosIds?.has(o.id) && (
+              <div className="mt-1 inline-flex rounded border border-primary/40 bg-primary/10 px-1 py-0.5 text-[9px] font-semibold text-primary">
+                Contorno externo
+              </div>
+            )}
             <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
               {o.tipo_operacao === "furo" && (
                 <div>X {fmt(o.x)} | Y {fmt(o.y)} | Ø{fmt(o.diametro)} | Prof {fmt(o.profundidade)}</div>
@@ -1016,7 +1041,8 @@ function GrupoOperacoesFace({
               )}
               {ehUsinagem(o.tipo_operacao) && (
                 <div>
-                  {pontos.length > 0 ? `${pontos.length} pontos` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
+                  {contornosExternosIds?.has(o.id) ? "Tipo: Contorno externo | " : ""}
+                  {pontos.length > 0 ? `Pontos: ${pontos.length}` : `X ${fmt(o.x)} | Y ${fmt(o.y)}`}
                   {o.profundidade != null ? ` | Prof ${o.profundidade}` : ""}
                 </div>
               )}
@@ -1056,6 +1082,7 @@ function OperacaoDialog({
   const [x2, setX2] = useState<string>(op?.x2?.toString() ?? "");
   const [largura, setLargura] = useState<string>(op?.largura?.toString() ?? "");
   const [comprimento, setComprimento] = useState<string>(op?.comprimento?.toString() ?? "");
+  const [pontos, setPontos] = useState<Array<{ x: string; y: string; profundidade: string; tipo: string }>>([]);
 
   useEffect(() => {
     if (open) {
@@ -1070,10 +1097,21 @@ function OperacaoDialog({
       setX2(op?.x2?.toString() ?? "");
       setLargura(op?.largura?.toString() ?? "");
       setComprimento(op?.comprimento?.toString() ?? "");
+      setPontos(
+        (op?.pontos_json ?? []).map((p) => ({
+          x: p.x?.toString() ?? "",
+          y: p.y?.toString() ?? "",
+          profundidade: p.profundidade?.toString() ?? "",
+          tipo: p.tipo ?? "",
+        })),
+      );
     }
   }, [open, face, op]);
 
   const num = (s: string) => (s.trim() === "" ? null : Number(s));
+  const setPonto = (idx: number, key: "x" | "y" | "profundidade" | "tipo", value: string) => {
+    setPontos((atuais) => atuais.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1137,6 +1175,24 @@ function OperacaoDialog({
                   <div><Label className="mb-1 block text-xs">Comprimento</Label><Input value={comprimento} onChange={(e) => setComprimento(e.target.value)} /></div>
                 </>
               )}
+              {ehUsinagem(tipo) && pontos.length > 0 && (
+                <div className="col-span-2 rounded border border-border bg-surface-2 p-2">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Pontos do contorno
+                  </div>
+                  <div className="space-y-2">
+                    {pontos.map((p, i) => (
+                      <div key={i} className="grid grid-cols-[48px_1fr_1fr_1fr_1.5fr] items-end gap-2">
+                        <div className="pb-2 text-[10px] font-mono text-muted-foreground">P{i + 1}</div>
+                        <div><Label className="mb-1 block text-[10px]">X</Label><Input value={p.x} onChange={(e) => setPonto(i, "x", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Y</Label><Input value={p.y} onChange={(e) => setPonto(i, "y", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Prof</Label><Input value={p.profundidade} onChange={(e) => setPonto(i, "profundidade", e.target.value)} /></div>
+                        <div><Label className="mb-1 block text-[10px]">Tipo</Label><Input value={p.tipo} onChange={(e) => setPonto(i, "tipo", e.target.value)} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1156,6 +1212,14 @@ function OperacaoDialog({
                 x2: num(x2),
                 largura: num(largura),
                 comprimento: num(comprimento),
+                pontos_json: pontos.length > 0
+                  ? pontos.map((p) => ({
+                    x: num(p.x),
+                    y: num(p.y),
+                    profundidade: num(p.profundidade),
+                    tipo: p.tipo.trim() === "" ? null : p.tipo,
+                  }))
+                  : op?.pontos_json ?? null,
               })
             }
           >
