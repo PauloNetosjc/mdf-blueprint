@@ -657,19 +657,21 @@ export function VisualizadorTecnicoPecaCadastrada({
               )}
 
 
-              {contornosComFalha && (
+              {(contornosComFalha || temRecuoFallback) && (
                 <g>
                   <rect
                     x={margin + px(10)}
                     y={margin + px(10)}
-                    width={Math.min(px(440), partW - px(20))}
+                    width={Math.min(px(520), partW - px(20))}
                     height={px(34)}
                     fill="var(--color-surface)"
                     stroke="var(--color-warning)"
                     strokeWidth={px(1)}
                   />
                   <text x={margin + px(20)} y={margin + px(31)} fontSize={px(11)} fill="var(--color-warning)" fontFamily="monospace">
-                    Contorno externo detectado, mas não foi possível aplicar ao formato da peça.
+                    {temRecuoFallback
+                      ? "Recuo sem medida explícita. Aplicada medida padrão 65 × 40 mm."
+                      : "Contorno externo detectado, mas não foi possível aplicar ao formato da peça."}
                   </text>
                 </g>
               )}
