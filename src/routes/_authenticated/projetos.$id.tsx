@@ -14,6 +14,7 @@ import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
 import { ProjetoNav } from "@/components/projeto-nav";
 import { StatusBadge } from "@/components/status-badge";
+import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
