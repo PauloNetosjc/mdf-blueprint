@@ -47,9 +47,18 @@ type Peca = {
   logs_parser: string[];
 };
 
+type PontoUsinagem = {
+  x: number | null;
+  y: number | null;
+  profundidade: number | null;
+  tipo?: string | null;
+  ordem: number;
+};
+
 type Operacao = {
   id: string;
   tipo_operacao: string;
+  nome_operacao: string | null;
   face: string | number | null;
   x: number | null;
   y: number | null;
@@ -59,10 +68,13 @@ type Operacao = {
   comprimento: number | null;
   x1: number | null;
   x2: number | null;
+  y1: number | null;
+  y2: number | null;
   ancora_x: string | null;
   ancora_y: string | null;
   offset_x: number | null;
   offset_y: number | null;
+  pontos_json: PontoUsinagem[] | null;
   confianca_parser: string;
   ordem: number;
 };
