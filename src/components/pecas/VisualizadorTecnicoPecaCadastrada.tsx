@@ -369,7 +369,7 @@ function gerarPathExternoPeca({
   };
 }
 
-function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
+export function contornoExternoValido(contorno: ContornoExterno | null | undefined): ContornoExterno | null {
   if (!contorno || !Array.isArray(contorno.pontos) || contorno.pontos.length < 3) return null;
   const pontos = contorno.pontos
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
@@ -378,7 +378,7 @@ function contornoExternoValido(contorno: ContornoExterno | null | undefined): Co
   return { ...contorno, pontos };
 }
 
-function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
+export function gerarContornoExternoDeOperacoes(largura: number, altura: number, operacoes: VisualizadorOperacao[]): ContornoExterno | null {
   const contornos = operacoes.filter((o) => ehContornoExterno(o, largura, altura));
   const outline = gerarPathExternoPeca({ largura, altura, operacoes: contornos });
   if (!outline.temContornoAplicado) return null;
@@ -400,6 +400,24 @@ function gerarContornoExternoDeOperacoes(largura: number, altura: number, operac
     })),
     presets_aplicados: ["gerado_a_partir_das_operacoes"],
     observacao: "Contorno externo usado para desenhar a geometria real da peça.",
+  };
+}
+
+/** Gera um contorno retangular simples para peças sem recortes. */
+export function gerarContornoRetangular(largura: number, altura: number): ContornoExterno {
+  return {
+    origem: "retangular",
+    largura,
+    altura,
+    pontos: [
+      { x: 0, y: 0 },
+      { x: largura, y: 0 },
+      { x: largura, y: altura },
+      { x: 0, y: altura },
+    ],
+    recuos: [],
+    presets_aplicados: ["retangulo_simples"],
+    observacao: "Peça retangular sem recortes.",
   };
 }
 
