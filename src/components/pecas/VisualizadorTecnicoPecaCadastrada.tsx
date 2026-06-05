@@ -519,9 +519,11 @@ export function VisualizadorTecnicoPecaCadastrada({
   faceAlinhamento,
   indicadoresBorda = [],
   facesDetectadas = [],
+  contornoExterno,
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
+  onSaveContorno,
 }: Props) {
   const opsPorFace = useMemo(() => {
     const m = new Map<string, VisualizadorOperacao[]>();
@@ -548,6 +550,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const [addOpen, setAddOpen] = useState(false);
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
   const [delOp, setDelOp] = useState<VisualizadorOperacao | null>(null);
+  const [contornoOpen, setContornoOpen] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
@@ -691,10 +694,34 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Contornos externos que alteram o formato da peça
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
-  const outline = useMemo(
+  const outlineOperacoes = useMemo(
     () => gerarPathExternoPeca({ largura: partW, altura: partH, operacoes: contornosExternos }),
     [contornosExternos, partW, partH],
   );
+  const podeUsarContornoSalvo = faceSel === "0" || faceSel === "5";
+  const contornoSalvo = useMemo(
+    () => podeUsarContornoSalvo ? contornoExternoValido(contornoExterno) : null,
+    [contornoExterno, podeUsarContornoSalvo],
+  );
+  const outline = useMemo(() => {
+    if (contornoSalvo) {
+      const pontosTecnicos = contornoSalvo.pontos;
+      const pathSvg = pathTecnicoParaSvg(pontosTecnicos, partH);
+      return {
+        pathSvg,
+        pontosTecnicos,
+        temContornoExterno: true,
+        contornosAplicados: outlineOperacoes.contornosAplicados,
+        contornoAplicadoIds: outlineOperacoes.contornoAplicadoIds,
+        contornoFalhouIds: outlineOperacoes.contornoFalhouIds,
+        recuos: contornoSalvo.recuos ?? outlineOperacoes.recuos,
+        path: pathSvg,
+        polygon: pontosTecnicos,
+        temContornoAplicado: true,
+      };
+    }
+    return { ...outlineOperacoes, temContornoExterno: false, temContornoAplicado: false };
+  }, [contornoSalvo, outlineOperacoes, partH]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const recuoPorOpId = useMemo(() => {
     const m = new Map<string, typeof outline.recuos[number]>();
@@ -712,7 +739,19 @@ export function VisualizadorTecnicoPecaCadastrada({
     !outline.pathSvg.includes("291.5 40") ||
     !outline.pathSvg.includes("291.5 0")
   );
-  const erroPathReal = (outline.temContornoExterno && !outline.temContornoAplicado) || lat3854AInvalida;
+  const temOperacaoContornoSemContornoSalvo = contornosExternos.length > 0 && !contornoSalvo;
+  const erroPathReal = (outlineOperacoes.temContornoExterno && !outlineOperacoes.temContornoAplicado) || lat3854AInvalida;
+  const rectFallbackAtivo = !contornoSalvo;
+
+  async function salvarContorno(contorno: ContornoExterno) {
+    if (!onSaveContorno) return;
+    await onSaveContorno(contorno);
+  }
+
+  async function gerarContornoDasOperacoes() {
+    const gerado = gerarContornoExternoDeOperacoes(partW, partH, contornosExternos);
+    if (gerado) await salvarContorno(gerado);
+  }
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
