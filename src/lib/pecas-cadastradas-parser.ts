@@ -632,6 +632,9 @@ export async function parseTechnicalDrawingPdf(
     total_operacoes: operacoes.length,
   };
 
+  const classificacao = classificarDocumentoPdf(linhas, resumo);
+  logs.push(`Classificação: ${classificacao.classificacao} (${classificacao.confianca}) — ${classificacao.motivo}`);
+
   return {
     codigo,
     nome_peca,
@@ -648,6 +651,130 @@ export async function parseTechnicalDrawingPdf(
     alertas,
     resumo,
     dados_brutos: { total_linhas: linhas.length },
+    classificacao,
+  };
+}
+
+// ---------- Classificação do tipo de documento ----------
+
+const PALAVRAS_FERRAGENS = [
+  "minifix", "cavilha", "corrediça", "corredica", "pistão", "pistao",
+  "dobradiça", "dobradica", "tapa furo", "tapa-furo", "puxador",
+  "parafuso", "tampão", "tampao", "suporte de prateleira",
+];
+const PREFIXOS_FERRAGENS = ["CAV", "PARMF", "TMF15", "DOBTA", "PIST", "CORR", "MINIFIX", "DOB", "PUX"];
+
+function temPalavra(texto: string, palavras: string[]): boolean {
+  const t = texto.toLowerCase();
+  return palavras.some((p) => t.includes(p.toLowerCase()));
+}
+
+export function classificarDocumentoPdf(
+  linhas: Linha[],
+  resumo: ResumoParser,
+): ResultadoClassificacao {
+  const textoCompleto = linhas.map((l) => l.texto).join(" \n ");
+  const textoLower = textoCompleto.toLowerCase();
+
+  // Sinais de módulo/explodido
+  const tem_composicoes = /\bcomposi[cç][oõ]es\b/i.test(textoCompleto);
+  const tem_ferragens = /\bferragens?\b/i.test(textoCompleto);
+  const tem_tabela_composicao =
+    /\bitem\b/i.test(textoCompleto) &&
+    /\bc[oó]digo\b/i.test(textoCompleto) &&
+    /\bdescri[cç][aã]o\b/i.test(textoCompleto) &&
+    /\bqtd\.?\b/i.test(textoCompleto);
+
+  const referencias_ferragens: string[] = [];
+  for (const p of PREFIXOS_FERRAGENS) {
+    const re = new RegExp(`\\b${p}[A-Z0-9\\-]*\\b`, "g");
+    const matches = textoCompleto.match(re);
+    if (matches) referencias_ferragens.push(...matches.slice(0, 3));
+  }
+  const tem_palavra_ferragem = temPalavra(textoLower, PALAVRAS_FERRAGENS);
+
+  // Sinais de peça individual
+  const faces_detectadas: number[] = [];
+  for (let i = 0; i <= 5; i++) {
+    if (new RegExp(`\\b(?:face|lado)\\s*${i}\\b`, "i").test(textoCompleto)) {
+      faces_detectadas.push(i);
+    }
+  }
+  const tem_furacao_tabela = /\bfura[cç][aã]o\b|\bfura[cç][oõ]es\b/i.test(textoCompleto);
+  const tem_rasgos_tabela = /\brasgos?\b/i.test(textoCompleto);
+  const tem_face_alinhamento = /\bface\s+de\s+alinhamento\b/i.test(textoCompleto);
+  const tem_ftabs = /\bFTABS[\.\-]/i.test(textoCompleto);
+
+  const sinais = {
+    tem_composicoes,
+    tem_ferragens,
+    tem_tabela_composicao,
+    referencias_ferragens: Array.from(new Set(referencias_ferragens)).slice(0, 10),
+    faces_detectadas,
+    tem_furacao_tabela,
+    tem_rasgos_tabela,
+    tem_face_alinhamento,
+    tem_ftabs,
+  };
+
+  // Pontuação: módulo vs peça individual
+  let scoreModulo = 0;
+  if (tem_composicoes) scoreModulo += 3;
+  if (tem_ferragens) scoreModulo += 3;
+  if (tem_tabela_composicao) scoreModulo += 2;
+  if (referencias_ferragens.length >= 2) scoreModulo += 2;
+  if (tem_palavra_ferragem) scoreModulo += 1;
+
+  let scorePeca = 0;
+  if (faces_detectadas.length >= 2) scorePeca += 3;
+  if (tem_face_alinhamento) scorePeca += 3;
+  if (tem_furacao_tabela) scorePeca += 2;
+  if (tem_rasgos_tabela) scorePeca += 1;
+  if (tem_ftabs) scorePeca += 2;
+  if (resumo.medidas_detectadas) scorePeca += 1;
+  if (resumo.bordas_detectadas > 0) scorePeca += 1;
+
+  // Decisão
+  // Módulo é prioritário quando tem AMBOS "Composições" + "Ferragens"
+  if (tem_composicoes && tem_ferragens) {
+    return {
+      classificacao: "modulo_explodido",
+      motivo: "PDF contém tabelas de Composições e Ferragens (módulo/explodido)",
+      confianca: "alta",
+      sinais,
+    };
+  }
+  if (scoreModulo >= 5 && scoreModulo > scorePeca) {
+    return {
+      classificacao: "modulo_explodido",
+      motivo: `Sinais de módulo (score ${scoreModulo} vs peça ${scorePeca})`,
+      confianca: scoreModulo - scorePeca >= 3 ? "alta" : "media",
+      sinais,
+    };
+  }
+  if (scorePeca >= 4 && scorePeca > scoreModulo) {
+    return {
+      classificacao: "peca_individual",
+      motivo: `Sinais de peça individual: ${faces_detectadas.length} faces, ${
+        tem_face_alinhamento ? "face de alinhamento, " : ""
+      }${tem_furacao_tabela ? "tabela furação, " : ""}${tem_ftabs ? "FTABS" : ""}`.replace(/,\s*$/, ""),
+      confianca: scorePeca >= 7 ? "alta" : "media",
+      sinais,
+    };
+  }
+  if (scorePeca > 0 && scorePeca >= scoreModulo) {
+    return {
+      classificacao: "peca_individual",
+      motivo: `Sinais fracos de peça individual (score ${scorePeca} vs módulo ${scoreModulo})`,
+      confianca: "baixa",
+      sinais,
+    };
+  }
+  return {
+    classificacao: "desconhecido",
+    motivo: "Sem sinais claros de peça individual nem de módulo/explodido",
+    confianca: "baixa",
+    sinais,
   };
 }
 
