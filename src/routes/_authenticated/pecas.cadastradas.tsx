@@ -883,4 +883,4 @@ const StatusBadge = memo(function StatusBadge({ peca }: { peca: PecaRow }) {
       </Tooltip>
     </TooltipProvider>
   );
-}
+});
