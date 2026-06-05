@@ -231,7 +231,7 @@ const TIPO_CONTORNO_POR_LADO: Record<Edge, ContornoAplicado["tipo_contorno"]> = 
   right: "recuo_direito",
 };
 
-function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
+export function pathTecnicoParaSvg(pontos: Pt[], altura: number) {
   return pontos.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${altura - p.y}`).join(" ") + " Z";
 }
 
