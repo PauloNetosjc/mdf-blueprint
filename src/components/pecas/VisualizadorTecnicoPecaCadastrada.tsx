@@ -775,7 +775,7 @@ export function VisualizadorTecnicoPecaCadastrada({
           <div className="mb-3 max-h-72 space-y-3 overflow-auto pr-1">
             <GrupoOperacoesFace titulo="Furações" ops={furosFace} opSel={opSel} setOpSel={setOpSel} />
             <GrupoOperacoesFace titulo="Rasgos" ops={rasgosFace} opSel={opSel} setOpSel={setOpSel} />
-            <GrupoOperacoesFace titulo="Usinagens" ops={usinagensFace} opSel={opSel} setOpSel={setOpSel} />
+            <GrupoOperacoesFace titulo="Usinagens / Contornos" ops={usinagensFace} opSel={opSel} setOpSel={setOpSel} contornosExternosIds={contornosExternosIds} />
             <GrupoOperacoesFace titulo="Outras" ops={outrasFace} opSel={opSel} setOpSel={setOpSel} />
           </div>
         )}
@@ -796,10 +796,10 @@ export function VisualizadorTecnicoPecaCadastrada({
                 } | null | undefined)?.ancoras_extras;
                 return (
                   <>
-                    <Linha k="Tipo" v={opSelObj.tipo_operacao} />
+                    <Linha k="Tipo" v={contornosExternosIds.has(opSelObj.id) ? "Contorno externo" : opSelObj.tipo_operacao} />
                     {contornosExternosIds.has(opSelObj.id) && (
                       <div className="my-1 inline-flex items-center rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                        Altera contorno externo da peça
+                        Contorno externo
                       </div>
                     )}
                     {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
@@ -900,6 +900,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         x2: opSelObj.x2,
                         largura: opSelObj.largura,
                         comprimento: opSelObj.comprimento,
+                        pontos_json: opSelObj.pontos_json,
                       })
                     }
                   >
