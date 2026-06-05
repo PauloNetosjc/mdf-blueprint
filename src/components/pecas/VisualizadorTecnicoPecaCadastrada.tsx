@@ -1,7 +1,39 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AlertTriangle, Plus } from "lucide-react";
+
+const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
+
+export type NovaOperacaoPayload = {
+  face: string;
+  tipo_operacao: string;
+  x: number | null;
+  y: number | null;
+  diametro: number | null;
+  profundidade: number | null;
+  x1: number | null;
+  x2: number | null;
+  largura: number | null;
+  comprimento: number | null;
+};
 
 export type VisualizadorOperacao = {
   id: string;
