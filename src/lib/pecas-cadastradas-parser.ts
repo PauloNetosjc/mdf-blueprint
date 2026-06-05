@@ -102,8 +102,24 @@ export function nomeFace(face: string | null | undefined): string {
   return FACE_LABELS[String(face)] ?? `Face ${face}`;
 }
 
+export type PontoUsinagem = {
+  x: number | null;
+  y: number | null;
+  profundidade: number | null;
+  tipo?: string | null;
+  ordem: number;
+};
+
 export type OperacaoExtraida = {
-  tipo_operacao: "furo" | "rasgo" | "rebaixo" | "usinagem" | "outro";
+  tipo_operacao:
+    | "furo"
+    | "rasgo"
+    | "rebaixo"
+    | "usinagem_parametrica"
+    | "contorno"
+    | "usinagem"
+    | "outro";
+  nome_operacao: string | null;
   face: string | null;
   x: number | null;
   y: number | null;
@@ -121,6 +137,7 @@ export type OperacaoExtraida = {
   ancora_y: "inferior" | "superior" | "centro" | "absoluto" | null;
   offset_x: number | null;
   offset_y: number | null;
+  pontos: PontoUsinagem[];
   confianca_parser: "alta" | "media" | "baixa";
   dados_brutos: Record<string, unknown>;
 };
