@@ -308,12 +308,28 @@ function PecasCadastradasPage() {
           motivo_status: motivo,
           erros_parser: result.erros,
           parser_alertas_json: result.alertas,
-          resumo_parser_json: result.resumo,
+          resumo_parser_json: {
+            ...result.resumo,
+            classificacao: result.classificacao.classificacao,
+            classificacao_motivo: result.classificacao.motivo,
+            classificacao_confianca: result.classificacao.confianca,
+            classificacao_sinais: result.classificacao.sinais,
+          },
           logs_parser: result.logs,
-          metadados_json: { modo_importacao: modo, modulo_origem: modulo },
+          metadados_json: {
+            modo_importacao: modo,
+            modulo_origem: modulo,
+            classificacao: result.classificacao.classificacao,
+          },
           dados_brutos_json: result.dados_brutos,
         };
       });
+
+      // Quantos foram classificados como módulo/desconhecido — não viram peças "ativas"
+      const ignoradosModulo = parsed.filter((p) => p.result.classificacao.classificacao === "modulo_explodido").length;
+      const pendentesClass = parsed.filter((p) => p.result.classificacao.classificacao === "desconhecido").length;
+      if (ignoradosModulo > 0) appendLog(logsGerais, `↷ ${ignoradosModulo} PDFs ignorados como módulo/explodido`);
+      if (pendentesClass > 0) appendLog(logsGerais, `? ${pendentesClass} PDFs pendentes de classificação manual`);
 
       const pecaIdByCodigo = new Map<string, string>();
       const pecaBatches = chunkArray(pecaRows, PECA_BATCH_SIZE);
@@ -349,7 +365,9 @@ function PecasCadastradasPage() {
       }
 
       const opsRows = parsed.flatMap(({ result }) => {
+        if (result.classificacao.classificacao !== "peca_individual") return [];
         const pecaId = pecaIdByCodigo.get(result.codigo.codigo_completo);
+        if (!pecaId) return [];
         if (!pecaId) return [];
         return result.operacoes.map((o) => ({
           user_id: userId,
@@ -397,6 +415,7 @@ function PecasCadastradasPage() {
       }
 
       const bordaRows = parsed.flatMap(({ result }) => {
+        if (result.classificacao.classificacao !== "peca_individual") return [];
         const pecaId = pecaIdByCodigo.get(result.codigo.codigo_completo);
         if (!pecaId) return [];
         return result.bordas.map((b) => ({
@@ -455,16 +474,22 @@ function PecasCadastradasPage() {
         erros_arquivos: failedFiles.map((f) => getFileName(f)),
       });
 
+      const pecasIndividuais = parsed.filter((p) => p.result.classificacao.classificacao === "peca_individual").length;
       return {
         ok: pecaIdByCodigo.size,
         falhas: falhasParser + falhasBanco,
         puladas,
         total: candidatos.length,
         uploads: uploads.length,
+        pecas_individuais: pecasIndividuais,
+        ignorados_modulo: ignoradosModulo,
+        pendentes_class: pendentesClass,
       };
     },
     onSuccess: (r) => {
-      toast.success(`Dados salvos: ${r.ok} peças, ${r.puladas} puladas, ${r.falhas} falhas. PDFs em envio separado.`);
+      toast.success(
+        `Importação: ${r.pecas_individuais} peças individuais, ${r.ignorados_modulo} módulos ignorados, ${r.pendentes_class} pendentes, ${r.puladas} puladas, ${r.falhas} falhas.`,
+      );
       qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
       qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
     },
@@ -568,10 +593,21 @@ function PecasCadastradasPage() {
   // Debounce busca (~200ms) via useDeferredValue para não travar a digitação.
   const buscaDeferred = useDeferredValue(busca);
 
+  // Status que NÃO devem aparecer na visão padrão (peças ativas).
+  const STATUS_INATIVOS = new Set(["ignorado_modulo", "pendente_classificacao"]);
+
   const filtradas = useMemo(() => {
     const q = buscaDeferred.trim().toLowerCase();
     return pecas.filter((p) => {
       const c = getCont(p.id);
+      // Visão padrão (Todas/Divisórias/etc.) esconde módulos ignorados e pendentes
+      // de classificação — só aparecem nos filtros dedicados.
+      const filtrosInativos = new Set([
+        "ignorado_modulo",
+        "pendente_classificacao",
+      ]);
+      if (!filtrosInativos.has(filtro) && STATUS_INATIVOS.has(p.status_parser)) return false;
+
       if (filtro === "divisorias" && p.prefixo !== "DIV") return false;
       if (filtro === "com_fita" && !p.fita_ref) return false;
       if (filtro === "com_furos" && c.furos === 0) return false;
@@ -583,6 +619,8 @@ function PecasCadastradasPage() {
       if (filtro === "com_erro" && p.status_parser !== "com_erros") return false;
       if (filtro === "com_alerta" && p.status_parser !== "com_alertas") return false;
       if (filtro === "pendente_revisao" && p.status_parser !== "pendente_revisao") return false;
+      if (filtro === "ignorado_modulo" && p.status_parser !== "ignorado_modulo") return false;
+      if (filtro === "pendente_classificacao" && p.status_parser !== "pendente_classificacao") return false;
       if (filtro === "ok" && p.status_parser !== "ok") return false;
       if (!q) return true;
       return (
@@ -599,13 +637,16 @@ function PecasCadastradasPage() {
 
   const stats = useMemo(() => ({
     total: pecas.length,
+    ativas: pecas.filter((p) => !STATUS_INATIVOS.has(p.status_parser)).length,
     ok: pecas.filter((p) => p.status_parser === "ok").length,
     com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
     com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
     pendente_revisao: pecas.filter((p) => p.status_parser === "pendente_revisao").length,
-    divisorias: pecas.filter((p) => p.prefixo === "DIV").length,
-    com_fita: pecas.filter((p) => p.fita_ref).length,
-    face5: pecas.filter((p) => getCont(p.id).face5).length,
+    ignorado_modulo: pecas.filter((p) => p.status_parser === "ignorado_modulo").length,
+    pendente_classificacao: pecas.filter((p) => p.status_parser === "pendente_classificacao").length,
+    divisorias: pecas.filter((p) => p.prefixo === "DIV" && !STATUS_INATIVOS.has(p.status_parser)).length,
+    com_fita: pecas.filter((p) => p.fita_ref && !STATUS_INATIVOS.has(p.status_parser)).length,
+    face5: pecas.filter((p) => getCont(p.id).face5 && !STATUS_INATIVOS.has(p.status_parser)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [pecas, cont]);
 
@@ -681,14 +722,14 @@ function PecasCadastradasPage() {
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
-        <StatCard label="Total" value={stats.total} />
+        <StatCard label="Peças ativas" value={stats.ativas} />
         <StatCard label="OK" value={stats.ok} tone={stats.ok ? "ok" : undefined} />
         <StatCard label="Com alertas" value={stats.com_alerta} tone={stats.com_alerta ? "warn" : undefined} />
         <StatCard label="Pendente revisão" value={stats.pendente_revisao} tone={stats.pendente_revisao ? "warn" : undefined} />
         <StatCard label="Com erros" value={stats.com_erro} tone={stats.com_erro ? "error" : undefined} />
+        <StatCard label="Módulos ignorados" value={stats.ignorado_modulo} tone={stats.ignorado_modulo ? "warn" : undefined} />
+        <StatCard label="Pendente classif." value={stats.pendente_classificacao} tone={stats.pendente_classificacao ? "warn" : undefined} />
         <StatCard label="Divisórias" value={stats.divisorias} />
-        <StatCard label="Com fita" value={stats.com_fita} />
-        <StatCard label="Com Face 5" value={stats.face5} />
       </div>
 
       {progresso && (
@@ -734,6 +775,8 @@ function PecasCadastradasPage() {
             <SelectItem value="com_alerta">Com alertas</SelectItem>
             <SelectItem value="pendente_revisao">Pendente revisão</SelectItem>
             <SelectItem value="com_erro">Com erro</SelectItem>
+            <SelectItem value="ignorado_modulo">Módulos ignorados</SelectItem>
+            <SelectItem value="pendente_classificacao">Pendente classificação</SelectItem>
             <SelectItem value="sem_nome">Sem nome</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
             <SelectItem value="sem_bordas">Sem bordas</SelectItem>
@@ -842,6 +885,8 @@ const STATUS_VARIANT: Record<string, { label: string; cls: string; icon: ReactNo
   com_alertas: { label: "Alertas", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
   pendente_revisao: { label: "Revisão", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
   com_erros: { label: "Erro", cls: "border-destructive/50 bg-destructive/10 text-destructive", icon: <AlertTriangle className="h-3 w-3" /> },
+  ignorado_modulo: { label: "Módulo", cls: "border-muted-foreground/30 bg-muted/40 text-muted-foreground", icon: <AlertTriangle className="h-3 w-3" /> },
+  pendente_classificacao: { label: "Classif.?", cls: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: <AlertTriangle className="h-3 w-3" /> },
 };
 
 const StatusBadge = memo(function StatusBadge({ peca }: { peca: PecaRow }) {
