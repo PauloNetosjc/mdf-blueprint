@@ -107,6 +107,20 @@ export type ContornoExterno = {
   observacao?: string;
 };
 
+export type FaceLayoutEntry = {
+  face: string;
+  label?: string;
+  tipo_vista?: string;
+  largura_visual: number;
+  altura_visual: number;
+  posicao_pdf?: string;
+  ordem_visual?: number;
+};
+
+export type FacesLayoutJson = {
+  faces: FaceLayoutEntry[];
+};
+
 type Props = {
   codigo: string;
   nome?: string | null;
@@ -120,11 +134,13 @@ type Props = {
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
+  facesLayout?: FacesLayoutJson | null;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
   onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
 };
+
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
 
@@ -538,6 +554,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   indicadoresBorda = [],
   facesDetectadas = [],
   contornoExterno,
+  facesLayout,
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
@@ -573,14 +590,26 @@ export function VisualizadorTecnicoPecaCadastrada({
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
 
+  const facesLayoutMap = useMemo(() => {
+    const m = new Map<string, FaceLayoutEntry>();
+    facesLayout?.faces?.forEach((f) => m.set(String(f.face), f));
+    return m;
+  }, [facesLayout]);
+
   const { partW, partH } = useMemo(() => {
     const L = largura ?? 600;
     const A = altura ?? 400;
     const E = espessura ?? 18;
+    const override = facesLayoutMap.get(faceSel);
+    if (override && override.largura_visual > 0 && override.altura_visual > 0) {
+      return { partW: override.largura_visual, partH: override.altura_visual };
+    }
     if (faceSel === "0" || faceSel === "5") return { partW: L, partH: A };
     if (faceSel === "1" || faceSel === "2") return { partW: A, partH: E };
     return { partW: L, partH: E };
-  }, [faceSel, largura, altura, espessura]);
+  }, [faceSel, largura, altura, espessura, facesLayoutMap]);
+
+
 
   // Margem de segurança ao redor da peça (mm)
   const margin = Math.max(80, Math.round(Math.max(partW, partH) * 0.1));

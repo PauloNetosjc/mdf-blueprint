@@ -548,7 +548,9 @@ function PecaCadastradaDetalhe() {
             indicadoresBorda={indicadoresBorda}
             facesDetectadas={facesDetectadas}
             contornoExterno={contornoExterno}
+            facesLayout={(dadosBrutos as any).faces_layout_json ?? null}
             onSaveContorno={(contorno) => salvarContorno.mutateAsync(contorno)}
+
             onAddOperacao={async (payload) => {
               const { data: u } = await supabase.auth.getUser();
               const { error } = await db.from("peca_cadastrada_operacoes").insert({
