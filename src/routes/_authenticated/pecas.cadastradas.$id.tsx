@@ -311,7 +311,20 @@ function PecaCadastradaDetalhe() {
           </div>
           <div className="h-[600px] bg-surface-2">
             {pdfUrl ? (
-              <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
+              mostrarPdf ? (
+                <iframe src={pdfUrl} className="h-full w-full" title="PDF" />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="h-8 w-8 opacity-50" />
+                  <span>PDF carregado sob demanda para acelerar a abertura.</span>
+                  <Button size="sm" variant="outline" onClick={() => setMostrarPdf(true)}>
+                    Carregar PDF aqui
+                  </Button>
+                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-xs underline">
+                    ou abrir em nova aba
+                  </a>
+                </div>
+              )
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 Sem PDF
