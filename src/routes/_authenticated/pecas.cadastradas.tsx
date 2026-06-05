@@ -146,6 +146,7 @@ async function buscarCodigosExistentes(userId: string, codigos: string[]): Promi
 
 function PecasCadastradasPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [busca, setBusca] = useState("");
