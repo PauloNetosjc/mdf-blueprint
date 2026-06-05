@@ -308,12 +308,28 @@ function PecasCadastradasPage() {
           motivo_status: motivo,
           erros_parser: result.erros,
           parser_alertas_json: result.alertas,
-          resumo_parser_json: result.resumo,
+          resumo_parser_json: {
+            ...result.resumo,
+            classificacao: result.classificacao.classificacao,
+            classificacao_motivo: result.classificacao.motivo,
+            classificacao_confianca: result.classificacao.confianca,
+            classificacao_sinais: result.classificacao.sinais,
+          },
           logs_parser: result.logs,
-          metadados_json: { modo_importacao: modo, modulo_origem: modulo },
+          metadados_json: {
+            modo_importacao: modo,
+            modulo_origem: modulo,
+            classificacao: result.classificacao.classificacao,
+          },
           dados_brutos_json: result.dados_brutos,
         };
       });
+
+      // Quantos foram classificados como módulo/desconhecido — não viram peças "ativas"
+      const ignoradosModulo = parsed.filter((p) => p.result.classificacao.classificacao === "modulo_explodido").length;
+      const pendentesClass = parsed.filter((p) => p.result.classificacao.classificacao === "desconhecido").length;
+      if (ignoradosModulo > 0) appendLog(logsGerais, `↷ ${ignoradosModulo} PDFs ignorados como módulo/explodido`);
+      if (pendentesClass > 0) appendLog(logsGerais, `? ${pendentesClass} PDFs pendentes de classificação manual`);
 
       const pecaIdByCodigo = new Map<string, string>();
       const pecaBatches = chunkArray(pecaRows, PECA_BATCH_SIZE);
