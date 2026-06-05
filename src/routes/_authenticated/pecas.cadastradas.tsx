@@ -807,6 +807,7 @@ function PecasCadastradasPage() {
               <th className="px-3 py-2 text-left">Fita</th>
               <th className="px-3 py-2 text-center">Furos</th>
               <th className="px-3 py-2 text-center">Rasgos</th>
+              <th className="px-3 py-2 text-center">Usinag.</th>
               <th className="px-3 py-2 text-center">Bordas</th>
               <th className="px-3 py-2 text-left">Status</th>
             </tr>
