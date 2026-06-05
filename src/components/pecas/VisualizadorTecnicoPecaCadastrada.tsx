@@ -56,6 +56,7 @@ export type VisualizadorOperacao = {
   pontos_json: Array<{ x: number | null; y: number | null; profundidade: number | null; tipo?: string | null }> | null;
   confianca_parser: string;
   ordem: number;
+  dados_brutos_json?: Record<string, unknown> | null;
 };
 
 export type VisualizadorBorda = {
