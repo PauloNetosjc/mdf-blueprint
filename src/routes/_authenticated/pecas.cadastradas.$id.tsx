@@ -165,6 +165,7 @@ function PecaCadastradaDetalhe() {
         .update({
           tipo: o.tipo_operacao,
           tipo_operacao: o.tipo_operacao,
+          nome_operacao: o.nome_operacao,
           face: Number(o.face ?? 0),
           x: o.x,
           y: o.y,
@@ -172,6 +173,15 @@ function PecaCadastradaDetalhe() {
           profundidade: o.profundidade,
           largura: o.largura,
           comprimento: o.comprimento,
+          x1: o.x1,
+          x2: o.x2,
+          y1: o.y1,
+          y2: o.y2,
+          ancora_x: o.ancora_x,
+          ancora_y: o.ancora_y,
+          offset_x: o.offset_x,
+          offset_y: o.offset_y,
+          pontos_json: o.pontos_json ?? [],
         })
         .eq("id", o.id);
       if (error) throw error;
