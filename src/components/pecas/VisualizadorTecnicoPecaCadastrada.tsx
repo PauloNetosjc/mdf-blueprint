@@ -75,6 +75,38 @@ export type VisualizadorBorda = {
   cor: string | null;
 };
 
+export type ContornoOrigem = "parser_pdf" | "manual" | "fallback" | "misto";
+export type PosicaoRecuo =
+  | "superior"
+  | "superior_direito"
+  | "superior_esquerdo"
+  | "inferior"
+  | "direita"
+  | "esquerda";
+
+export type ContornoRecuo = {
+  id?: string;
+  posicao: PosicaoRecuo;
+  largura: number;
+  profundidade: number;
+  origem: ContornoOrigem;
+  preset?: string;
+  x_inicio?: number;
+  x_fim?: number;
+  y_inicio?: number;
+  y_fim?: number;
+};
+
+export type ContornoExterno = {
+  origem: ContornoOrigem;
+  largura: number;
+  altura: number;
+  pontos: Pt[];
+  recuos?: ContornoRecuo[];
+  presets_aplicados?: string[];
+  observacao?: string;
+};
+
 type Props = {
   codigo: string;
   nome?: string | null;
@@ -87,9 +119,11 @@ type Props = {
   faceAlinhamento?: string | null;
   indicadoresBorda?: string[];
   facesDetectadas?: string[];
+  contornoExterno?: ContornoExterno | null;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
+  onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
 };
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
