@@ -659,24 +659,38 @@ export function VisualizadorTecnicoPecaCadastrada({
                     }
                     return null;
                   }
+                  const isContornoExt = contornosExternosIds.has(op.id);
                   const d = pts
                     .map((p, i) => `${i === 0 ? "M" : "L"} ${margin + p.x!} ${margin + partH - p.y!}`)
                     .join(" ");
                   return (
                     <g key={op.id} onClick={(e) => { e.stopPropagation(); setOpSel(op.id); }} style={{ cursor: "pointer" }}>
-                      <path
-                        d={d + (pts.length > 2 ? " Z" : "")}
-                        fill={sel ? "color-mix(in oklab, var(--color-primary) 15%, transparent)" : "none"}
-                        stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
-                        strokeWidth={sel ? px(2.5) : px(1.8)}
-                      />
+                      {isContornoExt ? (
+                        // Contorno já integrado ao formato da peça — apenas realce/pontos editáveis
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke={sel ? "var(--color-primary)" : "transparent"}
+                          strokeWidth={sel ? px(2.5) : px(8)}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          opacity={sel ? 1 : 0.001}
+                        />
+                      ) : (
+                        <path
+                          d={d + (pts.length > 2 ? " Z" : "")}
+                          fill={sel ? "color-mix(in oklab, var(--color-primary) 15%, transparent)" : "none"}
+                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          strokeWidth={sel ? px(2.5) : px(1.8)}
+                        />
+                      )}
                       {pts.map((p, i) => (
                         <circle
                           key={i}
                           cx={margin + p.x!}
                           cy={margin + partH - p.y!}
-                          r={px(3)}
-                          fill={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                          r={px(isContornoExt && !sel ? 2.5 : 3)}
+                          fill={sel ? "var(--color-primary)" : isContornoExt ? "var(--color-muted-foreground)" : "var(--color-foreground)"}
                         />
                       ))}
                     </g>
