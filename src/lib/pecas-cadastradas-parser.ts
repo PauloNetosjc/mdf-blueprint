@@ -927,15 +927,27 @@ export function classificarStatusParser(r: ResultadoParserPDF): {
       motivo: r.classificacao.motivo,
     };
   }
-  if (r.erros.length > 0) {
-    return { status: "com_erros", motivo: r.erros[0] };
+  // Erro crítico: não conseguiu identificar código ou medidas mínimas (largura × altura)
+  if (!r.codigo) {
+    return { status: "com_erros", motivo: "Código da peça não identificado" };
   }
-  if (!r.codigo || !r.resumo.medidas_detectadas) {
+  const temMedidasMinimas = r.largura_ref != null && r.altura_ref != null;
+  if (!temMedidasMinimas) {
+    return { status: "com_erros", motivo: "Medidas mínimas (largura × altura) não detectadas" };
+  }
+  // Acima de qualquer outro erro crítico do parser
+  const errosCriticos = r.erros.filter((e) => !/medidas/i.test(e));
+  if (errosCriticos.length > 0) {
+    return { status: "com_erros", motivo: errosCriticos[0] };
+  }
+  // Engenharia parcial: tem código + medidas mas nenhuma operação encontrada
+  if (r.resumo.total_operacoes === 0) {
     return {
-      status: "pendente_revisao",
-      motivo: !r.codigo ? "Código da peça não identificado" : "Medidas incompletas",
+      status: "com_alertas",
+      motivo: "Nenhuma furação, rasgo ou usinagem encontrada.",
     };
   }
+  // Demais alertas (não críticos)
   if (r.alertas.length > 0) {
     return { status: "com_alertas", motivo: r.alertas[0] };
   }
