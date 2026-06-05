@@ -648,16 +648,16 @@ function PecasCadastradasPage() {
 
   const stats = useMemo(() => ({
     total: pecas.length,
-    ativas: pecas.filter((p) => !STATUS_INATIVOS.has(p.status_parser)).length,
-    ok: pecas.filter((p) => p.status_parser === "ok").length,
+    ativas: pecas.filter((p) => !isModulo(p)).length,
+    ok: pecas.filter((p) => p.status_parser === "ok" && !isModulo(p)).length,
     com_alerta: pecas.filter((p) => p.status_parser === "com_alertas").length,
     com_erro: pecas.filter((p) => p.status_parser === "com_erros").length,
     pendente_revisao: pecas.filter((p) => p.status_parser === "pendente_revisao").length,
-    ignorado_modulo: pecas.filter((p) => p.status_parser === "ignorado_modulo").length,
+    ignorado_modulo: pecas.filter((p) => isModulo(p)).length,
     pendente_classificacao: pecas.filter((p) => p.status_parser === "pendente_classificacao").length,
-    divisorias: pecas.filter((p) => p.prefixo === "DIV" && !STATUS_INATIVOS.has(p.status_parser)).length,
-    com_fita: pecas.filter((p) => p.fita_ref && !STATUS_INATIVOS.has(p.status_parser)).length,
-    face5: pecas.filter((p) => getCont(p.id).face5 && !STATUS_INATIVOS.has(p.status_parser)).length,
+    divisorias: pecas.filter((p) => p.prefixo === "DIV" && !isModulo(p)).length,
+    com_fita: pecas.filter((p) => p.fita_ref && !isModulo(p)).length,
+    face5: pecas.filter((p) => getCont(p.id).face5 && !isModulo(p)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [pecas, cont]);
 
