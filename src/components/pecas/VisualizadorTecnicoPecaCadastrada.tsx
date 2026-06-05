@@ -993,11 +993,13 @@ function GrupoOperacoesFace({
   ops,
   opSel,
   setOpSel,
+  contornosExternosIds,
 }: {
   titulo: string;
   ops: VisualizadorOperacao[];
   opSel: string | null;
   setOpSel: (id: string) => void;
+  contornosExternosIds?: Set<string>;
 }) {
   if (ops.length === 0) return null;
   return (
@@ -1026,6 +1028,11 @@ function GrupoOperacoesFace({
               </span>
               <Badge variant="outline" className="h-4 px-1 text-[9px]">#{o.ordem}</Badge>
             </div>
+            {contornosExternosIds?.has(o.id) && (
+              <div className="mt-1 inline-flex rounded border border-primary/40 bg-primary/10 px-1 py-0.5 text-[9px] font-semibold text-primary">
+                Contorno externo
+              </div>
+            )}
             <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
               {o.tipo_operacao === "furo" && (
                 <div>X {fmt(o.x)} | Y {fmt(o.y)} | Ø{fmt(o.diametro)} | Prof {fmt(o.profundidade)}</div>
