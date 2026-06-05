@@ -135,29 +135,10 @@ function PecaCadastradaDetalhe() {
     },
   });
 
-  // PDF: signed URL é gerada apenas quando a aba PDF Original é aberta.
+  // PDF: o componente PdfViewerPeca cuida da signed URL com cache + blob.
   useEffect(() => {
-    if (aba !== "pdf") return;
-    if (pdfUrl) return;
-    const path = peca.data?.pdf_url;
-    if (!path) return;
-    let cancel = false;
-    setPdfCarregando(true);
-    supabase.storage
-      .from("pecas-cadastradas")
-      .createSignedUrl(path, 3600)
-      .then(({ data }) => {
-        if (cancel) return;
-        setPdfUrl(data?.signedUrl ?? null);
-        setPdfCarregando(false);
-      })
-      .catch(() => {
-        if (!cancel) setPdfCarregando(false);
-      });
-    return () => {
-      cancel = true;
-    };
-  }, [aba, peca.data?.pdf_url, pdfUrl]);
+    if (aba === "pdf") setPdfTabAberta(true);
+  }, [aba]);
 
   const ehDiv = ehDivisoria(peca.data?.prefixo);
 
