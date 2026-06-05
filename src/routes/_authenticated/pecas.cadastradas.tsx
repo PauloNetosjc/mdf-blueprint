@@ -786,6 +786,7 @@ function PecasCadastradasPage() {
             <SelectItem value="ignorado_modulo">Módulos ignorados</SelectItem>
             <SelectItem value="pendente_classificacao">Pendente classificação</SelectItem>
             <SelectItem value="sem_nome">Sem nome</SelectItem>
+            <SelectItem value="com_usinagens">Com usinagens</SelectItem>
             <SelectItem value="sem_operacoes">Sem operações</SelectItem>
             <SelectItem value="sem_bordas">Sem bordas</SelectItem>
           </SelectContent>
