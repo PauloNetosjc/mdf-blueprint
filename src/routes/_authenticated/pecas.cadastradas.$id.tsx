@@ -24,6 +24,7 @@ import {
   classificarStatusParser,
 } from "@/lib/pecas-cadastradas-parser";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
+import { VisualizadorTecnicoPecaCadastrada } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
