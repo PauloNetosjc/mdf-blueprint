@@ -88,18 +88,20 @@ export function ehDivisoria(prefixo: string | null | undefined): boolean {
 
 export type FaceLabel = { face: string; nome: string };
 
+// Sem nomes físicos fixos: face é apenas o identificador local do PDF da peça.
+// Nomes amigáveis ("Fundo", "Topo Frontal" etc.) só podem vir de configuração manual.
 export const FACE_LABELS: Record<string, string> = {
-  "0": "Padrão",
-  "1": "Topo Frontal",
-  "2": "Topo Direito",
-  "3": "Topo Traseiro",
-  "4": "Topo Esquerdo",
-  "5": "Fundo",
+  "0": "Face 0",
+  "1": "Face 1",
+  "2": "Face 2",
+  "3": "Face 3",
+  "4": "Face 4",
+  "5": "Face 5",
 };
 
 export function nomeFace(face: string | null | undefined): string {
-  if (!face) return "—";
-  return FACE_LABELS[String(face)] ?? `Face ${face}`;
+  if (face == null || face === "") return "—";
+  return `Face ${face}`;
 }
 
 export type PontoUsinagem = {
