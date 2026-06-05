@@ -526,8 +526,8 @@ export function VisualizadorTecnicoPecaCadastrada({
   const contornosExternos = usinagensFace.filter((o) => ehContornoExterno(o, partW, partH));
   const contornosExternosIds = new Set(contornosExternos.map((o) => o.id));
   const outline = useMemo(
-    () => gerarOutlineDaPeca({ largura: partW, altura: partH, margem: margin, operacoesContornoExterno: contornosExternos }),
-    [contornosExternos, partW, partH, margin],
+    () => gerarPathExternoPeca({ largura: partW, altura: partH, operacoes: contornosExternos }),
+    [contornosExternos, partW, partH],
   );
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const recuoPorOpId = useMemo(() => {
@@ -537,6 +537,30 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [outline.recuos]);
   const temRecuoFallback = outline.recuos.some((r) => r.origem === "padrao_65x40");
   const contornosComFalha = outline.contornoFalhouIds.length > 0;
+  const isLat3854A = codigo.trim().toUpperCase() === "LAT3854A";
+  const lat3854AInvalida = isLat3854A && contornosExternos.some((o) => (o.nome_operacao ?? "").includes("UsinagemParametrica01")) && (
+    !outline.temContornoExterno ||
+    !outline.temContornoAplicado ||
+    !outline.pathSvg.includes("371.5 0") ||
+    !outline.pathSvg.includes("371.5 40") ||
+    !outline.pathSvg.includes("291.5 40") ||
+    !outline.pathSvg.includes("291.5 0")
+  );
+  const erroPathReal = (outline.temContornoExterno && !outline.temContornoAplicado) || lat3854AInvalida;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (!isLat3854A) return;
+    console.info("[GEOMETRIA PECA]", {
+      codigo,
+      largura: partW,
+      altura: partH,
+      temContornoExterno: outline.temContornoExterno,
+      pathSvg: outline.pathSvg,
+      pontosTecnicos: outline.pontosTecnicos,
+      contornosAplicados: outline.contornosAplicados,
+    });
+  }, [codigo, isLat3854A, outline.pathSvg, outline.temContornoExterno, partW, partH, outline.pontosTecnicos, outline.contornosAplicados]);
 
   return (
     <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
