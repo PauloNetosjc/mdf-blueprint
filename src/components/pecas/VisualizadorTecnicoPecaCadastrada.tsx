@@ -779,6 +779,11 @@ export function VisualizadorTecnicoPecaCadastrada({
                 return (
                   <>
                     <Linha k="Tipo" v={opSelObj.tipo_operacao} />
+                    {contornosExternosIds.has(opSelObj.id) && (
+                      <div className="my-1 inline-flex items-center rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        Altera contorno externo da peça
+                      </div>
+                    )}
                     {opSelObj.nome_operacao && <Linha k="Nome" v={opSelObj.nome_operacao} />}
                     <Linha k="Face" v={String(opSelObj.face ?? "—")} />
                     {!isRasgo && opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
