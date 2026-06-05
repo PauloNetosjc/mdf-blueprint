@@ -391,54 +391,55 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
     const texto = linha.texto;
     const numericLinha = isNumericCells(linha.cels);
 
-    // 1) Cabeçalhos de seção (têm prioridade e nunca são linhas numéricas)
-    if (!numericLinha) {
-      if (RE_FURACAO.test(texto)) {
-        flushUsinagem();
-        modo = "furo";
-        continue;
-      }
-      if (RE_RASGOS.test(texto)) {
-        flushUsinagem();
-        modo = "rasgo";
-        continue;
-      }
-      if (RE_USINAGENS_SECAO.test(texto) && !RE_USINAGEM_ENTRADA.test(texto)) {
-        flushUsinagem();
-        modo = "usinagem";
-        continue;
-      }
-      // 2) Entrada individual de usinagem (ex.: "UsinagemParametrica01 - Contorno")
-      if (RE_USINAGEM_ENTRADA.test(texto)) {
-        flushUsinagem();
-        modo = "usinagem";
-        const isContorno = /contorno/i.test(texto);
-        usinagemAtual = {
-          tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
-          nome_operacao: texto.replace(/\s+/g, " ").trim().slice(0, 120),
-          face: faceCtx.get(i) || null,
-          x: null,
-          y: null,
-          z: null,
-          diametro: null,
-          profundidade: null,
-          largura: null,
-          comprimento: null,
-          x1: null,
-          x2: null,
-          y1: null,
-          y2: null,
-          ordem: ordem++,
-          ancora_x: null,
-          ancora_y: null,
-          offset_x: null,
-          offset_y: null,
-          pontos: [],
-          confianca_parser: "alta",
-          dados_brutos: { cabecalho: texto },
-        };
-        continue;
-      }
+    // 1) Cabeçalhos de seção — testados SEMPRE (mesmo que a linha pareça numérica,
+    //    pois o cabeçalho "Rasgos Face 0" às vezes vem junto a tokens numéricos).
+    //    Ordem importa: usinagem-entrada antes de usinagens-seção antes de rasgos
+    //    antes de furação, porque "UsinagemParametrica01" também matcha usinagens
+    //    e "Rasgos" nunca matcha furação.
+    if (RE_USINAGEM_ENTRADA.test(texto)) {
+      flushUsinagem();
+      modo = "usinagem";
+      const isContorno = /contorno/i.test(texto);
+      usinagemAtual = {
+        tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
+        nome_operacao: texto.replace(/\s+/g, " ").trim().slice(0, 120),
+        face: faceCtx.get(i) || null,
+        x: null,
+        y: null,
+        z: null,
+        diametro: null,
+        profundidade: null,
+        largura: null,
+        comprimento: null,
+        x1: null,
+        x2: null,
+        y1: null,
+        y2: null,
+        ordem: ordem++,
+        ancora_x: null,
+        ancora_y: null,
+        offset_x: null,
+        offset_y: null,
+        pontos: [],
+        confianca_parser: "alta",
+        dados_brutos: { cabecalho: texto },
+      };
+      continue;
+    }
+    if (RE_USINAGENS_SECAO.test(texto)) {
+      flushUsinagem();
+      modo = "usinagem";
+      continue;
+    }
+    if (RE_RASGOS.test(texto)) {
+      flushUsinagem();
+      modo = "rasgo";
+      continue;
+    }
+    if (RE_FURACAO.test(texto)) {
+      flushUsinagem();
+      modo = "furo";
+      continue;
     }
 
     if (!modo) continue;
@@ -454,6 +455,54 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
     const face: string | null = faceFromCtx || faceFromUsin;
 
     if (modo === "furo") {
+      // Proteção: linha de rasgo (5 números) ou diâmetro absurdo (>100mm) NÃO é furo.
+      const diamCandidato = valores[2] ?? null;
+      if (valores.length >= 5 || (diamCandidato != null && diamCandidato > 100)) {
+        // Reinterpreta como rasgo (Y, X1, X2, Larg, Prof).
+        const [y, x1, x2, larg, prof] = [
+          valores[0],
+          valores[1],
+          valores[2],
+          valores[3] ?? null,
+          valores[4] ?? null,
+        ];
+        ops.push({
+          tipo_operacao: "rasgo",
+          nome_operacao: null,
+          face,
+          x: (x1 + x2) / 2,
+          y,
+          z: null,
+          diametro: null,
+          profundidade: prof,
+          largura: larg,
+          comprimento: Math.abs(x2 - x1),
+          x1,
+          x2,
+          y1: null,
+          y2: null,
+          ordem: ordem++,
+          ancora_x: null,
+          ancora_y: null,
+          offset_x: null,
+          offset_y: null,
+          pontos: [],
+          confianca_parser: "media",
+          dados_brutos: {
+            linha: linha.texto,
+            valores,
+            alerta:
+              valores.length >= 5
+                ? "Linha com 5 números interpretada como rasgo (estava em modo furo)."
+                : `Possível rasgo interpretado como furo. Diâmetro muito alto: ${diamCandidato}.`,
+            reinterpretado_de: "furo",
+          },
+        });
+        // A presença de uma linha de rasgo dentro de "furo" indica que provavelmente
+        // já mudamos de seção sem cabeçalho explícito.
+        modo = "rasgo";
+        continue;
+      }
       const [x, y, diam, prof] = [valores[0], valores[1], valores[2] ?? null, valores[3] ?? null];
       ops.push({
         tipo_operacao: "furo",
