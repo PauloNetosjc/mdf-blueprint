@@ -587,16 +587,28 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [operacoes]);
 
   const faces = useMemo(() => {
-    const s = new Set<string>([
-      ...FACES_PADRAO,
-      ...opsPorFace.keys(),
+    const facesComOperacao = Array.from(opsPorFace.keys()).filter((f) => f !== "—");
+    const facesVisuais = [
+      ...(facesLayout?.faces ?? []).map((f) => String(f.face)),
       ...facesDetectadas.map(String),
-    ]);
+    ];
+    const s = new Set<string>(
+      geometriaComplexa && facesComOperacao.length > 0
+        ? facesComOperacao
+        : geometriaComplexa
+        ? [...facesComOperacao, ...facesVisuais]
+        : [...FACES_PADRAO, ...facesComOperacao, ...facesVisuais],
+    );
     s.delete("—");
     return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [opsPorFace, facesDetectadas]);
+  }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
-  const [faceSel, setFaceSel] = useState<string>(faces[0] ?? "0");
+  const faceInicial = useMemo(() => {
+    if (!geometriaComplexa) return faces[0] ?? "0";
+    return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
+  }, [faces, geometriaComplexa, opsPorFace]);
+
+  const [faceSel, setFaceSel] = useState<string>(faceInicial);
   const [opSel, setOpSel] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
@@ -606,6 +618,13 @@ export function VisualizadorTecnicoPecaCadastrada({
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
+
+  useEffect(() => {
+    if (!faces.includes(faceSel)) {
+      setFaceSel(faceInicial);
+      setOpSel(null);
+    }
+  }, [faceInicial, faces, faceSel]);
 
   const facesLayoutMap = useMemo(() => {
     const m = new Map<string, FaceLayoutEntry>();
@@ -981,6 +1000,8 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesDetectadas={facesDetectadas}
               contornoExterno={contornoExterno}
               facesLayout={facesLayout}
+              geometriaComplexa={geometriaComplexa}
+              geometriaComplexaMotivos={geometriaComplexaMotivos}
               onAddOperacao={onAddOperacao}
               onEditOperacao={onEditOperacao}
               onDeleteOperacao={onDeleteOperacao}
@@ -1291,6 +1312,25 @@ export function VisualizadorTecnicoPecaCadastrada({
                   );
                 }
                 if (op.tipo_operacao === "rasgo") {
+                  if (op.y1 != null && op.y2 != null) {
+                    const x1 = op.x1 ?? op.x ?? 0;
+                    const x2 = op.x2 ?? op.x ?? x1;
+                    const larg = Math.max(op.largura ?? 6, minHoleR * 1.5);
+                    return (
+                      <g key={op.id} onClick={(e) => { e.stopPropagation(); setOpSel(op.id); }} style={{ cursor: "pointer" }}>
+                        <line
+                          x1={margin + x1}
+                          y1={margin + partH - op.y1}
+                          x2={margin + x2}
+                          y2={margin + partH - op.y2}
+                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          strokeWidth={larg}
+                          strokeLinecap="round"
+                          opacity={0.85}
+                        />
+                      </g>
+                    );
+                  }
                   const y = op.y ?? 0;
                   const x1 = op.x1 ?? op.x ?? 0;
                   const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
@@ -1466,6 +1506,26 @@ export function VisualizadorTecnicoPecaCadastrada({
                             );
                           }
                           if (op.tipo_operacao === "rasgo") {
+                            if (op.y1 != null && op.y2 != null) {
+                              const x1 = op.x1 ?? op.x ?? 0;
+                              const x2 = op.x2 ?? op.x ?? x1;
+                              const larg = Math.max(op.largura ?? 6, px(3));
+                              return (
+                                <line
+                                  key={op.id}
+                                  x1={bx + x1}
+                                  y1={by + box.h - op.y1}
+                                  x2={bx + x2}
+                                  y2={by + box.h - op.y2}
+                                  stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                  strokeWidth={larg}
+                                  strokeLinecap="round"
+                                  opacity={0.85}
+                                  onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                  style={{ cursor: "pointer" }}
+                                />
+                              );
+                            }
                             const y = op.y ?? 0;
                             const x1 = op.x1 ?? op.x ?? 0;
                             const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
@@ -1656,7 +1716,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     {!isRasgo && opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
                     {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
                     {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
+                    {opSelObj.y1 != null && <Linha k="Y1" v={String(opSelObj.y1)} />}
                     {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
+                    {opSelObj.y2 != null && <Linha k="Y2" v={String(opSelObj.y2)} />}
                     {!isRasgo && opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
                     {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
                     {!isRasgo && opSelObj.comprimento != null && (

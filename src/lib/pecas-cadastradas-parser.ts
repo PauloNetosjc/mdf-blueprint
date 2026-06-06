@@ -660,8 +660,8 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         const distancia = Math.hypot(x2 - x1, y2 - y1);
         const valido =
           distancia > 0 &&
-          larg > 0 && larg <= 100 &&
-          prof != null && prof > 0 && prof <= 100;
+          larg >= 1 && larg <= 100 &&
+          prof != null && prof >= 1 && prof <= 100;
         if (!valido) {
           logRasgo("erro_validacao_linha", { valoresInterpretados: v });
           continue;

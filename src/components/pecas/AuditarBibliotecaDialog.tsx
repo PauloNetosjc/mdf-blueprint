@@ -84,7 +84,7 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
       const [{ data: ops, error: eOps }, { data: brds, error: eBrds }] = await Promise.all([
         db
           .from("peca_cadastrada_operacoes")
-          .select("peca_cadastrada_id,tipo,face,x,y,diametro,x1,x2,largura,profundidade")
+          .select("peca_cadastrada_id,tipo,face,x,y,diametro,x1,x2,y1,y2,largura,profundidade")
           .in("peca_cadastrada_id", safeIds),
         db
           .from("peca_cadastrada_bordas")
@@ -103,6 +103,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         diametro: number | null;
         x1: number | null;
         x2: number | null;
+        y1: number | null;
+        y2: number | null;
         largura: number | null;
         profundidade: number | null;
       };
@@ -302,7 +304,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         for (const r of rasgos) {
           const x1 = r.x1 ?? 0;
           const x2 = r.x2 ?? 0;
-          if (x2 <= x1) {
+          const ehRasgoLinha = r.y1 != null && r.y2 != null;
+          if (!ehRasgoLinha && x2 <= x1) {
             achados.push({
               tipo: "rasgo_x2_menor_x1",
               severidade: "erro",

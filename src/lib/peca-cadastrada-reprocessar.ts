@@ -61,12 +61,6 @@ function ehOperacaoManual(op: { dados_brutos_json?: Record<string, unknown> | nu
   return !("linha" in d || "valores" in d || "valores_interpretados" in d || "sectionAtual" in d);
 }
 
-function ehBordaManual(b: { dados_brutos_json?: Record<string, unknown> | null }): boolean {
-  const d = b.dados_brutos_json;
-  if (!d || typeof d !== "object") return false;
-  return (d as Record<string, unknown>).origem === "manual";
-}
-
 async function baixarPdf(pdfPath: string, nome: string): Promise<File> {
   const { data: signed, error } = await supabase.storage
     .from("pecas-cadastradas")
@@ -104,7 +98,7 @@ export async function reprocessarParserDePeca(
   // Contagens anteriores
   const [{ data: opsAnt }, { data: brdAnt }] = await Promise.all([
     db.from("peca_cadastrada_operacoes").select("id,tipo,dados_brutos_json").eq("peca_cadastrada_id", pecaId),
-    db.from("peca_cadastrada_bordas").select("id,dados_brutos_json").eq("peca_cadastrada_id", pecaId),
+    db.from("peca_cadastrada_bordas").select("id").eq("peca_cadastrada_id", pecaId),
   ]);
   const anterior = {
     furos: ((opsAnt ?? []) as { tipo: string }[]).filter((o) => o.tipo === "furo").length,
@@ -254,9 +248,7 @@ export async function reprocessarParserDePeca(
       .in("id", opsParaApagar);
     if (errDel) throw errDel;
   }
-  const bordasParaApagar = ((brdAnt ?? []) as { id: string; dados_brutos_json: Record<string, unknown> | null }[])
-    .filter((b) => sobrescreverManual || !ehBordaManual(b))
-    .map((b) => b.id);
+  const bordasParaApagar = ((brdAnt ?? []) as { id: string }[]).map((b) => b.id);
   if (bordasParaApagar.length) {
     const { error: errDelB } = await db
       .from("peca_cadastrada_bordas")
@@ -316,7 +308,6 @@ export async function reprocessarParserDePeca(
       indicador_desenho: b.indicador_desenho,
       confianca_parser: b.confianca_parser,
       tem_fita: true,
-      dados_brutos_json: { origem: "parser" },
     }));
     const { error: errB } = await db.from("peca_cadastrada_bordas").insert(bordasRows);
     if (errB) throw errB;
