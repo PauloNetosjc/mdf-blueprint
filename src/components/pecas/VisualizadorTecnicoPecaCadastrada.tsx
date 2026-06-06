@@ -587,16 +587,28 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [operacoes]);
 
   const faces = useMemo(() => {
-    const s = new Set<string>([
-      ...FACES_PADRAO,
-      ...opsPorFace.keys(),
+    const facesComOperacao = Array.from(opsPorFace.keys()).filter((f) => f !== "—");
+    const facesVisuais = [
+      ...(facesLayout?.faces ?? []).map((f) => String(f.face)),
       ...facesDetectadas.map(String),
-    ]);
+    ];
+    const s = new Set<string>(
+      geometriaComplexa && facesComOperacao.length > 0
+        ? facesComOperacao
+        : geometriaComplexa
+        ? [...facesComOperacao, ...facesVisuais]
+        : [...FACES_PADRAO, ...facesComOperacao, ...facesVisuais],
+    );
     s.delete("—");
     return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [opsPorFace, facesDetectadas]);
+  }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
-  const [faceSel, setFaceSel] = useState<string>(faces[0] ?? "0");
+  const faceInicial = useMemo(() => {
+    if (!geometriaComplexa) return faces[0] ?? "0";
+    return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
+  }, [faces, geometriaComplexa, opsPorFace]);
+
+  const [faceSel, setFaceSel] = useState<string>(faceInicial);
   const [opSel, setOpSel] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
@@ -606,6 +618,13 @@ export function VisualizadorTecnicoPecaCadastrada({
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
+
+  useEffect(() => {
+    if (!faces.includes(faceSel)) {
+      setFaceSel(faceInicial);
+      setOpSel(null);
+    }
+  }, [faceInicial, faces, faceSel]);
 
   const facesLayoutMap = useMemo(() => {
     const m = new Map<string, FaceLayoutEntry>();
