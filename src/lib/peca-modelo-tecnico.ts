@@ -88,6 +88,12 @@ export const BordaModeloSchema = z.object({
 });
 export type BordaModelo = z.infer<typeof BordaModeloSchema>;
 
+const FaceOperacionalSchema = z.object({ face: z.string() });
+const FaceVisualSchema = z.object({
+  face: z.string(),
+  tipo_vista: z.string().optional(),
+});
+
 export const ModeloTecnicoSchema = z.object({
   versao: z.literal(1).default(1),
   codigo: z.string(),
@@ -103,6 +109,8 @@ export const ModeloTecnicoSchema = z.object({
   face_alinhamento: z.string().nullable().optional().default(null),
   geometria: GeometriaSchema,
   faces: z.array(z.object({ face: z.string() })).default([]),
+  faces_operacionais: z.array(FaceOperacionalSchema).default([]),
+  faces_visuais: z.array(FaceVisualSchema).default([]),
   operacoes: z.array(OperacaoModeloSchema).default([]),
   bordas: z.array(BordaModeloSchema).default([]),
   avisos: z.array(z.string()).default([]),
