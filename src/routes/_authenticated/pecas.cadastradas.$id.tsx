@@ -340,8 +340,6 @@ function PecaCadastradaDetalhe() {
   });
 
   // ---------- Modelo Técnico Canônico (exportar / importar / G-code) ----------
-  const importFileRef = useState<HTMLInputElement | null>(null);
-  // useState para o input para poder resetar; usamos closure simples abaixo.
 
   const importarModelo = useMutation({
     mutationFn: async (jsonText: string) => importarModeloTecnicoJson(id, jsonText),
