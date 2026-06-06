@@ -555,7 +555,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     }
 
     // 2) Face ativa — antes de processar valores da seção.
-    const faceMatch = texto.match(/\b(?:face|lado)\s*([0-5])\b/i);
+    const faceMatch = texto.match(/\b(?:face|lado)\s*(\d{1,2})\b/i);
     if (faceMatch) {
       faceAtual = faceMatch[1];
       if (sectionAtual === "rasgo") logRasgo("ignorado_header");
