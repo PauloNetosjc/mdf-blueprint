@@ -438,7 +438,7 @@ export async function reprocessarParserDePeca(
   // Se o modelo tem contorno paramétrico/válido (ex.: Base L), publica também
   // como contorno_externo_json para o visualizador desenhar o polígono real.
   if (
-    !contornoEhManual &&
+    (!contornoEhManual || modeloTecnico.geometria.tipo === "L") &&
     !modeloTecnico.geometria.pendente &&
     modeloTecnico.geometria.tipo !== "retangular"
   ) {
