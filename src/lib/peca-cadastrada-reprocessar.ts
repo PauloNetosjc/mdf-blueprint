@@ -372,8 +372,6 @@ export async function reprocessarParserDePeca(
   // não deixar pontos_contorno vazio.
   {
     const geom = modeloTecnico.geometria;
-    const precisaFallback =
-      geom.pendente || !geom.pontos_contorno || geom.pontos_contorno.length < 3;
     const nomeUpper2 = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
     const prefixo = result.codigo?.prefixo ?? null;
     const facesDetectadas2 = result.resumo?.faces_com_operacao?.length ?? 0;
@@ -385,50 +383,42 @@ export async function reprocessarParserDePeca(
       nomeUpper2.startsWith("BAS") ||
       facesDetectadas2 > 5 ||
       temRasgoLinha2;
+    const precisaFallback =
+      geom.pendente ||
+      geom.tipo === "retangular" ||
+      !geom.pontos_contorno ||
+      geom.pontos_contorno.length < (ehBaseLDetectada ? 6 : 3);
     const L = result.largura_ref;
     const H = result.altura_ref;
     if (precisaFallback && ehBaseLDetectada && L && H) {
       const opsModelo = modeloTecnico.operacoes;
       const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
-      if (resultado.escolhido) {
-        modeloTecnico.geometria = {
-          ...geom,
-          tipo: "L",
-          origem: "regra_base_l_inferior_validada_por_operacoes",
-          largura: L,
-          altura: H,
-          pontos_contorno: resultado.escolhido.pontos,
-          confianca: "media",
-          pendente: false,
-        };
-        modeloTecnico.avisos = [
-          ...modeloTecnico.avisos.filter(
-            (a) => !a.includes("Importe um modelo técnico JSON"),
-          ),
-          `Geometria em L escolhida por validação (${resultado.escolhido.nome}). Conferir antes de enviar à máquina.`,
-        ];
-      } else {
-        // Nenhum candidato segura todas as operações dentro.
-        modeloTecnico.geometria = {
-          ...geom,
-          tipo: "L",
-          origem: "regra_base_l_inferior_validada_por_operacoes",
-          largura: L,
-          altura: H,
-          pontos_contorno: [],
-          confianca: "baixa",
-          pendente: true,
-        };
-        modeloTecnico.avisos = [
-          ...modeloTecnico.avisos,
-          resultado.motivo,
-        ];
-      }
+      const contornoL = gerarContornoBaseLInferior(L, H);
+      const candidatoVisual = resultado.candidatos.find(
+        (c) => JSON.stringify(c.pontos) === JSON.stringify(contornoL),
+      );
+      modeloTecnico.geometria = {
+        ...geom,
+        tipo: "L",
+        origem: "regra_base_l_inferior",
+        largura: L,
+        altura: H,
+        pontos_contorno: contornoL,
+        confianca: "media",
+        pendente: false,
+      };
+      modeloTecnico.avisos = [
+        ...modeloTecnico.avisos.filter(
+          (a) => !a.includes("Importe um modelo técnico JSON"),
+        ),
+        `Geometria em L gerada por regra técnica Base L Inferior (${candidatoVisual?.nome ?? "BR_visual_pdf"}). Conferir antes de enviar à máquina.`,
+      ];
       dadosBrutosFinal.contorno_base_l_diagnostico = {
         em: new Date().toISOString(),
         largura: L,
         altura: H,
-        escolhido: resultado.escolhido?.nome ?? null,
+        escolhido: candidatoVisual?.nome ?? "BR_visual_pdf",
+        escolhido_por: "forma_visual_do_pdf",
         motivo: resultado.motivo,
         candidatos: resultado.candidatos.map((c) => ({
           nome: c.nome,
