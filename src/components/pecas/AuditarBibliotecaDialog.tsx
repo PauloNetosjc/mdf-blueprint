@@ -339,7 +339,19 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         }
 
         // ─── 7. Sem contorno_externo_json ───────────────────────────────────
-        if (ehPecaIndividual && !temContorno) {
+        const geometriaComplexa = Boolean(dados.geometria_complexa);
+        const motivosComplexa = Array.isArray(dados.geometria_complexa_motivos)
+          ? (dados.geometria_complexa_motivos as string[])
+          : [];
+        if (geometriaComplexa) {
+          achados.push({
+            tipo: "geometria_complexa",
+            severidade: "alerta",
+            detalhe: `Peça com geometria complexa (não-retangular)${motivosComplexa.length ? ": " + motivosComplexa.join("; ") : ""}.`,
+            sugestao: "Usar modo 'Desenho original do PDF' no visualizador. Não validar como retângulo simples.",
+          });
+        }
+        if (ehPecaIndividual && !temContorno && !geometriaComplexa) {
           achados.push({
             tipo: "peca_sem_contorno_externo",
             severidade: "erro",
