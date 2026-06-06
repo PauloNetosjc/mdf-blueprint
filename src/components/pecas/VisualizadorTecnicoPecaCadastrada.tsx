@@ -791,10 +791,16 @@ export function VisualizadorTecnicoPecaCadastrada({
     [contornosExternos, partW, partH],
   );
   const podeUsarContornoSalvo = faceSel === "0" || faceSel === "5";
-  const contornoSalvo = useMemo(
-    () => podeUsarContornoSalvo ? contornoExternoValido(contornoExterno) : null,
-    [contornoExterno, podeUsarContornoSalvo],
-  );
+  const contornoSalvo = useMemo(() => {
+    if (!podeUsarContornoSalvo) return null;
+    const c = contornoExternoValido(contornoExterno);
+    if (!c) return null;
+    // Ignora contorno salvo se as dimensões não baterem com a face atual
+    // (ex.: contorno salvo em 460x219 mas face renderizada em 219x460)
+    const tol = 0.5;
+    if (Math.abs(c.largura - partW) > tol || Math.abs(c.altura - partH) > tol) return null;
+    return c;
+  }, [contornoExterno, podeUsarContornoSalvo, partW, partH]);
   const outline = useMemo(() => {
     if (contornoSalvo) {
       const pontosTecnicos = contornoSalvo.pontos;
