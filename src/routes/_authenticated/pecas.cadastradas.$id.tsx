@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw } from "lucide-react";
+import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw, Download, Upload, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,6 +32,12 @@ import {
   getTipoPecaPorPrefixo,
 } from "@/lib/pecas-cadastradas-parser";
 import { reprocessarParserDePeca } from "@/lib/peca-cadastrada-reprocessar";
+import {
+  exportarModeloTecnicoJson,
+  importarModeloTecnicoJson,
+  podeGerarGcode,
+  type ModeloTecnicoJson,
+} from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
