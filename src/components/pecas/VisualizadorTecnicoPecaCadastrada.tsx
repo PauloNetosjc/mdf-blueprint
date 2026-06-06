@@ -1004,6 +1004,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesLayout={facesLayout}
               geometriaComplexa={geometriaComplexa}
               geometriaComplexaMotivos={geometriaComplexaMotivos}
+              operacoesForaContorno={operacoesForaContorno}
               onAddOperacao={onAddOperacao}
               onEditOperacao={onEditOperacao}
               onDeleteOperacao={onDeleteOperacao}
