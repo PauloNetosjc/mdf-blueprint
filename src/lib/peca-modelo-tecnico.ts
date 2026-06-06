@@ -32,6 +32,7 @@ export const GeometriaOrigemSchema = z.enum([
   "pdf_visual",
   "pdf_visual_calibrado",
   "pdf_raster_calibrado",
+  "contorno_tecnico_pdf",
   "regra_parametrica",
   "regra_base_l_inferior",
   "regra_base_l_inferior_validada_por_operacoes",
