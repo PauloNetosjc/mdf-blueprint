@@ -75,7 +75,7 @@ export function ReprocessarParserErrosDialog({ open, onOpenChange, onConcluido }
   }
 
   // Carrega quando abrir
-  useMemo(() => {
+  useEffect(() => {
     if (open && !rodando) {
       void abrir();
     }
