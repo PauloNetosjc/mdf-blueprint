@@ -97,6 +97,10 @@ export const FACE_LABELS: Record<string, string> = {
   "3": "Face 3",
   "4": "Face 4",
   "5": "Face 5",
+  "6": "Face 6",
+  "7": "Face 7",
+  "8": "Face 8",
+  "9": "Face 9",
 };
 
 export function nomeFace(face: string | null | undefined): string {
@@ -387,13 +391,12 @@ function extrairNumerosOperacao(texto: string): number[] {
 function linhaPareceNumerica(texto: string, minNumeros: number): boolean {
   const nums = extrairNumerosTexto(texto);
   if (nums.length < minNumeros) return false;
-  // Remove números e rótulos comuns de tabela técnica e checa se sobra texto.
   const limpo = texto
     .replace(/-?\d+(?:[.,]\d+)?/g, " ")
-    .replace(/\b(Y|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*[0-5])\b/gi, " ")
+    .replace(/\b(Y1?|Y2|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*\d{1,2})\b/gi, " ")
     .replace(/[:;,.\-()\[\]]/g, " ")
     .trim();
-  return limpo.length <= 3; // tolera 1-3 caracteres residuais
+  return limpo.length <= 3;
 }
 
 function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
@@ -401,12 +404,11 @@ function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
 }
 
 function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
-  // Map<indiceLinha, faceAtiva>
   const out = new Map<number, string>();
   let faceAtual = "";
   for (let i = 0; i < linhas.length; i++) {
     const t = linhas[i].texto.toLowerCase();
-    const m = t.match(/\b(?:face|lado)\s*([0-5])\b/);
+    const m = t.match(/\b(?:face|lado)\s*(\d{1,2})\b/);
     if (m) faceAtual = m[1];
     out.set(i, faceAtual);
   }
@@ -557,7 +559,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     }
 
     // 2) Face ativa — antes de processar valores da seção.
-    const faceMatch = texto.match(/\b(?:face|lado)\s*([0-5])\b/i);
+    const faceMatch = texto.match(/\b(?:face|lado)\s*(\d{1,2})\b/i);
     if (faceMatch) {
       faceAtual = faceMatch[1];
       if (sectionAtual === "rasgo") logRasgo("ignorado_header");
@@ -587,7 +589,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     const minNumeros = sectionAtual === "rasgo" ? 5 : sectionAtual === "furacao" ? 4 : 3;
     const numericLinha =
       isNumericCells(linha.cels) || linhaPareceNumerica(linha.texto, minNumeros);
-    const ehHeaderTabela = /\b(Y|X1|X2|Larg\.?|Prof\.?|Diam\.?)\b/i.test(texto) && valores.length < minNumeros;
+    const ehHeaderTabela = /\b(Y1?|Y2|X1?|X2|Larg\.?|Prof\.?|Diam\.?)\b/i.test(texto) && valores.length < minNumeros;
     if ((!numericLinha && valores.length < minNumeros) || ehHeaderTabela) {
       if (sectionAtual === "rasgo") logRasgo(ehHeaderTabela ? "ignorado_header" : "descartado");
       continue;
@@ -648,6 +650,53 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         logRasgo("descartado");
         continue;
       }
+      // Dois formatos suportados:
+      //  - rasgo horizontal: Y X1 X2 Larg Prof  (5 números)
+      //  - rasgo por linha:  X1 Y1 X2 Y2 Larg Prof (6 números)
+      // Se houver >=6 números, interpretamos como rasgo_linha (preserva vertical, diagonais etc).
+      if (valores.length >= 6) {
+        const v = ultimosValoresNumericos(valores, 6);
+        const [x1, y1, x2, y2, larg, prof] = v;
+        const distancia = Math.hypot(x2 - x1, y2 - y1);
+        const valido =
+          distancia > 0 &&
+          larg > 0 && larg <= 100 &&
+          prof != null && prof > 0 && prof <= 100;
+        if (!valido) {
+          logRasgo("erro_validacao_linha", { valoresInterpretados: v });
+          continue;
+        }
+        ops.push({
+          tipo_operacao: "rasgo",
+          nome_operacao: "rasgo_linha",
+          face,
+          x: (x1 + x2) / 2,
+          y: (y1 + y2) / 2,
+          z: null,
+          diametro: null,
+          profundidade: prof,
+          largura: larg,
+          comprimento: distancia,
+          x1, x2, y1, y2,
+          ordem: ordem++,
+          ancora_x: null,
+          ancora_y: null,
+          offset_x: null,
+          offset_y: null,
+          pontos: [],
+          confianca_parser: "alta",
+          dados_brutos: {
+            linha: linha.texto,
+            sectionAtual: "rasgo",
+            faceAtual: face,
+            valores,
+            valores_interpretados: v,
+            subtipo: "rasgo_linha",
+          },
+        });
+        logRasgo("criado_rasgo_linha", { valoresInterpretados: v });
+        continue;
+      }
       const valoresRasgo = ultimosValoresNumericos(valores, 5);
       const [y, x1, x2, larg, prof] = [
         valoresRasgo[0],
@@ -683,7 +732,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         offset_y: null,
         pontos: [],
         confianca_parser: "alta",
-        dados_brutos: { linha: linha.texto, sectionAtual: "rasgo", faceAtual: face, valores, valores_interpretados: valoresRasgo },
+        dados_brutos: { linha: linha.texto, sectionAtual: "rasgo", faceAtual: face, valores, valores_interpretados: valoresRasgo, subtipo: "rasgo_horizontal" },
       });
       logRasgo("criado_rasgo", { valoresInterpretados: valoresRasgo });
     } else if (sectionAtual === "usinagem") {
@@ -906,17 +955,17 @@ export function extrairFacesVisuais(linhas: Linha[]): {
 } {
   const faces = new Set<string>();
   for (const l of linhas) {
-    const matches = l.texto.match(/\b(?:face|lado)\s*([0-5])\b/gi);
+    const matches = l.texto.match(/\b(?:face|lado)\s*(\d{1,2})\b/gi);
     if (matches) {
       for (const m of matches) {
-        const n = m.match(/([0-5])/);
+        const n = m.match(/(\d{1,2})/);
         if (n) faces.add(n[1]);
       }
     }
   }
   const counts = new Map<string, number>();
   for (const l of linhas) {
-    const m = l.texto.trim().match(/^([0-5])$/);
+    const m = l.texto.trim().match(/^(\d{1,2})$/);
     if (m) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
   }
   let principal: string | null = null;
@@ -1255,6 +1304,32 @@ export async function parseTechnicalDrawingPdf(
       if (b1MultiplosLados) {
         alertas.push("B1 detectado em múltiplos lados. Revisar lados se necessário.");
       }
+      // Geometria complexa: a peça NÃO pode ser reduzida a um retângulo simples.
+      // Critérios (qualquer um basta):
+      //  - faces detectadas acima de F5 (ex: Face 7 em Base L);
+      //  - prefixo BAS + nome contendo "Base L";
+      //  - existência de rasgo no formato X1/Y1/X2/Y2 (subtipo rasgo_linha);
+      //  - nome amigável contém "Base L" / "L Inferior".
+      const facesAcimaDe5 = facesVisuais.faces_detectadas
+        .map((f) => Number(f))
+        .filter((n) => Number.isFinite(n) && n > 5);
+      const temRasgoLinha = operacoes.some(
+        (o) => o.tipo_operacao === "rasgo" && o.y1 != null && o.y2 != null,
+      );
+      const nomeMin = (nome_peca ?? "").toLowerCase();
+      const ehBaseL =
+        (codigo?.prefixo === "BAS" && /\bbase\s*l\b|l\s*inferior|l\s*superior/i.test(nomeMin)) ||
+        /\bbase\s*l\b/i.test(nomeMin);
+      const motivos: string[] = [];
+      if (facesAcimaDe5.length > 0) motivos.push(`faces > F5 detectadas: ${facesAcimaDe5.join(", ")}`);
+      if (temRasgoLinha) motivos.push("rasgo no formato X1/Y1/X2/Y2 (rasgo_linha)");
+      if (ehBaseL) motivos.push("peça do tipo Base L");
+      const geometriaComplexa = motivos.length > 0;
+      if (geometriaComplexa) {
+        alertas.push(
+          `Geometria complexa detectada — visualize o desenho original do PDF antes de gerar CNC (${motivos.join("; ")}).`,
+        );
+      }
       return {
         total_linhas: linhas.length,
         face_alinhamento: faceAlinhamento?.letra ?? null,
@@ -1266,6 +1341,8 @@ export async function parseTechnicalDrawingPdf(
         b1_multiplos_lados: b1MultiplosLados,
         faces_detectadas: facesVisuais.faces_detectadas,
         face_principal_visual: facesVisuais.face_principal_visual,
+        geometria_complexa: geometriaComplexa,
+        geometria_complexa_motivos: motivos,
       };
     })(),
     classificacao,
@@ -1312,7 +1389,7 @@ export function classificarDocumentoPdf(
 
   // Sinais de peça individual
   const faces_detectadas: number[] = [];
-  for (let i = 0; i <= 5; i++) {
+  for (let i = 0; i <= 12; i++) {
     if (new RegExp(`\\b(?:face|lado)\\s*${i}\\b`, "i").test(textoCompleto)) {
       faces_detectadas.push(i);
     }

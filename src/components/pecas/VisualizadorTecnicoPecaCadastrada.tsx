@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, FileWarning, Pencil, Plus, Trash2 } from "lucide-react";
+import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
 
@@ -135,6 +136,12 @@ type Props = {
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
   facesLayout?: FacesLayoutJson | null;
+  // Camada nova: PDF original como referência visual fiel.
+  pecaId?: string;
+  pdfStoragePath?: string | null;
+  pdfNomeArquivo?: string | null;
+  geometriaComplexa?: boolean;
+  geometriaComplexaMotivos?: string[];
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
@@ -555,11 +562,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   facesDetectadas = [],
   contornoExterno,
   facesLayout,
+  pecaId,
+  pdfStoragePath,
+  pdfNomeArquivo,
+  geometriaComplexa,
+  geometriaComplexaMotivos = [],
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
   onSaveContorno,
 }: Props) {
+  const [modoVisual, setModoVisual] = useState<"engenharia" | "pdf" | "comparar">(
+    geometriaComplexa && pdfStoragePath && pecaId ? "comparar" : "engenharia",
+  );
+  const podeMostrarPdf = !!(pdfStoragePath && pecaId);
   const opsPorFace = useMemo(() => {
     const m = new Map<string, VisualizadorOperacao[]>();
     for (const o of operacoes) {
@@ -764,10 +780,12 @@ export function VisualizadorTecnicoPecaCadastrada({
       if (pontos.some((p) => p.x < 0 || p.x > partW || p.y < 0 || p.y > partH)) a.push("Pontos fora da peça");
     }
     if (o.tipo_operacao === "rasgo") {
+      const ehRasgoLinha = o.y1 != null && o.y2 != null;
       if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
       if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
-      if (o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
-      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      // rasgo_linha (X1/Y1/X2/Y2) permite x1 == x2 (vertical) e x2 < x1 (diagonal invertida).
+      if (!ehRasgoLinha && o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
+      if (!ehRasgoLinha && o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
       if (o.largura != null && o.largura <= 0) a.push("Largura inválida");
       if (espessura != null && o.profundidade != null && o.profundidade > espessura)
         a.push("Profundidade > espessura");
@@ -879,8 +897,111 @@ export function VisualizadorTecnicoPecaCadastrada({
     });
   }, [codigo, isLat3854A, outline.pathSvg, outline.temContornoExterno, partW, partH, outline.pontosTecnicos, outline.contornosAplicados]);
 
+  const headerModos = (
+    <div className="flex flex-col gap-2">
+      {podeMostrarPdf && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
+          <span className="font-semibold text-muted-foreground">Modo:</span>
+          <div className="flex overflow-hidden rounded border border-border">
+            <button
+              type="button"
+              className={`px-3 py-1 text-xs transition ${modoVisual === "engenharia" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("engenharia")}
+            >
+              Engenharia interpretada
+            </button>
+            <button
+              type="button"
+              className={`border-l border-border px-3 py-1 text-xs transition ${modoVisual === "pdf" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("pdf")}
+            >
+              Desenho original do PDF
+            </button>
+            <button
+              type="button"
+              className={`border-l border-border px-3 py-1 text-xs transition ${modoVisual === "comparar" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("comparar")}
+            >
+              Comparar com PDF
+            </button>
+          </div>
+          {geometriaComplexa && (
+            <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">
+              <FileWarning className="mr-1 h-3 w-3" /> Geometria complexa
+            </Badge>
+          )}
+        </div>
+      )}
+      {geometriaComplexa && (
+        <div className="flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+          <div>
+            <strong>Geometria complexa detectada.</strong>{" "}
+            Compare com o desenho original do PDF antes de gerar CNC.
+            {geometriaComplexaMotivos.length > 0 && (
+              <span className="ml-1 text-muted-foreground">
+                ({geometriaComplexaMotivos.join("; ")})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (modoVisual === "pdf" && podeMostrarPdf && pecaId && pdfStoragePath) {
+    return (
+      <div className="space-y-3">
+        {headerModos}
+        <PdfViewerPeca pecaId={pecaId} storagePath={pdfStoragePath} nomeArquivo={pdfNomeArquivo ?? null} />
+      </div>
+    );
+  }
+
+  if (modoVisual === "comparar" && podeMostrarPdf && pecaId && pdfStoragePath) {
+    return (
+      <div className="space-y-3">
+        {headerModos}
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded border border-border bg-surface p-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Engenharia interpretada
+            </div>
+            <VisualizadorTecnicoPecaCadastrada
+              codigo={codigo}
+              nome={nome}
+              tipo={tipo}
+              largura={largura}
+              altura={altura}
+              espessura={espessura}
+              operacoes={operacoes}
+              bordas={bordas}
+              faceAlinhamento={faceAlinhamento}
+              indicadoresBorda={indicadoresBorda}
+              facesDetectadas={facesDetectadas}
+              contornoExterno={contornoExterno}
+              facesLayout={facesLayout}
+              onAddOperacao={onAddOperacao}
+              onEditOperacao={onEditOperacao}
+              onDeleteOperacao={onDeleteOperacao}
+              onSaveContorno={onSaveContorno}
+            />
+          </div>
+          <div className="rounded border border-border bg-surface p-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Desenho original do PDF
+            </div>
+            <PdfViewerPeca pecaId={pecaId} storagePath={pdfStoragePath} nomeArquivo={pdfNomeArquivo ?? null} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
+    <div className="space-y-3">
+      {headerModos}
+      <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
       {/* Painel esquerdo: faces */}
       <aside className="rounded border border-border bg-surface p-2">
         <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Faces</h3>
@@ -1728,6 +1849,7 @@ export function VisualizadorTecnicoPecaCadastrada({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
