@@ -351,8 +351,8 @@ export function classificarGeometria(args: {
   if (baseL && largura && altura) {
     return {
       tipo: "L",
-      origem: "regra_parametrica",
-      pontos_contorno: gerarContornoL(largura, altura),
+      origem: "regra_base_l_inferior",
+      pontos_contorno: gerarContornoBaseLInferior(largura, altura),
       confianca: "media",
       pendente: false,
     };
@@ -472,6 +472,24 @@ export function construirModeloTecnico(
         .filter((f): f is string => f != null && f !== ""),
     ),
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const baseLVisual =
+    ehBaseL(result.nome_peca, result.codigo?.prefixo ?? null) ||
+    ((result.codigo?.prefixo ?? "").toUpperCase() === "BAS" &&
+      facesPresentes.includes("7") &&
+      temRasgoLinha &&
+      facesAcimaDe5.length > 0);
+  const facesOperacionais = facesPresentes.map((f) => ({ face: f }));
+  const facesVisuais = baseLVisual
+    ? [
+        { face: "1", tipo_vista: "lateral_esquerda" },
+        { face: "2", tipo_vista: "inferior_esquerda" },
+        { face: "3", tipo_vista: "lateral_direita_inferior" },
+        { face: "4", tipo_vista: "inferior_direita" },
+        { face: "5", tipo_vista: "lateral_direita_superior" },
+        { face: "6", tipo_vista: "superior" },
+        { face: "7", tipo_vista: "principal_L" },
+      ]
+    : facesOperacionais;
 
   const avisos: string[] = [];
   if (geometria.pendente) {
@@ -505,7 +523,9 @@ export function construirModeloTecnico(
       confianca: geometria.confianca,
       pendente: geometria.pendente,
     },
-    faces: facesPresentes.map((f) => ({ face: f })),
+    faces: facesOperacionais,
+    faces_operacionais: facesOperacionais,
+    faces_visuais: facesVisuais,
     operacoes: result.operacoes.map(mapOperacao),
     bordas: result.bordas.map(mapBorda),
     avisos,
