@@ -457,22 +457,32 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
-    const texto = linha.texto;
+    const textoBruto = linha.texto;
+    const texto = textoBruto.replace(/\s+/g, " ").trim();
+    const numerosExtraidos = extrairNumerosOperacao(texto);
+    const logRasgo = (decisao: string, extra: Record<string, unknown> = {}) => {
+      debugRasgos.push(
+        `rasgo_debug ${JSON.stringify({
+          linha: i,
+          textoBruto: texto,
+          numerosExtraidos,
+          sectionAtual,
+          faceAtual,
+          decisao,
+          ...extra,
+        })}`,
+      );
+    };
 
-
-    // 1) Cabeçalhos de seção — testados SEMPRE (mesmo que a linha pareça numérica,
-    //    pois o cabeçalho "Rasgos Face 0" às vezes vem junto a tokens numéricos).
-    //    Ordem importa: usinagem-entrada antes de usinagens-seção antes de rasgos
-    //    antes de furação, porque "UsinagemParametrica01" também matcha usinagens
-    //    e "Rasgos" nunca matcha furação.
+    // 1) Cabeçalhos de seção — SEMPRE antes de qualquer leitura numérica.
     if (RE_USINAGEM_ENTRADA.test(texto)) {
       flushUsinagem();
-      modo = "usinagem";
+      sectionAtual = "usinagem";
       const isContorno = /contorno/i.test(texto);
       usinagemAtual = {
         tipo_operacao: isContorno ? "contorno" : "usinagem_parametrica",
         nome_operacao: texto.replace(/\s+/g, " ").trim().slice(0, 120),
-        face: faceCtx.get(i) || null,
+        face: faceAtual ?? faceCtx.get(i) ?? null,
         x: null,
         y: null,
         z: null,
@@ -497,21 +507,35 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     }
     if (RE_USINAGENS_SECAO.test(texto)) {
       flushUsinagem();
-      modo = "usinagem";
+      sectionAtual = "usinagem";
       continue;
     }
     if (RE_RASGOS.test(texto)) {
       flushUsinagem();
-      modo = "rasgo";
+      sectionAtual = "rasgo";
+      logRasgo("ignorado_header");
       continue;
     }
     if (RE_FURACAO.test(texto)) {
       flushUsinagem();
-      modo = "furo";
+      sectionAtual = "furacao";
       continue;
     }
 
-    if (!modo) continue;
+    // 2) Face ativa — antes de processar valores da seção.
+    const faceMatch = texto.match(/\b(?:face|lado)\s*([0-5])\b/i);
+    if (faceMatch) {
+      faceAtual = faceMatch[1];
+      if (sectionAtual === "rasgo") logRasgo("ignorado_header");
+      continue;
+    }
+
+    if (!sectionAtual) {
+      if (numerosExtraidos.length >= 4) {
+        logsLinhaSemSecao(debugRasgos, i, texto, numerosExtraidos);
+      }
+      continue;
+    }
 
     // Números das células (caminho original) — confiável quando cada coluna é
     // uma cel separada. Caso o extractor cole "2488 7 4.5" em uma única cel,
@@ -520,27 +544,36 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     const valoresCels = linha.cels
       .map((c) => toNum(c.str))
       .filter((v): v is number => v != null);
-    const valoresTexto = extrairNumerosTexto(linha.texto);
+    const valoresTexto = numerosExtraidos;
     const valores = valoresTexto.length > valoresCels.length ? valoresTexto : valoresCels;
 
     // Critério mínimo para considerar a linha "numérica": furo precisa de >=4,
     // rasgo precisa de >=5, usinagem precisa de >=3. Aceita tanto via cels
     // (isNumericCells) quanto via texto livre (linhaPareceNumerica).
-    const minNumeros = modo === "rasgo" ? 5 : modo === "furo" ? 4 : 3;
+    const minNumeros = sectionAtual === "rasgo" ? 5 : sectionAtual === "furacao" ? 4 : 3;
     const numericLinha =
       isNumericCells(linha.cels) || linhaPareceNumerica(linha.texto, minNumeros);
-    if (!numericLinha) continue;
-    if (valores.length < 2) continue;
+    const ehHeaderTabela = /\b(Y|X1|X2|Larg\.?|Prof\.?|Diam\.?)\b/i.test(texto) && valores.length < minNumeros;
+    if ((!numericLinha && valores.length < minNumeros) || ehHeaderTabela) {
+      if (sectionAtual === "rasgo") logRasgo(ehHeaderTabela ? "ignorado_header" : "descartado");
+      continue;
+    }
+    if (valores.length < 2) {
+      if (sectionAtual === "rasgo") logRasgo("descartado");
+      continue;
+    }
 
-    const faceFromCtx = faceCtx.get(i);
+    const faceFromCtx = faceAtual ?? faceCtx.get(i);
     const faceFromUsin: string | null = usinagemAtual ? usinagemAtual.face : null;
     const face: string | null = faceFromCtx || faceFromUsin;
 
-    if (modo === "furo") {
-      // Máquina de estados rígida: dentro de Furação, linha numérica SEMPRE é furo.
-      // Se houver token extra (ex.: marcador visual "A" virou 0), usa os 4 últimos
-      // números da linha para preservar X | Y | Diam | Prof e nunca converter para rasgo.
+    if (sectionAtual === "furacao") {
+      // Máquina de estados rígida: só Furação cria furo. Linhas com 5+ números
+      // geram alerta, mas nunca são convertidas automaticamente para rasgo.
       if (valores.length < 4) continue;
+      if (valores.length > 4) {
+        alertas.push(`Linha numérica com valores extras na seção Furação: ${texto}`);
+      }
       const valoresFuro = ultimosValoresNumericos(valores, 4);
       const [x, y, diam, prof] = [valoresFuro[0], valoresFuro[1], valoresFuro[2] ?? null, valoresFuro[3] ?? null];
       ops.push({
@@ -567,6 +600,8 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         confianca_parser: valoresFuro.length >= 4 ? "alta" : "media",
         dados_brutos: {
           linha: linha.texto,
+            sectionAtual: "furacao",
+            faceAtual: face,
           valores,
           valores_interpretados: valoresFuro,
           ...(diam != null && diam > 100
@@ -574,8 +609,11 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
             : {}),
         },
       });
-    } else if (modo === "rasgo") {
-      if (valores.length < 5) continue;
+    } else if (sectionAtual === "rasgo") {
+      if (valores.length < 5) {
+        logRasgo("descartado");
+        continue;
+      }
       const valoresRasgo = ultimosValoresNumericos(valores, 5);
       const [y, x1, x2, larg, prof] = [
         valoresRasgo[0],
@@ -584,6 +622,11 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         valoresRasgo[3],
         valoresRasgo[4] ?? null,
       ];
+      const valido = x2 > x1 && larg > 0 && larg <= 100 && prof != null && prof > 0 && prof <= 100;
+      if (!valido) {
+        logRasgo("erro_validacao", { valoresInterpretados: valoresRasgo });
+        continue;
+      }
       ops.push({
         tipo_operacao: "rasgo",
         nome_operacao: null,
@@ -606,9 +649,10 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         offset_y: null,
         pontos: [],
         confianca_parser: "alta",
-        dados_brutos: { linha: linha.texto, valores, valores_interpretados: valoresRasgo },
+        dados_brutos: { linha: linha.texto, sectionAtual: "rasgo", faceAtual: face, valores, valores_interpretados: valoresRasgo },
       });
-    } else if (modo === "usinagem") {
+      logRasgo("criado_rasgo", { valoresInterpretados: valoresRasgo });
+    } else if (sectionAtual === "usinagem") {
       if (valores.length < 3) continue;
       // Se vier numeric antes de uma entrada explícita, cria uma usinagem implícita
       if (!usinagemAtual) {
@@ -653,7 +697,20 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     }
   }
   flushUsinagem();
-  return ops;
+  return { operacoes: ops, debugRasgos, alertas, erros };
+}
+
+function logsLinhaSemSecao(debugRasgos: string[], linha: number, textoBruto: string, numerosExtraidos: number[]) {
+  debugRasgos.push(
+    `parser_debug ${JSON.stringify({
+      linha,
+      textoBruto,
+      numerosExtraidos,
+      sectionAtual: null,
+      faceAtual: null,
+      decisao: "descartado_sem_secao",
+    })}`,
+  );
 }
 
 
