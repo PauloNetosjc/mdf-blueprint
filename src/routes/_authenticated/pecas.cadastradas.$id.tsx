@@ -326,6 +326,7 @@ function PecaCadastradaDetalhe() {
 
   const [confirmReprocessar, setConfirmReprocessar] = useState(false);
   const [sobrescreverManual, setSobrescreverManual] = useState(false);
+  const [editorCotasOpen, setEditorCotasOpen] = useState(false);
 
   const reprocessar = useMutation({
     mutationFn: async () => reprocessarParserDePeca(id, { sobrescreverManual }),
