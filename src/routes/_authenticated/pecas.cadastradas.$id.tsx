@@ -704,6 +704,32 @@ function PecaCadastradaDetalhe() {
           </div>
 
           <details open className="rounded border border-border bg-surface p-2 text-xs">
+            <summary className="cursor-pointer font-medium">Marcadores do PDF</summary>
+            {(() => {
+              const counts = indicadoresBorda.reduce<Record<string, number>>((a, k) => {
+                a[k] = (a[k] ?? 0) + 1; return a;
+              }, {});
+              const entries = Object.entries(counts);
+              const hasB1 = entries.some(([k]) => k.toUpperCase() === "B1");
+              return (
+                <div className="mt-2 space-y-1">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <CampoCab label="Alinhamento" valor={faceAlinhamento ?? "—"} mono />
+                    <CampoCab label="B1 detectado" valor={hasB1 ? "sim" : "não"} mono />
+                    <CampoCab label="Fita associada" valor={p.fita_ref ?? "—"} mono />
+                    <CampoCab label="Ocorrências" valor={entries.length === 0 ? "—" : entries.map(([k, n]) => `${k}×${n}`).join("  ")} mono />
+                  </div>
+                  {entries.some(([, n]) => n > 1) && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Lados exatos: revisar se necessário.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </details>
+
+          <details open className="rounded border border-border bg-surface p-2 text-xs">
             <summary className="cursor-pointer font-medium">Diagnóstico de Geometria</summary>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <CampoCab label="tem_contorno_externo" valor={contornoExterno ? "sim" : "não"} mono />
