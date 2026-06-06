@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes } from "lucide-react";
+import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeometriaDialog";
+import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
   parseTechnicalDrawingPdf,
@@ -160,6 +161,7 @@ function PecasCadastradasPage() {
   const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
   const [mostrarModulos, setMostrarModulos] = useState(false);
   const [reprocessOpen, setReprocessOpen] = useState(false);
+  const [limparOpen, setLimparOpen] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -757,6 +759,10 @@ function PecasCadastradasPage() {
             <Shapes className="mr-2 h-4 w-4" />
             Reprocessar geometria
           </Button>
+          <Button variant="destructive" onClick={() => setLimparOpen(true)} disabled={importando}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar biblioteca
+          </Button>
           {ultimoDebug != null ? (
             <Button variant="ghost" size="sm" onClick={baixarDebugJson}>
               Baixar JSON de debug
@@ -959,6 +965,15 @@ function PecasCadastradasPage() {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
         }}
       />
+      <LimparBibliotecaDialog
+        open={limparOpen}
+        onOpenChange={setLimparOpen}
+        onLimpezaConcluida={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
+        }}
+      />
+
     </div>
   );
 }
