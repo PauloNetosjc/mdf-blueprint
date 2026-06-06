@@ -198,9 +198,12 @@ async function extrairSubpaths(
 
   const fnArray = opList.fnArray as number[];
   const argsArray = opList.argsArray as unknown[][];
+  const opStats: Record<string, number> = {};
   for (let i = 0; i < fnArray.length; i++) {
     const fn = fnArray[i];
     const args = argsArray[i] as number[];
+    const name = OP_NAME[fn] ?? `op${fn}`;
+    opStats[name] = (opStats[name] ?? 0) + 1;
     if (fn === OPS.save) {
       stack.push(ctm);
     } else if (fn === OPS.restore) {
