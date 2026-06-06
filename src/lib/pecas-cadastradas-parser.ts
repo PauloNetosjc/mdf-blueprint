@@ -435,6 +435,33 @@ function detectarSecoes(linhas: Linha[]): SecaoDetectada {
   return out;
 }
 
+/**
+ * Detecção forte: requer que dentro das próximas ~12 linhas após o cabeçalho
+ * exista pelo menos uma linha candidata com números suficientes
+ * (≥4 para furação/usinagem, ≥5 para rasgos). Sem isso, o termo no PDF
+ * é apenas legenda/índice/cabeçalho de relatório, não tabela real.
+ */
+function detectarSecoesComDados(linhas: Linha[]): SecaoDetectada {
+  const out: SecaoDetectada = { furacao: false, rasgos: false, usinagens: false };
+  const JANELA = 12;
+  for (let i = 0; i < linhas.length; i++) {
+    const t = linhas[i].texto;
+    const isFur = RE_FURACAO.test(t);
+    const isRas = RE_RASGOS.test(t);
+    const isUsi = RE_USINAGENS_SECAO.test(t) || RE_USINAGEM_ENTRADA.test(t);
+    if (!isFur && !isRas && !isUsi) continue;
+    // Procura linha candidata com números na janela posterior
+    for (let j = i + 1; j < Math.min(linhas.length, i + 1 + JANELA); j++) {
+      const nums = extrairNumerosOperacao(linhas[j].texto);
+      if (isFur && nums.length >= 4) { out.furacao = true; break; }
+      if (isRas && nums.length >= 5) { out.rasgos = true; break; }
+      if (isUsi && nums.length >= 3) { out.usinagens = true; break; }
+    }
+  }
+  return out;
+}
+
+
 type ExtracaoOperacoesResultado = {
   operacoes: OperacaoExtraida[];
   debugRasgos: string[];
