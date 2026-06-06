@@ -367,13 +367,47 @@ function PecaCadastradaDetalhe() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => reprocessar.mutate()}
+              onClick={() => setConfirmReprocessar(true)}
               disabled={reprocessar.isPending}
             >
               <RefreshCw className={`mr-1 h-4 w-4 ${reprocessar.isPending ? "animate-spin" : ""}`} />
-              {reprocessar.isPending ? "Reprocessando..." : "Reprocessar PDF"}
+              {reprocessar.isPending ? "Reprocessando parser..." : "Reprocessar parser"}
             </Button>
           )}
+
+          <AlertDialog open={confirmReprocessar} onOpenChange={setConfirmReprocessar}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reprocessar parser?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  O PDF original será baixado e o parser atual será executado novamente.
+                  Operações e bordas geradas pelo parser serão substituídas. PDF, medidas e
+                  ajustes manuais serão preservados quando possível.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <label className="flex cursor-pointer items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5"
+                  checked={sobrescreverManual}
+                  onChange={(e) => setSobrescreverManual(e.target.checked)}
+                />
+                Sobrescrever ajustes manuais
+              </label>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    setConfirmReprocessar(false);
+                    reprocessar.mutate();
+                  }}
+                >
+                  Reprocessar parser
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </div>
 
 
