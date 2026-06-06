@@ -54,7 +54,11 @@ type PecaMin = {
 function ehOperacaoManual(op: { dados_brutos_json?: Record<string, unknown> | null }): boolean {
   const d = op.dados_brutos_json;
   if (!d || typeof d !== "object") return true; // sem rastro de parser → tratado como manual
-  return (d as Record<string, unknown>).origem === "manual";
+  if ((d as Record<string, unknown>).origem === "manual") return true;
+  if ((d as Record<string, unknown>).origem === "parser") return false;
+  // Legado do importador: operações geradas pelo parser tinham linha/valores,
+  // mas ainda não recebiam origem="parser". Devem ser limpas no reprocessamento.
+  return !("linha" in d || "valores" in d || "valores_interpretados" in d || "sectionAtual" in d);
 }
 
 function ehBordaManual(b: { dados_brutos_json?: Record<string, unknown> | null }): boolean {

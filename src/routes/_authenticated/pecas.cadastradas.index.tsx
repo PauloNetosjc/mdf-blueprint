@@ -483,8 +483,8 @@ function PecasCadastradasPage() {
           pontos_json: o.pontos ?? [],
           confianca: o.confianca_parser,
           confianca_parser: o.confianca_parser,
-          dados_brutos: o.dados_brutos,
-          dados_brutos_json: o.dados_brutos,
+          dados_brutos: { ...(o.dados_brutos ?? {}), origem: "parser" },
+          dados_brutos_json: { ...(o.dados_brutos ?? {}), origem: "parser" },
         }));
       });
 
