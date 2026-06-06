@@ -464,6 +464,109 @@ function detectarSecoesComDados(linhas: Linha[]): SecaoDetectada {
 }
 
 
+// ---------- CONTORNO_TECNICO (bloco metadado de geometria) ----------
+//
+// Bloco opcional embutido no PDF (somente metadado, NÃO é operação CNC):
+//
+//   CONTORNO_TECNICO
+//   CODIGO:BAS0485A
+//   FACE_PRINCIPAL:7
+//   TIPO:L
+//   RECORTE_X:543
+//   RECORTE_Y:396.5
+//   PONTOS:0,0;543,0;543,396.5;939.5,396.5;939.5,939.5;0,939.5
+//   FIM_CONTORNO_TECNICO
+//
+// Alimenta apenas modelo_tecnico_json.geometria. As linhas do bloco devem ser
+// REMOVIDAS antes do parser de operações para não virarem furo/rasgo/usinagem.
+
+export type ContornoTecnicoPdf = {
+  codigo: string | null;
+  face_principal: string | null;
+  tipo: string | null;
+  recorte_x: number | null;
+  recorte_y: number | null;
+  pontos: { x: number; y: number }[];
+};
+
+export type ExtracaoContornoTecnicoResultado = {
+  contorno: ContornoTecnicoPdf | null;
+  indices_consumidos: Set<number>;
+  textos_consumidos: string[];
+};
+
+const RE_CT_INICIO = /\bCONTORNO_TECNICO\b/i;
+const RE_CT_FIM = /\bFIM_CONTORNO_TECNICO\b/i;
+const RE_CT_CHAVE = /\b(CODIGO|FACE_PRINCIPAL|TIPO|RECORTE_X|RECORTE_Y|PONTOS)\s*[:=]/i;
+
+export function extrairContornoTecnicoPdf(linhas: Linha[]): ExtracaoContornoTecnicoResultado {
+  const indices = new Set<number>();
+  const textos: string[] = [];
+  let inicio = -1;
+  let fim = -1;
+  for (let i = 0; i < linhas.length; i++) {
+    if (RE_CT_INICIO.test(linhas[i].texto)) {
+      inicio = i;
+      break;
+    }
+  }
+  if (inicio < 0) return { contorno: null, indices_consumidos: indices, textos_consumidos: textos };
+  for (let j = inicio; j < linhas.length; j++) {
+    if (RE_CT_FIM.test(linhas[j].texto)) {
+      fim = j;
+      break;
+    }
+  }
+  const semFim = fim < 0;
+  if (semFim) fim = Math.min(linhas.length - 1, inicio + 12);
+  const blocoTextos: string[] = [];
+  for (let k = inicio; k <= fim; k++) {
+    const t = linhas[k].texto;
+    const pertenceAoBloco =
+      !semFim ||
+      k === inicio ||
+      RE_CT_FIM.test(t) ||
+      RE_CT_CHAVE.test(t) ||
+      RE_CT_INICIO.test(t);
+    if (!pertenceAoBloco) continue;
+    indices.add(k);
+    textos.push(t);
+    blocoTextos.push(t);
+  }
+  const joined = blocoTextos.join(" \n ");
+  const get = (re: RegExp) => {
+    const m = joined.match(re);
+    return m ? m[1].trim() : null;
+  };
+  const num = (s: string | null): number | null => {
+    if (!s) return null;
+    const v = Number(s.replace(",", "."));
+    return Number.isFinite(v) ? v : null;
+  };
+  const pontos_raw = get(/PONTOS\s*[:=]\s*([0-9.,;\-\s]+?)(?:FIM_CONTORNO_TECNICO|$)/i);
+  const pontos: { x: number; y: number }[] = [];
+  if (pontos_raw) {
+    const partes = pontos_raw.split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+    for (const p of partes) {
+      const m = p.match(/^\s*([\-0-9.,]+)\s*,\s*([\-0-9.,]+)\s*$/);
+      if (!m) continue;
+      const x = num(m[1]);
+      const y = num(m[2]);
+      if (x != null && y != null) pontos.push({ x, y });
+    }
+  }
+  const contorno: ContornoTecnicoPdf = {
+    codigo: get(/CODIGO\s*[:=]\s*([^\s;]+)/i),
+    face_principal: get(/FACE_PRINCIPAL\s*[:=]\s*([^\s;]+)/i),
+    tipo: get(/TIPO\s*[:=]\s*([^\s;]+)/i),
+    recorte_x: num(get(/RECORTE_X\s*[:=]\s*([\-0-9.,]+)/i)),
+    recorte_y: num(get(/RECORTE_Y\s*[:=]\s*([\-0-9.,]+)/i)),
+    pontos,
+  };
+  return { contorno, indices_consumidos: indices, textos_consumidos: textos };
+}
+
+
 type ExtracaoOperacoesResultado = {
   operacoes: OperacaoExtraida[];
   debugRasgos: string[];
