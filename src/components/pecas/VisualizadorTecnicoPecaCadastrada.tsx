@@ -594,7 +594,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   const faces = useMemo(() => {
     const facesComOperacao = Array.from(opsPorFace.keys()).filter((f) => f !== "—");
     const facesVisuais = [
-      ...(facesLayout?.faces ?? []).map((f) => String(f.face)),
+      ...(facesLayout?.faces ?? []).filter((f) => f.visivel !== false).map((f) => String(f.face)),
       ...facesDetectadas.map(String),
     ];
     const s = new Set<string>(
