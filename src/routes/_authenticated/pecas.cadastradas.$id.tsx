@@ -41,6 +41,8 @@ import {
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 import { PainelModeloTecnico } from "@/components/pecas/PainelModeloTecnico";
+import { EditorCotasPecaDialog } from "@/components/pecas/EditorCotasPecaDialog";
+import { Pencil } from "lucide-react";
 
 
 
@@ -324,6 +326,7 @@ function PecaCadastradaDetalhe() {
 
   const [confirmReprocessar, setConfirmReprocessar] = useState(false);
   const [sobrescreverManual, setSobrescreverManual] = useState(false);
+  const [editorCotasOpen, setEditorCotasOpen] = useState(false);
 
   const reprocessar = useMutation({
     mutationFn: async () => reprocessarParserDePeca(id, { sobrescreverManual }),
@@ -484,6 +487,13 @@ function PecaCadastradaDetalhe() {
             {importarModelo.isPending ? "Importando…" : "Importar modelo técnico JSON"}
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditorCotasOpen(true)}
+          >
+            <Pencil className="mr-1 h-4 w-4" /> Editar cotas da peça
+          </Button>
+          <Button
             variant={gcodeStatus.permitido ? "default" : "outline"}
             size="sm"
             onClick={handleGerarGcode}
@@ -494,6 +504,36 @@ function PecaCadastradaDetalhe() {
           </Button>
 
         </div>
+
+        <EditorCotasPecaDialog
+          open={editorCotasOpen}
+          onOpenChange={setEditorCotasOpen}
+          pecaId={id}
+          codigo={p.codigo_completo ?? ""}
+          modelo={modeloTecnico}
+          operacoes={(ops.data ?? []).map((o) => ({
+            face: o.face,
+            tipo_operacao: o.tipo_operacao,
+            x: o.x,
+            y: o.y,
+            x1: o.x1,
+            x2: o.x2,
+            y1: o.y1,
+            y2: o.y2,
+            ordem: o.ordem,
+          }))}
+          largura_ref={p.largura_ref}
+          altura_ref={p.altura_ref}
+          espessura_ref={p.espessura_ref}
+          material_ref={p.material_ref}
+          fita_ref={p.fita_ref}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+            qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+            qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] });
+            qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+          }}
+        />
 
         {modeloTecnico?.geometria.pendente && (
           <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm">

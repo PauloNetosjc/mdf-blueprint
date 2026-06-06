@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
 import type {
   BordaExtraida,
   OperacaoExtraida,
@@ -48,6 +49,7 @@ export const GeometriaSchema = z.object({
   pontos_contorno: z.array(PontoSchema).default([]),
   confianca: z.enum(["alta", "media", "baixa"]).default("media"),
   pendente: z.boolean().default(false),
+  face_principal: z.union([z.string(), z.number()]).nullable().optional(),
 });
 
 export const OperacaoModeloSchema = z.object({
@@ -93,6 +95,9 @@ const FaceOperacionalSchema = z.object({ face: z.string() });
 const FaceVisualSchema = z.object({
   face: z.string(),
   tipo_vista: z.string().optional(),
+  largura_visual: z.number().nullable().optional(),
+  altura_visual: z.number().nullable().optional(),
+  geometria: z.string().nullable().optional(),
 });
 
 export const ModeloTecnicoSchema = z.object({
@@ -742,14 +747,24 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
       validacao,
     };
   }
+  const editadoManualmente =
+    (modelo.metadados as Record<string, unknown> | undefined)?.editado_manualmente === true;
   if (modelo.geometria.tipo === "L") {
     return {
       permitido: true,
-      motivo: "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
+      motivo: editadoManualmente
+        ? "Geometria editada manualmente. Conferir antes de enviar à máquina."
+        : "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
       validacao,
     };
   }
-  return { permitido: true, motivo: "Geometria validada para CNC.", validacao };
+  return {
+    permitido: true,
+    motivo: editadoManualmente
+      ? "Geometria editada manualmente. Conferir antes de enviar à máquina."
+      : "Geometria validada para CNC.",
+    validacao,
+  };
 }
 
 // ---------- Exportar ----------
@@ -895,4 +910,186 @@ export async function importarModeloTecnicoJson(
     bordas: modelo.bordas.length,
     modelo,
   };
+}
+
+// ---------- Edição manual de cotas (MVP) ----------
+
+
+
+
+export type FaceVisualInput = {
+  face: string;
+  tipo_vista?: string | null;
+  largura_visual?: number | null;
+  altura_visual?: number | null;
+  geometria?: string | null;
+};
+
+export type EdicaoManualCotasInput = {
+  medidas: { largura: number; altura: number; espessura: number };
+  material?: string | null;
+  fita?: string | null;
+  face_principal?: string | null;
+  face_alinhamento?: string | null;
+  geometria: {
+    tipo: GeometriaTipo;
+    pontos_contorno: { x: number; y: number }[];
+  };
+  faces_visuais?: FaceVisualInput[];
+};
+
+export async function salvarEdicaoManualCotas(
+  pecaId: string,
+  input: EdicaoManualCotasInput,
+): Promise<{
+  modelo: ModeloTecnicoJson;
+  validacao: ReturnType<typeof validarModeloTecnico>;
+  contornoExterno: ReturnType<typeof contornoExternoDoModelo>;
+}> {
+  // Validação básica antes de tocar no banco
+  if (input.geometria.pontos_contorno.length < 4) {
+    throw new Error("O contorno precisa ter pelo menos 4 pontos.");
+  }
+  if (input.geometria.tipo === "L" && input.geometria.pontos_contorno.length < 6) {
+    throw new Error("Geometria em L precisa ter pelo menos 6 pontos.");
+  }
+  if (!(input.medidas.largura > 0) || !(input.medidas.altura > 0)) {
+    throw new Error("Largura e altura devem ser maiores que zero.");
+  }
+
+  const { data: peca, error } = await db
+    .from("pecas_cadastradas")
+    .select("dados_brutos_json, logs_parser, codigo_completo, codigo")
+    .eq("id", pecaId)
+    .single();
+  if (error) throw error;
+
+  const dados = (peca.dados_brutos_json ?? {}) as Record<string, unknown>;
+  const modeloAnterior = (dados.modelo_tecnico_json ?? null) as ModeloTecnicoJson | null;
+
+  const base: Partial<ModeloTecnicoJson> = modeloAnterior ?? {
+    versao: 1,
+    codigo: (peca.codigo_completo as string) ?? (peca.codigo as string) ?? "",
+    medidas: { largura: null, altura: null, espessura: null },
+    geometria: {
+      tipo: "retangular",
+      origem: "manual",
+      largura: null,
+      altura: null,
+      pontos_contorno: [],
+      confianca: "media",
+      pendente: false,
+    },
+    faces: [],
+    faces_operacionais: [],
+    faces_visuais: [],
+    operacoes: [],
+    bordas: [],
+    avisos: [],
+    erros: [],
+    metadados: {},
+  };
+
+  const origemAnterior = modeloAnterior?.geometria?.origem;
+  const novaOrigem: GeometriaOrigem =
+    origemAnterior === "contorno_tecnico_pdf" ? "contorno_tecnico_pdf" : "manual";
+
+  const novoModeloRaw: unknown = {
+    ...base,
+    codigo: base.codigo ?? (peca.codigo_completo as string) ?? "",
+    medidas: {
+      largura: input.medidas.largura,
+      altura: input.medidas.altura,
+      espessura: input.medidas.espessura,
+    },
+    material: input.material ?? base.material ?? null,
+    fita: input.fita ?? base.fita ?? null,
+    face_alinhamento: input.face_alinhamento ?? base.face_alinhamento ?? null,
+    geometria: {
+      tipo: input.geometria.tipo,
+      origem: novaOrigem,
+      largura: input.medidas.largura,
+      altura: input.medidas.altura,
+      pontos_contorno: input.geometria.pontos_contorno,
+      face_principal:
+        input.face_principal ?? base.geometria?.face_principal ?? null,
+      confianca: "alta" as const,
+      pendente: false,
+    },
+    faces_visuais:
+      input.faces_visuais && input.faces_visuais.length > 0
+        ? input.faces_visuais.map((f) => ({
+            face: String(f.face),
+            tipo_vista: f.tipo_vista ?? undefined,
+            largura_visual: f.largura_visual ?? null,
+            altura_visual: f.altura_visual ?? null,
+            geometria: f.geometria ?? null,
+          }))
+        : base.faces_visuais ?? [],
+    metadados: {
+      ...((base.metadados as Record<string, unknown> | undefined) ?? {}),
+      editado_manualmente: true,
+      ultima_edicao_manual_em: new Date().toISOString(),
+    },
+    avisos: base.avisos ?? [],
+    erros: [],
+  };
+
+  const modelo = ModeloTecnicoSchema.parse(novoModeloRaw);
+
+  // Validação determinística (avisos/erros) sobre o modelo recém-editado
+  const validacao = validarModeloTecnico(modelo as unknown as ModeloTecnicoLite);
+  modelo.erros = validacao.erros;
+  modelo.avisos = Array.from(new Set([...(modelo.avisos ?? []), ...validacao.avisos]));
+
+  const contornoExt = contornoExternoDoModelo(modelo);
+  const diagnostico = {
+    origem: novaOrigem === "contorno_tecnico_pdf" ? "contorno_tecnico_pdf_editado" : "manual_usuario",
+    editado_em: new Date().toISOString(),
+    pontos: modelo.geometria.pontos_contorno.length,
+    tipo: modelo.geometria.tipo,
+    editado_manualmente: true,
+  };
+
+  const novosDados: Record<string, unknown> = {
+    ...dados,
+    modelo_tecnico_json: modelo,
+    diagnostico_geometria: diagnostico,
+  };
+  if (contornoExt) novosDados.contorno_externo_json = contornoExt;
+
+  const logsAtuais = Array.isArray(peca.logs_parser) ? (peca.logs_parser as unknown[]) : [];
+  const antes = modeloAnterior
+    ? {
+        medidas: modeloAnterior.medidas,
+        geometria: {
+          tipo: modeloAnterior.geometria?.tipo,
+          pontos: modeloAnterior.geometria?.pontos_contorno?.length ?? 0,
+        },
+      }
+    : null;
+  const depois = {
+    medidas: modelo.medidas,
+    geometria: {
+      tipo: modelo.geometria.tipo,
+      pontos: modelo.geometria.pontos_contorno.length,
+    },
+  };
+  const log = `[manual] Cotas editadas pelo usuário em ${new Date().toISOString()} — antes: ${JSON.stringify(antes)} depois: ${JSON.stringify(depois)}`;
+
+  const { error: eUp } = await db
+    .from("pecas_cadastradas")
+    .update({
+      dados_brutos_json: novosDados,
+      largura_ref: input.medidas.largura,
+      altura_ref: input.medidas.altura,
+      espessura_ref: input.medidas.espessura,
+      material_ref: input.material ?? null,
+      fita_ref: input.fita ?? null,
+      logs_parser: [...logsAtuais, log],
+    })
+    .eq("id", pecaId);
+  if (eUp) throw eUp;
+
+  return { modelo, validacao, contornoExterno: contornoExt };
 }
