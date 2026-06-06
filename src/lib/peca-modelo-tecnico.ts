@@ -746,14 +746,24 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
       validacao,
     };
   }
+  const editadoManualmente =
+    (modelo.metadados as Record<string, unknown> | undefined)?.editado_manualmente === true;
   if (modelo.geometria.tipo === "L") {
     return {
       permitido: true,
-      motivo: "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
+      motivo: editadoManualmente
+        ? "Geometria editada manualmente. Conferir antes de enviar à máquina."
+        : "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
       validacao,
     };
   }
-  return { permitido: true, motivo: "Geometria validada para CNC.", validacao };
+  return {
+    permitido: true,
+    motivo: editadoManualmente
+      ? "Geometria editada manualmente. Conferir antes de enviar à máquina."
+      : "Geometria validada para CNC.",
+    validacao,
+  };
 }
 
 // ---------- Exportar ----------
