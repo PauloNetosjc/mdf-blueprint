@@ -16,6 +16,7 @@ import {
 import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeometriaDialog";
+import { ReprocessarParserErrosDialog } from "@/components/pecas/ReprocessarParserErrosDialog";
 import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
@@ -167,6 +168,7 @@ function PecasCadastradasPage() {
   const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
   const [mostrarModulos, setMostrarModulos] = useState(false);
   const [reprocessOpen, setReprocessOpen] = useState(false);
+  const [reprocessParserOpen, setReprocessParserOpen] = useState(false);
   const [limparOpen, setLimparOpen] = useState(false);
 
   const lista = useQuery({
@@ -829,6 +831,10 @@ function PecasCadastradasPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Reprocessar erros{arquivosComErro.length ? ` (${arquivosComErro.length})` : ""}
           </Button>
+          <Button variant="outline" onClick={() => setReprocessParserOpen(true)} disabled={importando}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reprocessar erros do parser
+          </Button>
           <Button variant="outline" onClick={() => setReprocessOpen(true)} disabled={importando}>
             <Shapes className="mr-2 h-4 w-4" />
             Reprocessar geometria
@@ -1037,6 +1043,14 @@ function PecasCadastradasPage() {
         pecaIds={pecas.filter((p) => !isModulo(p) && p.largura_ref && p.altura_ref).map((p) => p.id)}
         onConcluido={() => {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+        }}
+      />
+      <ReprocessarParserErrosDialog
+        open={reprocessParserOpen}
+        onOpenChange={setReprocessParserOpen}
+        onConcluido={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
         }}
       />
       <LimparBibliotecaDialog
