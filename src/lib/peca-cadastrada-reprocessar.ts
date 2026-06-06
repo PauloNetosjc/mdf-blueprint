@@ -209,13 +209,15 @@ export async function reprocessarParserDePeca(
   const modeloTecnico = construirModeloTecnico(result, faceAlinhamento);
 
   // ---------- Extração de contorno visual calibrado ----------
-  // Tenta ler os operadores vetoriais do PDF e reconstruir um contorno em mm
-  // calibrado pelas medidas reais. Se conseguir, sobrescreve a geometria do
-  // modelo técnico (origem = pdf_visual_calibrado).
+  // 1) Tenta o caminho vetorial (rápido, ideal para PDFs com paths nativos).
+  // 2) Para peças complexas, tenta também o RASTER calibrado (renderiza a
+  //    página em canvas, detecta o polígono real por análise de imagem e
+  //    calibra pela cota geral). O raster prevalece sobre a paramétrica.
   if (result.largura_ref && result.altura_ref) {
+    const pdfBytes = await file.arrayBuffer();
+
     try {
-      const pdfBytes = await file.arrayBuffer();
-      const visual = await extrairContornoVisualCalibrado(pdfBytes, {
+      const visual = await extrairContornoVisualCalibrado(pdfBytes.slice(0), {
         largura: result.largura_ref,
         altura: result.altura_ref,
       });
@@ -240,17 +242,76 @@ export async function reprocessarParserDePeca(
           confianca: visual.confianca,
           pendente: false,
         };
-        if (!modeloTecnico.avisos.some((a) => a.includes("complexo não convertido"))) {
-          modeloTecnico.avisos = modeloTecnico.avisos.filter(
-            (a) => !a.includes("Importe um modelo técnico JSON"),
-          );
-        }
+        modeloTecnico.avisos = modeloTecnico.avisos.filter(
+          (a) => !a.includes("Importe um modelo técnico JSON"),
+        );
       }
     } catch (e) {
       dadosBrutosFinal.contorno_visual_diagnostico = {
         em: new Date().toISOString(),
         erro: (e as Error).message,
       };
+    }
+
+    // Heurística: a peça é complexa? Se ainda estiver pendente ou marcada
+    // como não-retangular sem pontos reais, vale tentar o raster.
+    const geom = modeloTecnico.geometria;
+    const nomeUpper = (result.codigo ?? "").toUpperCase();
+    const indiciosComplexos =
+      geom.pendente ||
+      geom.origem === "regra_parametrica" ||
+      (geom.tipo !== "retangular" && (!geom.pontos_contorno || geom.pontos_contorno.length < 3)) ||
+      nomeUpper.includes("BASE L") ||
+      nomeUpper.startsWith("BAS") ||
+      (result.faces?.length ?? 0) > 5 ||
+      (result.usinagens ?? []).some((u) => u.tipo === "rasgo_linha");
+
+    if (indiciosComplexos && typeof document !== "undefined") {
+      try {
+        const raster = await extrairContornoRasterCalibrado(pdfBytes.slice(0), {
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+        }, { debug: true });
+        dadosBrutosFinal.contorno_raster_diagnostico = {
+          em: new Date().toISOString(),
+          tipo: raster.tipo,
+          confianca: raster.confianca,
+          pendente: raster.pendente,
+          escala_mm_por_pixel: raster.escala_mm_por_pixel,
+          origem_pagina: raster.origem_pagina,
+          pontos: raster.pontos.length,
+          diagnostico: raster.diagnostico,
+          debug_imagem_base64: raster.debug_imagem_base64,
+        };
+        if (!raster.pendente && raster.pontos.length >= 3) {
+          modeloTecnico.geometria = {
+            ...modeloTecnico.geometria,
+            tipo: raster.tipo,
+            origem: "pdf_raster_calibrado",
+            largura: result.largura_ref,
+            altura: result.altura_ref,
+            pontos_contorno: raster.pontos,
+            confianca: raster.confianca,
+            pendente: false,
+          };
+          modeloTecnico.avisos = modeloTecnico.avisos.filter(
+            (a) => !a.includes("Importe um modelo técnico JSON"),
+          );
+        } else if (geom.origem === "regra_parametrica") {
+          // Raster falhou e a geometria atual é apenas paramétrica. Marca
+          // pendente para bloquear G-code — não confiável para CNC.
+          modeloTecnico.geometria = {
+            ...modeloTecnico.geometria,
+            pendente: true,
+            confianca: "baixa",
+          };
+        }
+      } catch (e) {
+        dadosBrutosFinal.contorno_raster_diagnostico = {
+          em: new Date().toISOString(),
+          erro: (e as Error).message,
+        };
+      }
     }
   }
 
