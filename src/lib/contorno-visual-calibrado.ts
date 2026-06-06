@@ -1,16 +1,22 @@
 // Extração de contorno visual calibrado por escala.
 //
 // Lê os operadores vetoriais do PDF (pdfjs.getOperatorList) e identifica o
-// maior polígono fechado (ou quase fechado) que representa o contorno externo
-// da peça. Calibra a escala pelas medidas reais conhecidas (largura/altura em
-// mm) e devolve `pontos_contorno` em milímetros, prontos para serem gravados
-// em `modelo_tecnico_json.geometria`.
+// maior subcaminho fechado que representa o contorno externo da peça.
+// Calibra a escala pelas medidas reais conhecidas (largura/altura em mm)
+// e devolve `pontos_contorno` em milímetros.
 //
-// Princípios:
-//   - Apenas vetorial. Não fazemos OCR/raster.
-//   - Mesma escala para X e Y (nunca anisotrópica).
-//   - Se a extração não for segura → `pendente: true`, `confianca: "baixa"`,
-//     e o caller deve bloquear geração de G-code.
+// Estratégia:
+//   - Para cada página, varremos a lista de operadores acompanhando CTM.
+//   - Cada subpath (entre moveTo e o próximo moveTo/stroke/fill/endPath) é
+//     coletado como uma polilinha. Subpaths terminados por closePath, fillStroke,
+//     fill, closeStroke etc. são marcados como fechados.
+//   - Rectangles (`re`) viram subpaths fechados de 4 pontos.
+//   - Filtramos por tamanho (bbox >= 15% da diagonal da página) e escolhemos
+//     o subpath com maior área entre os candidatos com proporção compatível
+//     com largura/altura reais (tolerância 5%).
+//   - A escala é ISOTRÓPICA: usamos a razão média (largura/bboxW + altura/bboxH)/2.
+//
+// Apenas vetorial. Não fazemos OCR/raster.
 
 type PdfJs = typeof import("pdfjs-dist");
 
@@ -39,436 +45,38 @@ export type ContornoVisualResultado = {
   diagnostico: string[];
 };
 
-type Seg = { x1: number; y1: number; x2: number; y2: number };
-type Mat = [number, number, number, number, number, number]; // a,b,c,d,e,f
+type Mat = [number, number, number, number, number, number];
+const mIdentity = (): Mat => [1, 0, 0, 1, 0, 0];
+const mMul = (a: Mat, b: Mat): Mat => [
+  a[0] * b[0] + a[2] * b[1],
+  a[1] * b[0] + a[3] * b[1],
+  a[0] * b[2] + a[2] * b[3],
+  a[1] * b[2] + a[3] * b[3],
+  a[0] * b[4] + a[2] * b[5] + a[4],
+  a[1] * b[4] + a[3] * b[5] + a[5],
+];
+const mApply = (m: Mat, x: number, y: number): [number, number] => [
+  m[0] * x + m[2] * y + m[4],
+  m[1] * x + m[3] * y + m[5],
+];
 
-function mIdentity(): Mat {
-  return [1, 0, 0, 1, 0, 0];
-}
-function mMul(a: Mat, b: Mat): Mat {
-  return [
-    a[0] * b[0] + a[2] * b[1],
-    a[1] * b[0] + a[3] * b[1],
-    a[0] * b[2] + a[2] * b[3],
-    a[1] * b[2] + a[3] * b[3],
-    a[0] * b[4] + a[2] * b[5] + a[4],
-    a[1] * b[4] + a[3] * b[5] + a[5],
-  ];
-}
-function mApply(m: Mat, x: number, y: number): [number, number] {
-  return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
-}
+type Subpath = { pts: PontoMm[]; closed: boolean };
 
-function approx(a: number, b: number, tol: number): boolean {
-  return Math.abs(a - b) <= tol;
-}
-
-// Extrai todos os segmentos retos de uma página em coordenadas do PDF.
-async function extrairSegmentos(
-  pdfjs: PdfJs,
-  page: Awaited<ReturnType<PdfJs["getDocument"]>["promise"]> extends infer D
-    ? D extends { getPage(n: number): Promise<infer P> }
-      ? P
-      : never
-    : never,
-): Promise<{ segs: Seg[]; pageW: number; pageH: number }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p: any = page;
-  const viewport = p.getViewport({ scale: 1 });
-  const opList = await p.getOperatorList();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const OPS: Record<string, number> = (pdfjs as any).OPS;
-
-  const segs: Seg[] = [];
-  let ctm: Mat = mIdentity();
-  const stack: Mat[] = [];
-  let cx = 0;
-  let cy = 0;
-  let startX = 0;
-  let startY = 0;
-  // pdfjs builds the path then "stroke/fill" consumes it
-  type Cmd = { op: "m" | "l" | "re" | "c" | "h"; args: number[] };
-  let path: Cmd[] = [];
-
-  const flushPath = (closed: boolean) => {
-    let curX = 0;
-    let curY = 0;
-    let sX = 0;
-    let sY = 0;
-    let hasStart = false;
-    for (const c of path) {
-      if (c.op === "m") {
-        curX = c.args[0];
-        curY = c.args[1];
-        sX = curX;
-        sY = curY;
-        hasStart = true;
-      } else if (c.op === "l") {
-        const nx = c.args[0];
-        const ny = c.args[1];
-        const [x1, y1] = mApply(ctm, curX, curY);
-        const [x2, y2] = mApply(ctm, nx, ny);
-        segs.push({ x1, y1, x2, y2 });
-        curX = nx;
-        curY = ny;
-        if (!hasStart) {
-          sX = nx;
-          sY = ny;
-          hasStart = true;
-        }
-      } else if (c.op === "re") {
-        const [rx, ry, rw, rh] = c.args;
-        const corners: [number, number][] = [
-          [rx, ry],
-          [rx + rw, ry],
-          [rx + rw, ry + rh],
-          [rx, ry + rh],
-        ];
-        for (let i = 0; i < 4; i++) {
-          const [a, b] = corners[i];
-          const [c2, d2] = corners[(i + 1) % 4];
-          const [x1, y1] = mApply(ctm, a, b);
-          const [x2, y2] = mApply(ctm, c2, d2);
-          segs.push({ x1, y1, x2, y2 });
-        }
-        curX = rx;
-        curY = ry;
-        sX = rx;
-        sY = ry;
-        hasStart = true;
-      } else if (c.op === "c") {
-        // Bezier: aproximamos como linha do current ao endpoint final (suficiente
-        // para detectar bounding box; curvas raramente compõem contorno externo
-        // de painéis retos/recortados).
-        const ex = c.args[4];
-        const ey = c.args[5];
-        const [x1, y1] = mApply(ctm, curX, curY);
-        const [x2, y2] = mApply(ctm, ex, ey);
-        segs.push({ x1, y1, x2, y2 });
-        curX = ex;
-        curY = ey;
-      } else if (c.op === "h") {
-        if (hasStart) {
-          const [x1, y1] = mApply(ctm, curX, curY);
-          const [x2, y2] = mApply(ctm, sX, sY);
-          segs.push({ x1, y1, x2, y2 });
-          curX = sX;
-          curY = sY;
-        }
-      }
-    }
-    if (closed && hasStart) {
-      const [x1, y1] = mApply(ctm, curX, curY);
-      const [x2, y2] = mApply(ctm, sX, sY);
-      if (!(approx(x1, x2, 0.001) && approv0(y1, y2))) {
-        // already closed if equal
-        segs.push({ x1, y1, x2, y2 });
-      }
-    }
-    path = [];
-  };
-  // small helper to avoid TS unused warning
-  function approv0(a: number, b: number) {
-    return approx(a, b, 0.001);
-  }
-
-  const fnArray = opList.fnArray as number[];
-  const argsArray = opList.argsArray as unknown[][];
-  for (let i = 0; i < fnArray.length; i++) {
-    const fn = fnArray[i];
-    const args = argsArray[i];
-    switch (fn) {
-      case OPS.save:
-        stack.push(ctm);
-        break;
-      case OPS.restore:
-        ctm = stack.pop() ?? mIdentity();
-        break;
-      case OPS.transform: {
-        const t = args as unknown as Mat;
-        ctm = mMul(ctm, [t[0], t[1], t[2], t[3], t[4], t[5]]);
-        break;
-      }
-      case OPS.moveTo:
-        cx = args[0] as number;
-        cy = args[1] as number;
-        startX = cx;
-        startY = cy;
-        path.push({ op: "m", args: [cx, cy] });
-        break;
-      case OPS.lineTo:
-        cx = args[0] as number;
-        cy = args[1] as number;
-        path.push({ op: "l", args: [cx, cy] });
-        break;
-      case OPS.rectangle: {
-        const [rx, ry, rw, rh] = args as number[];
-        path.push({ op: "re", args: [rx, ry, rw, rh] });
-        cx = rx;
-        cy = ry;
-        startX = rx;
-        startY = ry;
-        break;
-      }
-      case OPS.curveTo:
-      case OPS.curveTo2:
-      case OPS.curveTo3:
-        path.push({ op: "c", args: args as number[] });
-        cx = (args as number[])[(args as number[]).length - 2];
-        cy = (args as number[])[(args as number[]).length - 1];
-        break;
-      case OPS.closePath:
-        path.push({ op: "h", args: [] });
-        cx = startX;
-        cy = startY;
-        break;
-      case OPS.stroke:
-      case OPS.closeStroke:
-      case OPS.fillStroke:
-      case OPS.eoFillStroke:
-      case OPS.closeFillStroke:
-      case OPS.closeEOFillStroke:
-      case OPS.fill:
-      case OPS.eoFill:
-        flushPath(
-          fn === OPS.closeStroke ||
-            fn === OPS.closeFillStroke ||
-            fn === OPS.closeEOFillStroke,
-        );
-        break;
-      case OPS.endPath:
-        path = [];
-        break;
-      default:
-        break;
-    }
-  }
-
-  return { segs, pageW: viewport.width, pageH: viewport.height };
-}
-
-// Filtra micro-segmentos (cotas, setas, hachuras, textos vetorizados).
-function filtrarSegmentos(segs: Seg[], diag: number): Seg[] {
-  const minLen = diag * 0.02;
-  return segs.filter((s) => {
-    const len = Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
-    return len >= minLen;
-  });
-}
-
-// Mantém apenas segmentos quase-axiais (horizontais/verticais), que é o que
-// compõe contornos retos/recortados em desenhos técnicos de painéis.
-function manterAxiais(segs: Seg[]): Seg[] {
-  const out: Seg[] = [];
-  for (const s of segs) {
-    const dx = Math.abs(s.x2 - s.x1);
-    const dy = Math.abs(s.y2 - s.y1);
-    if (dx < 0.5 && dy >= 1) out.push({ x1: s.x1, y1: s.y1, x2: s.x1, y2: s.y2 });
-    else if (dy < 0.5 && dx >= 1) out.push({ x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y1 });
-  }
-  return out;
-}
-
-// Bounding box de um conjunto de segmentos.
-function bboxSegs(segs: Seg[]) {
+function bbox(pts: PontoMm[]) {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const s of segs) {
-    if (s.x1 < minX) minX = s.x1;
-    if (s.y1 < minY) minY = s.y1;
-    if (s.x2 < minX) minX = s.x2;
-    if (s.y2 < minY) minY = s.y2;
-    if (s.x1 > maxX) maxX = s.x1;
-    if (s.y1 > maxY) maxY = s.y1;
-    if (s.x2 > maxX) maxX = s.x2;
-    if (s.y2 > maxY) maxY = s.y2;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
   }
   return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
 }
 
-// Agrupa segmentos em clusters por proximidade (union-find baseado em snap).
-function clusterizarSegmentos(segs: Seg[], snap: number): Seg[][] {
-  // Cada ponto-chave mapeia para um índice de cluster
-  const parent: number[] = segs.map((_, i) => i);
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  const union = (a: number, b: number) => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent[ra] = rb;
-  };
-
-  // Bucket grid p/ achar vizinhos rapidamente
-  const cell = snap * 4;
-  const map = new Map<string, number[]>();
-  const key = (x: number, y: number) => `${Math.round(x / cell)}:${Math.round(y / cell)}`;
-  for (let i = 0; i < segs.length; i++) {
-    const s = segs[i];
-    for (const [x, y] of [
-      [s.x1, s.y1],
-      [s.x2, s.y2],
-    ]) {
-      const k = key(x, y);
-      let arr = map.get(k);
-      if (!arr) {
-        arr = [];
-        map.set(k, arr);
-      }
-      arr.push(i);
-    }
-  }
-  for (let i = 0; i < segs.length; i++) {
-    const s = segs[i];
-    for (const [x, y] of [
-      [s.x1, s.y1],
-      [s.x2, s.y2],
-    ]) {
-      const kx = Math.round(x / cell);
-      const ky = Math.round(y / cell);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const arr = map.get(`${kx + dx}:${ky + dy}`);
-          if (!arr) continue;
-          for (const j of arr) {
-            if (j === i) continue;
-            const t = segs[j];
-            const dists = [
-              Math.hypot(x - t.x1, y - t.y1),
-              Math.hypot(x - t.x2, y - t.y2),
-            ];
-            if (Math.min(...dists) <= snap) union(i, j);
-          }
-        }
-      }
-    }
-  }
-
-  const groups = new Map<number, Seg[]>();
-  for (let i = 0; i < segs.length; i++) {
-    const r = find(i);
-    let arr = groups.get(r);
-    if (!arr) {
-      arr = [];
-      groups.set(r, arr);
-    }
-    arr.push(segs[i]);
-  }
-  return Array.from(groups.values());
-}
-
-// Simplifica polilinha colinear: junta segmentos consecutivos com mesma direção.
-function simplificarPoligono(pts: PontoMm[], tolMm: number): PontoMm[] {
-  if (pts.length < 4) return pts;
-  const out: PontoMm[] = [];
-  for (let i = 0; i < pts.length; i++) {
-    const prev = out[out.length - 1] ?? pts[(i - 1 + pts.length) % pts.length];
-    const cur = pts[i];
-    const next = pts[(i + 1) % pts.length];
-    const v1x = cur.x - prev.x;
-    const v1y = cur.y - prev.y;
-    const v2x = next.x - cur.x;
-    const v2y = next.y - cur.y;
-    const cross = Math.abs(v1x * v2y - v1y * v2x);
-    const len1 = Math.hypot(v1x, v1y);
-    const len2 = Math.hypot(v2x, v2y);
-    // Se o ponto é praticamente colinear com vizinhos, descarta.
-    if (len1 > 0 && len2 > 0 && cross / (len1 * len2) < 0.01 && len1 > tolMm) {
-      continue;
-    }
-    out.push(cur);
-  }
-  // Remove vértices duplicados
-  const dedup: PontoMm[] = [];
-  for (const p of out) {
-    const last = dedup[dedup.length - 1];
-    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > tolMm) dedup.push(p);
-  }
-  // Fecha verifica primeiro/último
-  if (dedup.length > 2) {
-    const a = dedup[0];
-    const b = dedup[dedup.length - 1];
-    if (Math.hypot(a.x - b.x, a.y - b.y) <= tolMm) dedup.pop();
-  }
-  return dedup;
-}
-
-// Reconstrói o polígono ordenado a partir do conjunto de segmentos axiais de
-// um cluster. Estratégia: faz "snap" das coordenadas a uma grade, gera grafo
-// de adjacência e percorre buscando o ciclo de maior área.
-function reconstruirPoligono(segs: Seg[], snap: number): PontoMm[] | null {
-  if (segs.length < 4) return null;
-  const snapVal = (v: number) => Math.round(v / snap) * snap;
-  const key = (x: number, y: number) => `${snapVal(x)}|${snapVal(y)}`;
-  const nodes = new Map<string, PontoMm>();
-  const adj = new Map<string, Set<string>>();
-  for (const s of segs) {
-    const k1 = key(s.x1, s.y1);
-    const k2 = key(s.x2, s.y2);
-    if (k1 === k2) continue;
-    if (!nodes.has(k1)) nodes.set(k1, { x: snapVal(s.x1), y: snapVal(s.y1) });
-    if (!nodes.has(k2)) nodes.set(k2, { x: snapVal(s.x2), y: snapVal(s.y2) });
-    if (!adj.has(k1)) adj.set(k1, new Set());
-    if (!adj.has(k2)) adj.set(k2, new Set());
-    adj.get(k1)!.add(k2);
-    adj.get(k2)!.add(k1);
-  }
-  if (nodes.size < 4) return null;
-
-  // Acha o ciclo de maior área usando heurística: escolhe o vértice mais
-  // inferior-esquerdo e caminha sempre virando à direita ("convex hull-like
-  // boundary walk" sobre um grafo axial).
-  const startK = Array.from(nodes.keys()).reduce((best, k) => {
-    const p = nodes.get(k)!;
-    const pb = nodes.get(best)!;
-    if (p.y < pb.y || (p.y === pb.y && p.x < pb.x)) return k;
-    return best;
-  });
-
-  const visited = new Set<string>();
-  const path: string[] = [startK];
-  visited.add(startK);
-  let prevK: string | null = null;
-  let curK = startK;
-  // limite p/ evitar loop em grafos malformados
-  const maxSteps = nodes.size + 4;
-  for (let step = 0; step < maxSteps; step++) {
-    const neigh = Array.from(adj.get(curK) ?? []).filter((k) => k !== prevK);
-    if (neigh.length === 0) return null;
-    const cur = nodes.get(curK)!;
-    const prev = prevK ? nodes.get(prevK)! : { x: cur.x - 1, y: cur.y };
-    const inDx = cur.x - prev.x;
-    const inDy = cur.y - prev.y;
-    // escolhe vizinho com maior "virada à direita" (menor ângulo no sentido horário)
-    let best: string | null = null;
-    let bestAng = Infinity;
-    for (const nk of neigh) {
-      const np = nodes.get(nk)!;
-      const dx = np.x - cur.x;
-      const dy = np.y - cur.y;
-      let ang = Math.atan2(inDx * dy - inDy * dx, inDx * dx + inDy * dy);
-      // virada à direita = ângulo negativo; queremos o menor ângulo absoluto à direita
-      if (ang > 0) ang -= 2 * Math.PI;
-      if (ang < bestAng) {
-        bestAng = ang;
-        best = nk;
-      }
-    }
-    if (!best) return null;
-    if (best === startK) {
-      // ciclo fechado
-      return path.map((k) => nodes.get(k)!);
-    }
-    if (visited.has(best)) return null;
-    visited.add(best);
-    path.push(best);
-    prevK = curK;
-    curK = best;
-  }
-  return null;
-}
-
-function areaPoligono(pts: PontoMm[]): number {
+function area(pts: PontoMm[]): number {
   let a = 0;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
@@ -478,10 +86,43 @@ function areaPoligono(pts: PontoMm[]): number {
   return Math.abs(a) / 2;
 }
 
-function classificarPoligono(pts: PontoMm[]): "retangular" | "L" | "poligono_complexo" {
+function simplificar(pts: PontoMm[], tol: number): PontoMm[] {
+  if (pts.length < 3) return pts;
+  // dedup consecutivos
+  const ded: PontoMm[] = [];
+  for (const p of pts) {
+    const last = ded[ded.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > tol) ded.push(p);
+  }
+  if (ded.length > 2) {
+    const a = ded[0];
+    const b = ded[ded.length - 1];
+    if (Math.hypot(a.x - b.x, a.y - b.y) <= tol) ded.pop();
+  }
+  if (ded.length < 3) return ded;
+  // remove colineares
+  const out: PontoMm[] = [];
+  for (let i = 0; i < ded.length; i++) {
+    const prev = ded[(i - 1 + ded.length) % ded.length];
+    const cur = ded[i];
+    const next = ded[(i + 1) % ded.length];
+    const v1x = cur.x - prev.x;
+    const v1y = cur.y - prev.y;
+    const v2x = next.x - cur.x;
+    const v2y = next.y - cur.y;
+    const len1 = Math.hypot(v1x, v1y);
+    const len2 = Math.hypot(v2x, v2y);
+    if (len1 < tol || len2 < tol) continue;
+    const cross = Math.abs(v1x * v2y - v1y * v2x) / (len1 * len2);
+    if (cross < 0.01) continue;
+    out.push(cur);
+  }
+  return out.length >= 3 ? out : ded;
+}
+
+function classificar(pts: PontoMm[]): "retangular" | "L" | "poligono_complexo" {
   if (pts.length === 4) return "retangular";
   if (pts.length === 6) {
-    // Conta ângulos retos
     let rights = 0;
     for (let i = 0; i < 6; i++) {
       const a = pts[(i + 5) % 6];
@@ -494,14 +135,13 @@ function classificarPoligono(pts: PontoMm[]): "retangular" | "L" | "poligono_com
       const dot = v1x * v2x + v1y * v2y;
       const l1 = Math.hypot(v1x, v1y);
       const l2 = Math.hypot(v2x, v2y);
-      if (l1 > 0 && l2 > 0 && Math.abs(dot / (l1 * l2)) < 0.1) rights++;
+      if (l1 > 0 && l2 > 0 && Math.abs(dot / (l1 * l2)) < 0.15) rights++;
     }
     if (rights >= 5) return "L";
   }
   return "poligono_complexo";
 }
 
-// Garante orientação anti-horária (Y para cima).
 function paraAntiHorario(pts: PontoMm[]): PontoMm[] {
   let a = 0;
   for (let i = 0; i < pts.length; i++) {
@@ -509,8 +149,201 @@ function paraAntiHorario(pts: PontoMm[]): PontoMm[] {
     const q = pts[(i + 1) % pts.length];
     a += (q.x - p.x) * (q.y + p.y);
   }
-  // a>0 → horário em Y-cresce-pra-cima; invertemos
   return a > 0 ? pts.slice().reverse() : pts;
+}
+
+async function extrairSubpaths(
+  pdfjs: PdfJs,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  page: any,
+): Promise<{
+  subpaths: Subpath[];
+  pageW: number;
+  pageH: number;
+  opStats: Record<string, number>;
+  totalOps: number;
+}> {
+  const viewport = page.getViewport({ scale: 1 });
+  const opList = await page.getOperatorList();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const OPS: Record<string, number> = (pdfjs as any).OPS;
+  // Inverte OPS para nome humano
+  const OP_NAME: Record<number, string> = {};
+  for (const [k, v] of Object.entries(OPS)) OP_NAME[v] = k;
+
+  const subpaths: Subpath[] = [];
+  let ctm: Mat = mIdentity();
+  const stack: Mat[] = [];
+
+  let cur: PontoMm[] = [];
+  let curStart: PontoMm | null = null;
+  let curClosed = false;
+  let cx = 0;
+  let cy = 0;
+
+  const flush = () => {
+    if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+    cur = [];
+    curStart = null;
+    curClosed = false;
+  };
+
+  const addPoint = (x: number, y: number) => {
+    const [tx, ty] = mApply(ctm, x, y);
+    cur.push({ x: tx, y: ty });
+  };
+
+  // Aplica um único operador de path (moveTo, lineTo, curveTo, rectangle, closePath)
+  // com seus argumentos já consumidos da lista plana de args do constructPath.
+  const applyPathOp = (subFn: number, subArgs: number[]) => {
+    if (subFn === OPS.moveTo) {
+      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+      cur = [];
+      curClosed = false;
+      cx = subArgs[0];
+      cy = subArgs[1];
+      addPoint(cx, cy);
+      curStart = cur[cur.length - 1];
+    } else if (subFn === OPS.lineTo) {
+      cx = subArgs[0];
+      cy = subArgs[1];
+      addPoint(cx, cy);
+    } else if (subFn === OPS.rectangle) {
+      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+      cur = [];
+      const [rx, ry, rw, rh] = subArgs;
+      const corners: [number, number][] = [
+        [rx, ry],
+        [rx + rw, ry],
+        [rx + rw, ry + rh],
+        [rx, ry + rh],
+      ];
+      for (const [a, b] of corners) addPoint(a, b);
+      curStart = cur[0];
+      subpaths.push({ pts: cur, closed: true });
+      cur = [];
+      curStart = null;
+      curClosed = false;
+      cx = rx;
+      cy = ry;
+    } else if (subFn === OPS.curveTo) {
+      // x1 y1 x2 y2 x3 y3 → endpoint final
+      const ex = subArgs[4];
+      const ey = subArgs[5];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.curveTo2) {
+      // x2 y2 x3 y3 → endpoint final
+      const ex = subArgs[2];
+      const ey = subArgs[3];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.curveTo3) {
+      // x1 y1 x3 y3 → endpoint final
+      const ex = subArgs[2];
+      const ey = subArgs[3];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.closePath) {
+      if (curStart) {
+        cur.push({ x: curStart.x, y: curStart.y });
+        curClosed = true;
+        cx = curStart.x;
+        cy = curStart.y;
+      }
+    }
+  };
+
+  // Tamanho de args por op (PDF spec)
+  const argLen: Record<number, number> = {
+    [OPS.moveTo]: 2,
+    [OPS.lineTo]: 2,
+    [OPS.rectangle]: 4,
+    [OPS.curveTo]: 6,
+    [OPS.curveTo2]: 4,
+    [OPS.curveTo3]: 4,
+    [OPS.closePath]: 0,
+  };
+
+  const fnArray = opList.fnArray as number[];
+  const argsArray = opList.argsArray as unknown[][];
+  const opStats: Record<string, number> = {};
+  for (let i = 0; i < fnArray.length; i++) {
+    const fn = fnArray[i];
+    const args = argsArray[i] as number[];
+    const name = OP_NAME[fn] ?? `op${fn}`;
+    opStats[name] = (opStats[name] ?? 0) + 1;
+    if (fn === OPS.save) {
+      stack.push(ctm);
+    } else if (fn === OPS.restore) {
+      ctm = stack.pop() ?? mIdentity();
+    } else if (fn === OPS.transform) {
+      ctm = mMul(ctm, [args[0], args[1], args[2], args[3], args[4], args[5]]);
+    } else if (fn === OPS.constructPath) {
+      // pdfjs v6: argsArray[i] = [opCode, ...args] (uma op de path por chamada).
+      // opCode pode ser path-builder (moveTo/lineTo/...) OU paint (stroke/fill/...).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const a0: any = (args as any)[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const a1: any = (args as any)[1];
+      if (typeof a0 === "number") {
+        const subFn = a0;
+        const subArgs = (args as number[]).slice(1);
+        if (
+          subFn === OPS.moveTo || subFn === OPS.lineTo ||
+          subFn === OPS.rectangle || subFn === OPS.curveTo ||
+          subFn === OPS.curveTo2 || subFn === OPS.curveTo3 ||
+          subFn === OPS.closePath
+        ) {
+          applyPathOp(subFn, subArgs);
+        } else if (
+          subFn === OPS.stroke || subFn === OPS.closeStroke ||
+          subFn === OPS.fillStroke || subFn === OPS.eoFillStroke ||
+          subFn === OPS.closeFillStroke || subFn === OPS.closeEOFillStroke ||
+          subFn === OPS.fill || subFn === OPS.eoFill
+        ) {
+          if (
+            subFn === OPS.closeStroke || subFn === OPS.closeFillStroke ||
+            subFn === OPS.closeEOFillStroke || subFn === OPS.fill ||
+            subFn === OPS.eoFill || subFn === OPS.fillStroke ||
+            subFn === OPS.eoFillStroke
+          ) {
+            if (!curClosed && curStart != null && cur.length >= 2) {
+              const sx = (curStart as PontoMm).x;
+              const sy = (curStart as PontoMm).y;
+              cur.push({ x: sx, y: sy });
+              curClosed = true;
+            }
+          }
+          flush();
+        } else if (subFn === OPS.endPath) {
+          cur = []; curStart = null; curClosed = false;
+        } else {
+          opStats[`constructPath:sub${subFn}`] = (opStats[`constructPath:sub${subFn}`] ?? 0) + 1;
+        }
+      } else if (Array.isArray(a0) || ArrayBuffer.isView(a0)) {
+        const subOps = Array.from(a0 as ArrayLike<number>);
+        const subArgsFlat = Array.from(
+          (Array.isArray(a1) || ArrayBuffer.isView(a1) ? a1 : []) as ArrayLike<number>,
+        );
+        let ai = 0;
+        for (const sub of subOps) {
+          const need = argLen[sub] ?? 0;
+          const slice = subArgsFlat.slice(ai, ai + need);
+          ai += need;
+          applyPathOp(sub, slice);
+        }
+      } else {
+        opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
+      }
+    }
+  }
+  if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+
+  return { subpaths, pageW: viewport.width, pageH: viewport.height, opStats, totalOps: fnArray.length };
 }
 
 export async function extrairContornoVisualCalibrado(
@@ -536,111 +369,120 @@ export async function extrairContornoVisualCalibrado(
   }
 
   let pdfjs: PdfJs;
-  let doc: Awaited<ReturnType<PdfJs["getDocument"]>["promise"]>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let doc: any;
   try {
     pdfjs = await loadPdfJs();
-    const loadingTask = pdfjs.getDocument({ data: pdfBytes.slice(0) });
-    doc = await loadingTask.promise;
+    doc = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
   } catch (e) {
     return falhar(`Falha ao abrir PDF: ${(e as Error).message}`);
   }
 
-  // Analisa cada página, escolhe a com maior cluster de contorno candidato.
   type Candidato = {
     pagina: number;
     pts: PontoMm[];
     tipo: "retangular" | "L" | "poligono_complexo";
     escala: number;
-    coerenciaEixos: number; // |escalaX/escalaY - 1|
+    coerenciaEixos: number;
+    razaoProporcao: number;
+    bboxW: number;
+    bboxH: number;
+    area: number;
   };
   const candidatos: Candidato[] = [];
+  const propAlvo = medidas.largura / medidas.altura;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
     try {
       const page = await doc.getPage(pageNum);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { segs, pageW, pageH } = await extrairSegmentos(pdfjs, page as any);
+      const { subpaths, pageW, pageH, opStats, totalOps } = await extrairSubpaths(pdfjs, page);
       const diagPg = Math.hypot(pageW, pageH);
-      const segsAxiais = manterAxiais(filtrarSegmentos(segs, diagPg));
-      if (segsAxiais.length < 4) continue;
+      const minBB = diagPg * 0.1; // subpath precisa cobrir >10% da diagonal
 
-      // Clusters
-      const snap = diagPg * 0.003;
-      const clusters = clusterizarSegmentos(segsAxiais, snap);
-      if (clusters.length === 0) continue;
+      const closedBig = subpaths
+        .filter((s) => s.closed && s.pts.length >= 4)
+        .map((s) => {
+          const bb = bbox(s.pts);
+          return { s, bb };
+        })
+        .filter((x) => x.bb.w >= minBB && x.bb.h >= minBB);
 
-      // Para cada cluster grande, tenta reconstruir polígono
-      const clustersGrandes = clusters
-        .map((c) => ({ c, bb: bboxSegs(c) }))
-        .filter((x) => x.bb.w > diagPg * 0.15 && x.bb.h > diagPg * 0.15)
-        .sort((a, b) => b.bb.w * b.bb.h - a.bb.w * a.bb.h);
+      const opsResumo = Object.entries(opStats)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ");
+      diag.push(
+        `página ${pageNum}: ${totalOps} ops [${opsResumo}], ${subpaths.length} subpaths (${subpaths.filter((s) => s.closed).length} fechados), ${closedBig.length} fechados grandes (>=${minBB.toFixed(0)} pt)`,
+      );
 
-      for (const { c, bb } of clustersGrandes.slice(0, 3)) {
-        const poly = reconstruirPoligono(c, snap);
-        if (!poly || poly.length < 4) continue;
-
-        // Calibra escala usando bbox do polígono (não o bbox bruto do cluster)
-        const polyBB = bboxSegs(
-          poly.map((p, i) => {
-            const n = poly[(i + 1) % poly.length];
-            return { x1: p.x, y1: p.y, x2: n.x, y2: n.y };
-          }),
-        );
-        if (polyBB.w <= 0 || polyBB.h <= 0) continue;
-        const escalaX = medidas.largura / polyBB.w;
-        const escalaY = medidas.altura / polyBB.h;
+      for (const { s, bb } of closedBig) {
+        if (bb.w <= 0 || bb.h <= 0) continue;
+        const escalaX = medidas.largura / bb.w;
+        const escalaY = medidas.altura / bb.h;
         const coer = Math.abs(escalaX / escalaY - 1);
         const escala = (escalaX + escalaY) / 2;
+        const prop = bb.w / bb.h;
+        const razao = Math.abs(prop / propAlvo - 1);
 
-        // Converte para mm com escala isotrópica + origem inferior-esquerda
-        const ptsMm: PontoMm[] = poly.map((p) => ({
-          x: (p.x - polyBB.minX) * escala,
-          y: (p.y - polyBB.minY) * escala,
+        // normaliza para mm com escala isotrópica e origem inferior-esquerda
+        const ptsBruto = s.pts.map((p) => ({
+          x: (p.x - bb.minX) * escala,
+          y: (p.y - bb.minY) * escala,
         }));
-        const simpl = simplificarPoligono(paraAntiHorario(ptsMm), 1);
-        const tipo = classificarPoligono(simpl);
+        const ptsSimples = simplificar(paraAntiHorario(ptsBruto), Math.max(1, escala));
+        if (ptsSimples.length < 4) continue;
+        const tipo = classificar(ptsSimples);
+        const ar = area(ptsSimples);
         candidatos.push({
           pagina: pageNum,
-          pts: simpl,
+          pts: ptsSimples,
           tipo,
           escala,
           coerenciaEixos: coer,
+          razaoProporcao: razao,
+          bboxW: bb.w,
+          bboxH: bb.h,
+          area: ar,
         });
-        diag.push(
-          `página ${pageNum}: candidato ${tipo} com ${simpl.length} vértices, bbox=${polyBB.w.toFixed(1)}×${polyBB.h.toFixed(1)} pt, escalaX/Y desvio=${(coer * 100).toFixed(1)}%`,
-        );
-        void bb;
       }
     } catch (e) {
-      diag.push(`página ${pageNum}: ${(e as Error).message}`);
+      diag.push(`página ${pageNum}: erro ${(e as Error).message}`);
     }
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (doc as any).destroy?.();
+    if (doc.destroy) await doc.destroy();
   } catch {
     /* ignore */
   }
 
   if (candidatos.length === 0) {
-    return falhar(
-      "Nenhum contorno vetorial fechado pôde ser reconstruído a partir do PDF.",
+    return falhar("Nenhum subpath fechado relevante encontrado no PDF.");
+  }
+
+  // Diagnóstico resumido de candidatos
+  for (const c of candidatos.slice(0, 6)) {
+    diag.push(
+      `cand pg${c.pagina} tipo=${c.tipo} vértices=${c.pts.length} bbox=${c.bboxW.toFixed(1)}×${c.bboxH.toFixed(1)} pt escala≈${c.escala.toFixed(4)} prop_desvio=${(c.razaoProporcao * 100).toFixed(1)}% eixoX/Y_desvio=${(c.coerenciaEixos * 100).toFixed(1)}% área=${c.area.toFixed(0)}mm²`,
     );
   }
 
-  // Prioriza L > retangular > poligono_complexo, e dentro disso menor desvio de escala
-  const ordem: Record<string, number> = { L: 0, retangular: 1, poligono_complexo: 2 };
-  candidatos.sort((a, b) => {
-    const da = ordem[a.tipo] - ordem[b.tipo];
-    if (da !== 0) return da;
-    return a.coerenciaEixos - b.coerenciaEixos;
-  });
-  const escolhido = candidatos[0];
+  // Filtra por proporção compatível com as medidas (tolerância 5%)
+  const compativeis = candidatos.filter((c) => c.razaoProporcao <= 0.05);
+  const pool = compativeis.length > 0 ? compativeis : candidatos;
 
-  if (escolhido.coerenciaEixos > 0.05) {
+  // Prioriza: L > poligono_complexo > retangular ; dentro disso maior área
+  const ordem: Record<string, number> = { L: 0, poligono_complexo: 1, retangular: 2 };
+  pool.sort((a, b) => {
+    const d = ordem[a.tipo] - ordem[b.tipo];
+    if (d !== 0) return d;
+    return b.area - a.area;
+  });
+  const escolhido = pool[0];
+
+  if (escolhido.coerenciaEixos > 0.05 || escolhido.razaoProporcao > 0.08) {
     diag.push(
-      `Escala X/Y diverge ${(escolhido.coerenciaEixos * 100).toFixed(1)}% — contorno marcado como pendente.`,
+      `Escala/proporção divergem (eixo=${(escolhido.coerenciaEixos * 100).toFixed(1)}%, proporção=${(escolhido.razaoProporcao * 100).toFixed(1)}%) — marcado como pendente.`,
     );
     return {
       pontos: escolhido.pts,
@@ -654,10 +496,10 @@ export async function extrairContornoVisualCalibrado(
   }
 
   const confianca: "alta" | "media" =
-    escolhido.tipo === "retangular" || escolhido.coerenciaEixos < 0.01 ? "alta" : "media";
+    escolhido.coerenciaEixos < 0.01 && escolhido.razaoProporcao < 0.01 ? "alta" : "media";
 
   diag.push(
-    `Contorno aceito: tipo=${escolhido.tipo}, página=${escolhido.pagina}, confiança=${confianca}.`,
+    `Aceito: pg${escolhido.pagina} tipo=${escolhido.tipo} vértices=${escolhido.pts.length} confiança=${confianca}.`,
   );
 
   return {
