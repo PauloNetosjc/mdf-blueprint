@@ -1306,6 +1306,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               {/* Operações */}
               {opsFace.map((op) => {
                 const sel = op.id === opSel;
+                const fora = opForaContorno(op);
                 if (op.tipo_operacao === "furo") {
                   if (op.x == null || op.y == null) return null;
                   const cx = margin + op.x;
@@ -1318,8 +1319,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                         cx={cx}
                         cy={cy}
                         r={r}
-                        fill={sel ? "var(--color-primary)" : "var(--color-surface)"}
-                        stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-surface)"}
+                        stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-foreground)"}
                         strokeWidth={sel ? px(2) : px(1)}
                       />
                       <circle cx={cx} cy={cy} r={px(1)} fill="var(--color-foreground)" />
@@ -1328,7 +1329,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         y={cy - r - px(2)}
                         fontSize={fontOp}
                         fontFamily="monospace"
-                        fill={sel ? "var(--color-primary)" : "var(--color-muted-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-muted-foreground)"}
                       >
                         Ø{op.diametro ?? "?"}
                       </text>
@@ -1347,7 +1348,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                           y1={margin + partH - op.y1}
                           x2={margin + x2}
                           y2={margin + partH - op.y2}
-                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
                           strokeWidth={larg}
                           strokeLinecap="round"
                           opacity={0.85}
@@ -1367,8 +1368,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                         y={cy - larg / 2}
                         width={Math.abs(x2 - x1)}
                         height={larg}
-                        fill={sel ? "var(--color-primary)" : "var(--color-accent)"}
-                        stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
+                        stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-foreground)"}
                         strokeWidth={sel ? px(2) : px(1)}
                         opacity={0.8}
                         rx={larg / 2}
@@ -1392,8 +1393,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                             y={cy - px(8)}
                             width={px(16)}
                             height={px(16)}
-                            fill={sel ? "var(--color-primary)" : "transparent"}
-                            stroke="var(--color-foreground)"
+                            fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "transparent"}
+                            stroke={fora ? "var(--color-destructive)" : "var(--color-foreground)"}
                             strokeWidth={px(1)}
                             strokeDasharray={`${px(3)},${px(2)}`}
                           />
@@ -1423,7 +1424,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         <path
                           d={d + (pts.length > 2 ? " Z" : "")}
                           fill={sel ? "color-mix(in oklab, var(--color-primary) 15%, transparent)" : "none"}
-                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
                           strokeWidth={sel ? px(2.5) : px(1.8)}
                         />
                       )}
