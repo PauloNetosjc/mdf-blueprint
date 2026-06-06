@@ -668,6 +668,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Layout global para o modo "Ver todas as faces"
   const todasFacesLayout = useMemo(() => {
     const GAP = 40;
+    const entradasComLayout = (facesLayout?.faces ?? []).filter(
+      (f) => f.x_layout != null && f.y_layout != null && f.largura_visual > 0 && f.altura_visual > 0,
+    );
+    if (entradasComLayout.length > 0) {
+      return entradasComLayout
+        .map((f) => ({
+          face: String(f.face),
+          x: Number(f.x_layout),
+          y: Number(f.y_layout),
+          w: f.largura_visual,
+          h: f.altura_visual,
+        }))
+        .filter((b) => faces.includes(b.face));
+    }
     const f0 = dimsForFace("0");
     const f1 = dimsForFace("1");
     const f5 = dimsForFace("5");
@@ -692,7 +706,7 @@ export function VisualizadorTecnicoPecaCadastrada({
     ];
     return boxes.filter((b) => faces.includes(b.face));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facesLayoutMap, faces, largura, altura, espessura]);
+  }, [facesLayout, facesLayoutMap, faces, largura, altura, espessura]);
 
   const temLayoutMultiFaces = !!facesLayout && (facesLayout.faces?.length ?? 0) > 1;
 
