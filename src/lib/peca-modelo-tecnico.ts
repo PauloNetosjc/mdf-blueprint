@@ -385,11 +385,114 @@ export function contornoExternoDoModelo(modelo: ModeloTecnicoJson) {
   };
 }
 
+// ---------- Validação geométrica das operações ----------
+
+type Pt = { x: number; y: number };
+
+function pontoDentroDoPoligono(p: Pt, poly: Pt[], tol = 0.5): boolean {
+  // Ray casting + tolerância para a borda.
+  let dentro = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    const intersect =
+      yi > p.y !== yj > p.y &&
+      p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-12) + xi;
+    if (intersect) dentro = !dentro;
+    // Borda: distância do ponto ao segmento <= tol → considera dentro.
+    const dx = xj - xi, dy = yj - yi;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - xi) * dx + (p.y - yi) * dy) / len2));
+    const px = xi + t * dx, py = yi + t * dy;
+    const d2 = (p.x - px) ** 2 + (p.y - py) ** 2;
+    if (d2 <= tol * tol) return true;
+  }
+  return dentro;
+}
+
+function pontosDeOperacao(op: OperacaoModelo): Pt[] {
+  const pts: Pt[] = [];
+  if (op.x != null && op.y != null) pts.push({ x: op.x, y: op.y });
+  if (op.x1 != null && op.y1 != null) pts.push({ x: op.x1, y: op.y1 });
+  if (op.x2 != null && op.y2 != null) pts.push({ x: op.x2, y: op.y2 });
+  // Midpoint de rasgo, se houver dois extremos
+  if (op.x1 != null && op.x2 != null && op.y1 != null && op.y2 != null) {
+    pts.push({ x: (op.x1 + op.x2) / 2, y: (op.y1 + op.y2) / 2 });
+  } else if (op.x1 != null && op.x2 != null && op.y != null) {
+    pts.push({ x: (op.x1 + op.x2) / 2, y: op.y });
+  } else if (op.y1 != null && op.y2 != null && op.x != null) {
+    pts.push({ x: op.x, y: (op.y1 + op.y2) / 2 });
+  }
+  for (const pp of op.pontos ?? []) {
+    if (pp.x != null && pp.y != null) pts.push({ x: pp.x, y: pp.y });
+  }
+  return pts;
+}
+
+export type ValidacaoGeometrica = {
+  ok: boolean;
+  forasDoContorno: Array<{
+    face: string;
+    tipo: string;
+    nome: string | null | undefined;
+    ordem: number;
+    motivo: string;
+  }>;
+};
+
+/**
+ * Valida que toda operação cai dentro (ou na borda) do polígono de contorno.
+ * Se a geometria for retangular sem pontos explícitos, deriva o retângulo de
+ * largura×altura. Usa face de alinhamento (Face 7 em Base L) como referência
+ * apenas para verificar operações dessa face; demais faces (laterais/topo)
+ * ficam fora do escopo desta validação plana.
+ */
+export function validarGeometriaModelo(
+  modelo: ModeloTecnicoJson,
+): ValidacaoGeometrica {
+  const L = modelo.geometria.largura ?? modelo.medidas.largura ?? 0;
+  const H = modelo.geometria.altura ?? modelo.medidas.altura ?? 0;
+  let poly = modelo.geometria.pontos_contorno ?? [];
+  if (poly.length < 3 && L > 0 && H > 0) {
+    poly = [
+      { x: 0, y: 0 },
+      { x: L, y: 0 },
+      { x: L, y: H },
+      { x: 0, y: H },
+    ];
+  }
+  if (poly.length < 3) {
+    return { ok: false, forasDoContorno: [] };
+  }
+  const faceAlvo = modelo.face_alinhamento ?? null;
+  const foras: ValidacaoGeometrica["forasDoContorno"] = [];
+  for (const op of modelo.operacoes) {
+    // Só valida operações na face de alinhamento (plano da peça).
+    if (faceAlvo != null && String(op.face) !== String(faceAlvo)) continue;
+    const pts = pontosDeOperacao(op);
+    if (pts.length === 0) continue;
+    for (const p of pts) {
+      if (!pontoDentroDoPoligono(p, poly, 0.75)) {
+        foras.push({
+          face: String(op.face),
+          tipo: op.tipo,
+          nome: op.nome,
+          ordem: op.ordem ?? 0,
+          motivo: `Ponto (${p.x.toFixed(1)}, ${p.y.toFixed(1)}) fora do contorno`,
+        });
+        break;
+      }
+    }
+  }
+  return { ok: foras.length === 0, forasDoContorno: foras };
+}
+
 // ---------- Bloqueio de geração de G-code ----------
 
 export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
   permitido: boolean;
   motivo: string;
+  validacao?: ValidacaoGeometrica;
 } {
   if (!modelo) {
     return {
@@ -407,7 +510,21 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
   if ((modelo.medidas.largura ?? 0) <= 0 || (modelo.medidas.altura ?? 0) <= 0) {
     return { permitido: false, motivo: "Medidas mínimas da peça não definidas." };
   }
-  return { permitido: true, motivo: "Modelo técnico completo." };
+  if ((modelo.geometria.pontos_contorno?.length ?? 0) < 4) {
+    return { permitido: false, motivo: "Contorno da peça incompleto (mín. 4 pontos)." };
+  }
+  if ((modelo.erros ?? []).length > 0) {
+    return { permitido: false, motivo: `Erros críticos no modelo: ${modelo.erros[0]}` };
+  }
+  const validacao = validarGeometriaModelo(modelo);
+  if (!validacao.ok) {
+    return {
+      permitido: false,
+      motivo: `Operações fora do contorno (${validacao.forasDoContorno.length}). Corrigir antes de gerar CNC.`,
+      validacao,
+    };
+  }
+  return { permitido: true, motivo: "Geometria validada para CNC.", validacao };
 }
 
 // ---------- Exportar ----------
