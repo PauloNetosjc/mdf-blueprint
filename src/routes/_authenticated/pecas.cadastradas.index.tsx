@@ -13,11 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes, Trash2 } from "lucide-react";
+import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes, Trash2, ClipboardCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeometriaDialog";
 import { ReprocessarParserErrosDialog } from "@/components/pecas/ReprocessarParserErrosDialog";
 import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
+import { AuditarBibliotecaDialog } from "@/components/pecas/AuditarBibliotecaDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
   parseTechnicalDrawingPdf,
@@ -170,6 +171,7 @@ function PecasCadastradasPage() {
   const [reprocessOpen, setReprocessOpen] = useState(false);
   const [reprocessParserOpen, setReprocessParserOpen] = useState(false);
   const [limparOpen, setLimparOpen] = useState(false);
+  const [auditarOpen, setAuditarOpen] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -839,6 +841,10 @@ function PecasCadastradasPage() {
             <Shapes className="mr-2 h-4 w-4" />
             Reprocessar geometria
           </Button>
+          <Button variant="outline" onClick={() => setAuditarOpen(true)} disabled={importando}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Auditar biblioteca
+          </Button>
           <Button variant="destructive" onClick={() => setLimparOpen(true)} disabled={importando}>
             <Trash2 className="mr-2 h-4 w-4" />
             Limpar biblioteca
@@ -1061,6 +1067,7 @@ function PecasCadastradasPage() {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
         }}
       />
+      <AuditarBibliotecaDialog open={auditarOpen} onOpenChange={setAuditarOpen} />
 
     </div>
   );
