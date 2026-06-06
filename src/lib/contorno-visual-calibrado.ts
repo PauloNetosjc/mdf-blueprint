@@ -309,6 +309,14 @@ async function extrairSubpaths(
         }
       } else {
         opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
+        if ((opStats["constructPath:unknownShape"] ?? 0) <= 1) {
+          // grava uma amostra do shape p/ debug
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ta: any = a0;
+          opStats[
+            `constructPath:debug:argsLen=${(args as unknown[]).length},a0type=${typeof a0},a0proto=${a0?.constructor?.name ?? "?"},a0keys=${a0 && typeof a0 === "object" ? Object.keys(a0).slice(0, 5).join("|") : "?"},a0sample=${typeof ta?.[0]}`
+          ] = 1;
+        }
       }
     } else if (
       fn === OPS.moveTo ||
