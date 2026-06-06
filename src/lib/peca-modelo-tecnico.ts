@@ -33,6 +33,7 @@ export const GeometriaOrigemSchema = z.enum([
   "pdf_visual_calibrado",
   "pdf_raster_calibrado",
   "regra_parametrica",
+  "regra_base_l_inferior",
   "manual",
 ]);
 export type GeometriaOrigem = z.infer<typeof GeometriaOrigemSchema>;
