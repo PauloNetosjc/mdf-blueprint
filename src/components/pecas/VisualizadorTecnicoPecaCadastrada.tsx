@@ -116,6 +116,9 @@ export type FaceLayoutEntry = {
   altura_visual: number;
   posicao_pdf?: string;
   ordem_visual?: number;
+  x_layout?: number;
+  y_layout?: number;
+  visivel?: boolean;
 };
 
 export type FacesLayoutJson = {
