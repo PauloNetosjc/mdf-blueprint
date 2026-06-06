@@ -359,6 +359,34 @@ function isNumericCells(cels: { str: string }[]): boolean {
   return nums >= Math.max(2, Math.floor(cels.length * 0.7));
 }
 
+// Extrai TODOS os números de um texto livre, tolerando tokens colados como
+// "2488 7 4.5" dentro de uma mesma célula PDF, decimais com vírgula, etc.
+function extrairNumerosTexto(texto: string): number[] {
+  const out: number[] = [];
+  const re = /-?\d+(?:[.,]\d+)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(texto)) !== null) {
+    const n = Number(m[0].replace(",", "."));
+    if (Number.isFinite(n)) out.push(n);
+  }
+  return out;
+}
+
+// Verifica se uma linha é "essencialmente numérica" mesmo quando as células
+// vieram coladas pelo extractor do PDF. Aceita rótulos curtos como
+// "Y", "X1", "Larg:", "Prof:" que aparecem misturados em tabelas técnicas.
+function linhaPareceNumerica(texto: string, minNumeros: number): boolean {
+  const nums = extrairNumerosTexto(texto);
+  if (nums.length < minNumeros) return false;
+  // Remove números e rótulos comuns de tabela técnica e checa se sobra texto.
+  const limpo = texto
+    .replace(/-?\d+(?:[.,]\d+)?/g, " ")
+    .replace(/\b(Y|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*[0-5])\b/gi, " ")
+    .replace(/[:;,.\-()\[\]]/g, " ")
+    .trim();
+  return limpo.length <= 3; // tolera 1-3 caracteres residuais
+}
+
 function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
   return valores.length > qtd ? valores.slice(-qtd) : valores;
 }
