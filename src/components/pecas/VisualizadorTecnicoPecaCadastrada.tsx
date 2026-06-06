@@ -135,6 +135,12 @@ type Props = {
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
   facesLayout?: FacesLayoutJson | null;
+  // Camada nova: PDF original como referência visual fiel.
+  pecaId?: string;
+  pdfStoragePath?: string | null;
+  pdfNomeArquivo?: string | null;
+  geometriaComplexa?: boolean;
+  geometriaComplexaMotivos?: string[];
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
