@@ -283,23 +283,21 @@ async function extrairSubpaths(
     } else if (fn === OPS.transform) {
       ctm = mMul(ctm, [args[0], args[1], args[2], args[3], args[4], args[5]]);
     } else if (fn === OPS.constructPath) {
-      // pdfjs varia o shape de args[0]: Array, Int32Array ou objeto {ops,args}.
+      // pdfjs v6: argsArray[i] = [opCode, ...args] (uma operação por chamada).
+      // Versões anteriores (batched): argsArray[i] = [ops[], args[], minMax[]].
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const a0: any = (args as any)[0];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const a1: any = (args as any)[1];
-      let subOpsRaw: ArrayLike<number> | null = null;
-      let subArgsRaw: ArrayLike<number> | null = null;
-      if (Array.isArray(a0) || ArrayBuffer.isView(a0)) {
-        subOpsRaw = a0 as ArrayLike<number>;
-        subArgsRaw = (Array.isArray(a1) || ArrayBuffer.isView(a1) ? a1 : []) as ArrayLike<number>;
-      } else if (a0 && (Array.isArray(a0.ops) || ArrayBuffer.isView(a0.ops))) {
-        subOpsRaw = a0.ops as ArrayLike<number>;
-        subArgsRaw = (a0.args ?? []) as ArrayLike<number>;
-      }
-      if (subOpsRaw && subArgsRaw) {
-        const subOps = Array.from(subOpsRaw);
-        const subArgsFlat = Array.from(subArgsRaw);
+      if (typeof a0 === "number") {
+        const subFn = a0;
+        const subArgs = (args as number[]).slice(1);
+        applyPathOp(subFn, subArgs);
+      } else if (Array.isArray(a0) || ArrayBuffer.isView(a0)) {
+        const subOps = Array.from(a0 as ArrayLike<number>);
+        const subArgsFlat = Array.from(
+          (Array.isArray(a1) || ArrayBuffer.isView(a1) ? a1 : []) as ArrayLike<number>,
+        );
         let ai = 0;
         for (const sub of subOps) {
           const need = argLen[sub] ?? 0;
@@ -309,56 +307,7 @@ async function extrairSubpaths(
         }
       } else {
         opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
-        if ((opStats["constructPath:unknownShape"] ?? 0) <= 1) {
-          // grava uma amostra do shape p/ debug
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const ta: any = a0;
-          opStats[
-            `constructPath:debug:argsLen=${(args as unknown[]).length},a0type=${typeof a0},a0proto=${a0?.constructor?.name ?? "?"},a0keys=${a0 && typeof a0 === "object" ? Object.keys(a0).slice(0, 5).join("|") : "?"},a0sample=${typeof ta?.[0]}`
-          ] = 1;
-        }
       }
-    } else if (
-      fn === OPS.moveTo ||
-      fn === OPS.lineTo ||
-      fn === OPS.rectangle ||
-      fn === OPS.curveTo ||
-      fn === OPS.curveTo2 ||
-      fn === OPS.curveTo3 ||
-      fn === OPS.closePath
-    ) {
-      applyPathOp(fn, args);
-    } else if (
-      fn === OPS.stroke ||
-      fn === OPS.closeStroke ||
-      fn === OPS.fillStroke ||
-      fn === OPS.eoFillStroke ||
-      fn === OPS.closeFillStroke ||
-      fn === OPS.closeEOFillStroke ||
-      fn === OPS.fill ||
-      fn === OPS.eoFill
-    ) {
-      if (
-        fn === OPS.closeStroke ||
-        fn === OPS.closeFillStroke ||
-        fn === OPS.closeEOFillStroke ||
-        fn === OPS.fill ||
-        fn === OPS.eoFill ||
-        fn === OPS.fillStroke ||
-        fn === OPS.eoFillStroke
-      ) {
-        if (!curClosed && curStart != null && cur.length >= 2) {
-          const sx = (curStart as PontoMm).x;
-          const sy = (curStart as PontoMm).y;
-          cur.push({ x: sx, y: sy });
-          curClosed = true;
-        }
-      }
-      flush();
-    } else if (fn === OPS.endPath) {
-      cur = [];
-      curStart = null;
-      curClosed = false;
     }
   }
   if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
