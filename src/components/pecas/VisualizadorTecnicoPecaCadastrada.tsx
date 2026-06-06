@@ -116,6 +116,9 @@ export type FaceLayoutEntry = {
   altura_visual: number;
   posicao_pdf?: string;
   ordem_visual?: number;
+  x_layout?: number;
+  y_layout?: number;
+  visivel?: boolean;
 };
 
 export type FacesLayoutJson = {
@@ -142,6 +145,7 @@ type Props = {
   pdfNomeArquivo?: string | null;
   geometriaComplexa?: boolean;
   geometriaComplexaMotivos?: string[];
+  operacoesForaContorno?: Array<{ face: string; ordem: number; tipo: string; motivo: string }>;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
@@ -567,6 +571,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   pdfNomeArquivo,
   geometriaComplexa,
   geometriaComplexaMotivos = [],
+  operacoesForaContorno = [],
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
@@ -589,13 +594,11 @@ export function VisualizadorTecnicoPecaCadastrada({
   const faces = useMemo(() => {
     const facesComOperacao = Array.from(opsPorFace.keys()).filter((f) => f !== "—");
     const facesVisuais = [
-      ...(facesLayout?.faces ?? []).map((f) => String(f.face)),
+      ...(facesLayout?.faces ?? []).filter((f) => f.visivel !== false).map((f) => String(f.face)),
       ...facesDetectadas.map(String),
     ];
     const s = new Set<string>(
-      geometriaComplexa && facesComOperacao.length > 0
-        ? facesComOperacao
-        : geometriaComplexa
+      geometriaComplexa
         ? [...facesComOperacao, ...facesVisuais]
         : [...FACES_PADRAO, ...facesComOperacao, ...facesVisuais],
     );
@@ -604,6 +607,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
   const faceInicial = useMemo(() => {
+    if (faces.includes("7")) return "7";
     if (!geometriaComplexa) return faces[0] ?? "0";
     return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
   }, [faces, geometriaComplexa, opsPorFace]);
@@ -667,6 +671,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   // Layout global para o modo "Ver todas as faces"
   const todasFacesLayout = useMemo(() => {
     const GAP = 40;
+    const entradasComLayout = (facesLayout?.faces ?? []).filter(
+      (f) => f.x_layout != null && f.y_layout != null && f.largura_visual > 0 && f.altura_visual > 0,
+    );
+    if (entradasComLayout.length > 0) {
+      return entradasComLayout
+        .map((f) => ({
+          face: String(f.face),
+          x: Number(f.x_layout),
+          y: Number(f.y_layout),
+          w: f.largura_visual,
+          h: f.altura_visual,
+        }))
+        .filter((b) => faces.includes(b.face));
+    }
     const f0 = dimsForFace("0");
     const f1 = dimsForFace("1");
     const f5 = dimsForFace("5");
@@ -691,7 +709,7 @@ export function VisualizadorTecnicoPecaCadastrada({
     ];
     return boxes.filter((b) => faces.includes(b.face));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facesLayoutMap, faces, largura, altura, espessura]);
+  }, [facesLayout, facesLayoutMap, faces, largura, altura, espessura]);
 
   const temLayoutMultiFaces = !!facesLayout && (facesLayout.faces?.length ?? 0) > 1;
 
@@ -873,6 +891,10 @@ export function VisualizadorTecnicoPecaCadastrada({
     return { ...outlineOperacoes, temContornoExterno: false, temContornoAplicado: false };
   }, [contornoSalvo, outlineOperacoes, partH]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
+  const opForaContorno = (op: VisualizadorOperacao) =>
+    operacoesForaContorno.some(
+      (f) => String(f.face) === String(op.face) && Number(f.ordem) === Number(op.ordem) && f.tipo === op.tipo_operacao,
+    );
   const recuoPorOpId = useMemo(() => {
     const m = new Map<string, ContornoAplicado>();
     outlineOperacoes.recuos.forEach((r) => m.set(r.opId, r));
@@ -1003,6 +1025,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesLayout={facesLayout}
               geometriaComplexa={geometriaComplexa}
               geometriaComplexaMotivos={geometriaComplexaMotivos}
+              operacoesForaContorno={operacoesForaContorno}
               onAddOperacao={onAddOperacao}
               onEditOperacao={onEditOperacao}
               onDeleteOperacao={onDeleteOperacao}
@@ -1283,6 +1306,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               {/* Operações */}
               {opsFace.map((op) => {
                 const sel = op.id === opSel;
+                const fora = opForaContorno(op);
                 if (op.tipo_operacao === "furo") {
                   if (op.x == null || op.y == null) return null;
                   const cx = margin + op.x;
@@ -1295,8 +1319,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                         cx={cx}
                         cy={cy}
                         r={r}
-                        fill={sel ? "var(--color-primary)" : "var(--color-surface)"}
-                        stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-surface)"}
+                        stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-foreground)"}
                         strokeWidth={sel ? px(2) : px(1)}
                       />
                       <circle cx={cx} cy={cy} r={px(1)} fill="var(--color-foreground)" />
@@ -1305,7 +1329,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         y={cy - r - px(2)}
                         fontSize={fontOp}
                         fontFamily="monospace"
-                        fill={sel ? "var(--color-primary)" : "var(--color-muted-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-muted-foreground)"}
                       >
                         Ø{op.diametro ?? "?"}
                       </text>
@@ -1324,7 +1348,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                           y1={margin + partH - op.y1}
                           x2={margin + x2}
                           y2={margin + partH - op.y2}
-                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
                           strokeWidth={larg}
                           strokeLinecap="round"
                           opacity={0.85}
@@ -1344,8 +1368,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                         y={cy - larg / 2}
                         width={Math.abs(x2 - x1)}
                         height={larg}
-                        fill={sel ? "var(--color-primary)" : "var(--color-accent)"}
-                        stroke={sel ? "var(--color-primary)" : "var(--color-foreground)"}
+                        fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
+                        stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-foreground)"}
                         strokeWidth={sel ? px(2) : px(1)}
                         opacity={0.8}
                         rx={larg / 2}
@@ -1369,8 +1393,8 @@ export function VisualizadorTecnicoPecaCadastrada({
                             y={cy - px(8)}
                             width={px(16)}
                             height={px(16)}
-                            fill={sel ? "var(--color-primary)" : "transparent"}
-                            stroke="var(--color-foreground)"
+                            fill={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "transparent"}
+                            stroke={fora ? "var(--color-destructive)" : "var(--color-foreground)"}
                             strokeWidth={px(1)}
                             strokeDasharray={`${px(3)},${px(2)}`}
                           />
@@ -1400,7 +1424,7 @@ export function VisualizadorTecnicoPecaCadastrada({
                         <path
                           d={d + (pts.length > 2 ? " Z" : "")}
                           fill={sel ? "color-mix(in oklab, var(--color-primary) 15%, transparent)" : "none"}
-                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          stroke={fora ? "var(--color-destructive)" : sel ? "var(--color-primary)" : "var(--color-accent)"}
                           strokeWidth={sel ? px(2.5) : px(1.8)}
                         />
                       )}
@@ -1427,21 +1451,35 @@ export function VisualizadorTecnicoPecaCadastrada({
                     const ativa = box.face === faceSel;
                     const bx = margin + box.x;
                     const by = margin + box.y;
+                    const pathFaceL = box.face === "7" && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
+                      ? pathTecnicoParaSvg(contornoSalvo.pontos, box.h)
+                      : null;
                     return (
                       <g
                         key={`face-box-${box.face}`}
                         onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(null); }}
                         style={{ cursor: "pointer" }}
                       >
-                        <rect
-                          x={bx}
-                          y={by}
-                          width={box.w}
-                          height={box.h}
-                          fill="var(--color-surface)"
-                          stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
-                          strokeWidth={ativa ? px(2.5) : px(1.2)}
-                        />
+                        {pathFaceL ? (
+                          <path
+                            d={pathFaceL}
+                            transform={`translate(${bx} ${by})`}
+                            fill="var(--color-surface)"
+                            stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                            strokeWidth={ativa ? px(2.5) : px(1.2)}
+                            strokeLinejoin="miter"
+                          />
+                        ) : (
+                          <rect
+                            x={bx}
+                            y={by}
+                            width={box.w}
+                            height={box.h}
+                            fill="var(--color-surface)"
+                            stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                            strokeWidth={ativa ? px(2.5) : px(1.2)}
+                          />
+                        )}
                         {/* Label da face */}
                         <text
                           x={bx + box.w / 2}

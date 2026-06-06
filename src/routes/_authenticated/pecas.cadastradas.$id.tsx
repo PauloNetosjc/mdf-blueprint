@@ -39,7 +39,7 @@ import {
   type ModeloTecnicoJson,
 } from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
-import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -368,6 +368,11 @@ function PecaCadastradaDetalhe() {
     : [];
   const contornoExterno = lerContornoExterno(dadosBrutos);
   const modeloTecnico = (dadosBrutos.modelo_tecnico_json ?? null) as ModeloTecnicoJson | null;
+  const facesLayoutJson = (dadosBrutos.faces_layout_json ?? null) as FacesLayoutJson | null;
+  const geometriaComplexa = Boolean(dadosBrutos.geometria_complexa);
+  const geometriaComplexaMotivos = Array.isArray(dadosBrutos.geometria_complexa_motivos)
+    ? (dadosBrutos.geometria_complexa_motivos as string[])
+    : [];
   const gcodeStatus = podeGerarGcode(modeloTecnico);
   const operacoesContorno = (ops.data ?? []).filter((o) => {
     const nome = (o.nome_operacao ?? "").toLowerCase();
@@ -518,8 +523,13 @@ function PecaCadastradaDetalhe() {
         )}
 
         {modeloTecnico && gcodeStatus.permitido && (
-          <div className="mb-3 inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            ✓ Geometria validada para CNC
+          <div className="mb-3 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <div>✓ Geometria validada para CNC</div>
+            {modeloTecnico.geometria.tipo === "L" && (
+              <div className="mt-1 text-[11px] font-normal text-muted-foreground">
+                Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.
+              </div>
+            )}
           </div>
         )}
 
@@ -619,16 +629,13 @@ function PecaCadastradaDetalhe() {
             indicadoresBorda={indicadoresBorda}
             facesDetectadas={facesDetectadas}
             contornoExterno={contornoExterno}
-            facesLayout={(dadosBrutos as any).faces_layout_json ?? null}
+            facesLayout={facesLayoutJson}
             pecaId={p.id}
             pdfStoragePath={p.pdf_url}
             pdfNomeArquivo={p.pdf_nome_arquivo}
-            geometriaComplexa={Boolean((dadosBrutos as any).geometria_complexa)}
-            geometriaComplexaMotivos={
-              Array.isArray((dadosBrutos as any).geometria_complexa_motivos)
-                ? ((dadosBrutos as any).geometria_complexa_motivos as string[])
-                : []
-            }
+            geometriaComplexa={geometriaComplexa}
+            geometriaComplexaMotivos={geometriaComplexaMotivos}
+            operacoesForaContorno={gcodeStatus.validacao?.forasDoContorno ?? []}
             onSaveContorno={(contorno) => salvarContorno.mutateAsync(contorno)}
 
             onAddOperacao={async (payload) => {

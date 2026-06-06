@@ -27,6 +27,7 @@ import {
   construirModeloTecnico,
   contornoExternoDoModelo,
   ehBaseL,
+  gerarContornoBaseLInferior,
   gerarContornoBaseLInferiorPorValidacao,
 } from "@/lib/peca-modelo-tecnico";
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
@@ -58,6 +59,36 @@ type PecaMin = {
   dados_brutos_json: Record<string, unknown> | null;
   logs_parser: string[] | null;
 };
+
+function gerarFacesLayoutBaseL(largura: number, altura: number, espessura: number | null) {
+  const L = largura;
+  const A = altura;
+  const E = espessura ?? 18;
+  const GAP = 40;
+  const f7 = { w: L, h: A };
+  const f1 = { w: E, h: A };
+  const f5 = { w: E, h: A * 0.52 };
+  const f3 = { w: E, h: A * 0.48 };
+  const f2 = { w: L * 0.58, h: E };
+  const f4 = { w: L * 0.42, h: E };
+  const f6 = { w: L, h: E };
+  const x7 = f1.w + GAP;
+  const y7 = f6.h + GAP;
+  return {
+    origem: "automatico",
+    atualizado_em: new Date().toISOString(),
+    observacao: "Layout visual automático para Base L com faces 1 a 7.",
+    faces: [
+      { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x7, y_layout: 0, visivel: true },
+      { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: 0, y_layout: y7, visivel: true },
+      { face: "7", label: "F7 — Principal L", tipo_vista: "principal_L", largura_visual: f7.w, altura_visual: f7.h, x_layout: x7, y_layout: y7, visivel: true },
+      { face: "5", label: "F5 — Lateral direita superior", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: x7 + f7.w + GAP, y_layout: y7, visivel: true },
+      { face: "3", label: "F3 — Lateral direita inferior", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: x7 + f7.w + GAP, y_layout: y7 + f5.h + GAP, visivel: true },
+      { face: "2", label: "F2 — Inferior esquerda", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x7, y_layout: y7 + f7.h + GAP, visivel: true },
+      { face: "4", label: "F4 — Inferior direita", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x7 + f2.w + GAP, y_layout: y7 + f7.h + GAP, visivel: true },
+    ],
+  };
+}
 
 function ehOperacaoManual(op: { dados_brutos_json?: Record<string, unknown> | null }): boolean {
   const d = op.dados_brutos_json;
@@ -145,14 +176,22 @@ export async function reprocessarParserDePeca(
           .filter((f): f is string => f != null && f !== ""),
       ),
     );
-    const facesLayout = gerarFacesLayoutAutomatico({
-      largura: result.largura_ref,
-      altura: result.altura_ref,
-      espessura: result.espessura_ref,
-      prefixo: result.codigo.prefixo,
-      tipo: result.codigo.tipo_peca,
-      facesPresentes,
-    });
+    const baseLDetectadaLayout =
+      ehBaseL(result.nome_peca, result.codigo.prefixo) ||
+      ((result.codigo.prefixo ?? "").toUpperCase() === "BAS" &&
+        facesPresentes.includes("7") &&
+        facesPresentes.some((f) => Number(f) > 5) &&
+        result.operacoes.some((u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null));
+    const facesLayout = baseLDetectadaLayout
+      ? gerarFacesLayoutBaseL(result.largura_ref, result.altura_ref, result.espessura_ref)
+      : gerarFacesLayoutAutomatico({
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+          espessura: result.espessura_ref,
+          prefixo: result.codigo.prefixo,
+          tipo: result.codigo.tipo_peca,
+          facesPresentes,
+        });
     const opsParaContorno: VisualizadorOperacao[] = result.operacoes.map((o) => ({
       id: "",
       tipo_operacao: o.tipo_operacao,
@@ -176,9 +215,18 @@ export async function reprocessarParserDePeca(
       confianca_parser: o.confianca_parser,
       ordem: o.ordem,
     }));
-    const contornoGerado =
-      gerarContornoExternoDeOperacoes(result.largura_ref, result.altura_ref, opsParaContorno) ??
-      gerarContornoRetangular(result.largura_ref, result.altura_ref);
+    const contornoGerado = baseLDetectadaLayout
+      ? {
+          origem: "parser_pdf" as const,
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+          pontos: gerarContornoBaseLInferior(result.largura_ref, result.altura_ref),
+          recuos: [],
+          presets_aplicados: ["regra_base_l_inferior"],
+          observacao: "Contorno L técnico para Base L Inferior.",
+        }
+      : gerarContornoExternoDeOperacoes(result.largura_ref, result.altura_ref, opsParaContorno) ??
+        gerarContornoRetangular(result.largura_ref, result.altura_ref);
     const usouFallback = (contornoGerado.recuos ?? []).some((r) => r.origem === "fallback");
 
     dadosBrutosFinal = {
@@ -324,8 +372,6 @@ export async function reprocessarParserDePeca(
   // não deixar pontos_contorno vazio.
   {
     const geom = modeloTecnico.geometria;
-    const precisaFallback =
-      geom.pendente || !geom.pontos_contorno || geom.pontos_contorno.length < 3;
     const nomeUpper2 = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
     const prefixo = result.codigo?.prefixo ?? null;
     const facesDetectadas2 = result.resumo?.faces_com_operacao?.length ?? 0;
@@ -337,50 +383,43 @@ export async function reprocessarParserDePeca(
       nomeUpper2.startsWith("BAS") ||
       facesDetectadas2 > 5 ||
       temRasgoLinha2;
+    const precisaFallback =
+      geom.pendente ||
+      (ehBaseLDetectada && geom.tipo !== "L") ||
+      geom.tipo === "retangular" ||
+      !geom.pontos_contorno ||
+      geom.pontos_contorno.length < (ehBaseLDetectada ? 6 : 3);
     const L = result.largura_ref;
     const H = result.altura_ref;
     if (precisaFallback && ehBaseLDetectada && L && H) {
       const opsModelo = modeloTecnico.operacoes;
       const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
-      if (resultado.escolhido) {
-        modeloTecnico.geometria = {
-          ...geom,
-          tipo: "L",
-          origem: "regra_base_l_inferior_validada_por_operacoes",
-          largura: L,
-          altura: H,
-          pontos_contorno: resultado.escolhido.pontos,
-          confianca: "media",
-          pendente: false,
-        };
-        modeloTecnico.avisos = [
-          ...modeloTecnico.avisos.filter(
-            (a) => !a.includes("Importe um modelo técnico JSON"),
-          ),
-          `Geometria em L escolhida por validação (${resultado.escolhido.nome}). Conferir antes de enviar à máquina.`,
-        ];
-      } else {
-        // Nenhum candidato segura todas as operações dentro.
-        modeloTecnico.geometria = {
-          ...geom,
-          tipo: "L",
-          origem: "regra_base_l_inferior_validada_por_operacoes",
-          largura: L,
-          altura: H,
-          pontos_contorno: [],
-          confianca: "baixa",
-          pendente: true,
-        };
-        modeloTecnico.avisos = [
-          ...modeloTecnico.avisos,
-          resultado.motivo,
-        ];
-      }
+      const contornoL = gerarContornoBaseLInferior(L, H);
+      const candidatoVisual = resultado.candidatos.find(
+        (c) => JSON.stringify(c.pontos) === JSON.stringify(contornoL),
+      );
+      modeloTecnico.geometria = {
+        ...geom,
+        tipo: "L",
+        origem: "regra_base_l_inferior",
+        largura: L,
+        altura: H,
+        pontos_contorno: contornoL,
+        confianca: "media",
+        pendente: false,
+      };
+      modeloTecnico.avisos = [
+        ...modeloTecnico.avisos.filter(
+          (a) => !a.includes("Importe um modelo técnico JSON"),
+        ),
+        `Geometria em L gerada por regra técnica Base L Inferior (${candidatoVisual?.nome ?? "BR_visual_pdf"}). Conferir antes de enviar à máquina.`,
+      ];
       dadosBrutosFinal.contorno_base_l_diagnostico = {
         em: new Date().toISOString(),
         largura: L,
         altura: H,
-        escolhido: resultado.escolhido?.nome ?? null,
+        escolhido: candidatoVisual?.nome ?? "BR_visual_pdf",
+        escolhido_por: "forma_visual_do_pdf",
         motivo: resultado.motivo,
         candidatos: resultado.candidatos.map((c) => ({
           nome: c.nome,
@@ -392,11 +431,14 @@ export async function reprocessarParserDePeca(
   }
 
   dadosBrutosFinal.modelo_tecnico_json = modeloTecnico;
+  dadosBrutosFinal.geometria_complexa =
+    modeloTecnico.geometria.tipo !== "retangular" || modeloTecnico.geometria.pendente;
+  dadosBrutosFinal.geometria_complexa_motivos = modeloTecnico.avisos;
 
   // Se o modelo tem contorno paramétrico/válido (ex.: Base L), publica também
   // como contorno_externo_json para o visualizador desenhar o polígono real.
   if (
-    !contornoEhManual &&
+    (!contornoEhManual || modeloTecnico.geometria.tipo === "L") &&
     !modeloTecnico.geometria.pendente &&
     modeloTecnico.geometria.tipo !== "retangular"
   ) {

@@ -88,6 +88,12 @@ export const BordaModeloSchema = z.object({
 });
 export type BordaModelo = z.infer<typeof BordaModeloSchema>;
 
+const FaceOperacionalSchema = z.object({ face: z.string() });
+const FaceVisualSchema = z.object({
+  face: z.string(),
+  tipo_vista: z.string().optional(),
+});
+
 export const ModeloTecnicoSchema = z.object({
   versao: z.literal(1).default(1),
   codigo: z.string(),
@@ -103,6 +109,8 @@ export const ModeloTecnicoSchema = z.object({
   face_alinhamento: z.string().nullable().optional().default(null),
   geometria: GeometriaSchema,
   faces: z.array(z.object({ face: z.string() })).default([]),
+  faces_operacionais: z.array(FaceOperacionalSchema).default([]),
+  faces_visuais: z.array(FaceVisualSchema).default([]),
   operacoes: z.array(OperacaoModeloSchema).default([]),
   bordas: z.array(BordaModeloSchema).default([]),
   avisos: z.array(z.string()).default([]),
@@ -185,6 +193,33 @@ export type CandidatoContornoL = {
   pontos: { x: number; y: number }[];
   fora: number;
 };
+
+function areaPoligonoAbs(pontos: Pt[]): number {
+  if (pontos.length < 3) return 0;
+  let area = 0;
+  for (let i = 0, j = pontos.length - 1; i < pontos.length; j = i++) {
+    area += pontos[j].x * pontos[i].y - pontos[i].x * pontos[j].y;
+  }
+  return Math.abs(area) / 2;
+}
+
+function ehContornoLValido(pontos: Pt[], largura: number, altura: number): boolean {
+  if (pontos.length < 6) return false;
+  const area = areaPoligonoAbs(pontos);
+  if (!(area > 0 && area < largura * altura - 0.01)) return false;
+  const internos = pontos.filter(
+    (p) => p.x > 0.01 && p.x < largura - 0.01 && p.y > 0.01 && p.y < altura - 0.01,
+  );
+  const temArestaInternaVertical = pontos.some((p, i) => {
+    const q = pontos[(i + 1) % pontos.length];
+    return Math.abs(p.x - q.x) < 0.01 && p.x > 0.01 && p.x < largura - 0.01;
+  });
+  const temArestaInternaHorizontal = pontos.some((p, i) => {
+    const q = pontos[(i + 1) % pontos.length];
+    return Math.abs(p.y - q.y) < 0.01 && p.y > 0.01 && p.y < altura - 0.01;
+  });
+  return internos.length >= 1 && temArestaInternaVertical && temArestaInternaHorizontal;
+}
 
 export function gerarContornoBaseLInferiorPorValidacao(
   largura: number,
@@ -275,23 +310,24 @@ export function gerarContornoBaseLInferiorPorValidacao(
     }
   }
 
-  candidatos.sort((a, b) => a.fora - b.fora);
-  const melhor = candidatos[0] ?? null;
+  const candidatosL = candidatos.filter((c) => ehContornoLValido(c.pontos, largura, altura));
+  candidatosL.sort((a, b) => a.fora - b.fora);
+  const melhor = candidatosL[0] ?? null;
   if (!melhor) {
-    return { escolhido: null, candidatos, motivo: "Nenhum candidato gerado." };
+    return { escolhido: null, candidatos: candidatosL, motivo: "Nenhum candidato L válido gerado." };
   }
   if (melhor.fora === 0) {
     return {
       escolhido: melhor,
-      candidatos,
+      candidatos: candidatosL,
       motivo: `Candidato ${melhor.nome} mantém todas as operações dentro do contorno.`,
     };
   }
   return {
-    escolhido: null,
-    candidatos,
+    escolhido: melhor,
+    candidatos: candidatosL,
     motivo:
-      "Nenhum contorno L candidato contém todas as operações. Verificar orientação da peça ou coordenadas do parser.",
+      `Nenhum contorno L candidato contém todas as operações. Mantido melhor L (${melhor.nome}) com ${melhor.fora} operação(ões) fora para diagnóstico.`,
   };
 }
 
@@ -315,8 +351,8 @@ export function classificarGeometria(args: {
   if (baseL && largura && altura) {
     return {
       tipo: "L",
-      origem: "regra_parametrica",
-      pontos_contorno: gerarContornoL(largura, altura),
+      origem: "regra_base_l_inferior",
+      pontos_contorno: gerarContornoBaseLInferior(largura, altura),
       confianca: "media",
       pendente: false,
     };
@@ -436,6 +472,24 @@ export function construirModeloTecnico(
         .filter((f): f is string => f != null && f !== ""),
     ),
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const baseLVisual =
+    ehBaseL(result.nome_peca, result.codigo?.prefixo ?? null) ||
+    ((result.codigo?.prefixo ?? "").toUpperCase() === "BAS" &&
+      facesPresentes.includes("7") &&
+      temRasgoLinha &&
+      facesAcimaDe5.length > 0);
+  const facesOperacionais = facesPresentes.map((f) => ({ face: f }));
+  const facesVisuais = baseLVisual
+    ? [
+        { face: "1", tipo_vista: "lateral_esquerda" },
+        { face: "2", tipo_vista: "inferior_esquerda" },
+        { face: "3", tipo_vista: "lateral_direita_inferior" },
+        { face: "4", tipo_vista: "inferior_direita" },
+        { face: "5", tipo_vista: "lateral_direita_superior" },
+        { face: "6", tipo_vista: "superior" },
+        { face: "7", tipo_vista: "principal_L" },
+      ]
+    : facesOperacionais;
 
   const avisos: string[] = [];
   if (geometria.pendente) {
@@ -469,7 +523,9 @@ export function construirModeloTecnico(
       confianca: geometria.confianca,
       pendente: geometria.pendente,
     },
-    faces: facesPresentes.map((f) => ({ face: f })),
+    faces: facesOperacionais,
+    faces_operacionais: facesOperacionais,
+    faces_visuais: facesVisuais,
     operacoes: result.operacoes.map(mapOperacao),
     bordas: result.bordas.map(mapBorda),
     avisos,
@@ -557,9 +613,23 @@ export type ValidacaoGeometrica = {
     tipo: string;
     nome: string | null | undefined;
     ordem: number;
+    x?: number;
+    y?: number;
     motivo: string;
   }>;
 };
+
+function modeloEhBaseLObrigatoria(modelo: ModeloTecnicoJson): boolean {
+  const nome = modelo.nome ?? "";
+  const codigo = modelo.codigo.toUpperCase();
+  const faces = modelo.faces ?? [];
+  const operacoes = modelo.operacoes ?? [];
+  const facesVisuais = modelo.faces_visuais ?? [];
+  const temFace7 = faces.some((f) => f.face === "7") || operacoes.some((o) => String(o.face) === "7");
+  const temRasgoLinha = operacoes.some((o) => o.tipo === "rasgo" && o.y1 != null && o.y2 != null);
+  const temFaceAcima5 = operacoes.some((o) => Number(o.face) > 5) || facesVisuais.some((f) => Number(f.face) > 5);
+  return ehBaseL(nome, codigo.slice(0, 3)) || (codigo.startsWith("BAS") && temFace7 && temRasgoLinha && temFaceAcima5);
+}
 
 /**
  * Valida que toda operação cai dentro (ou na borda) do polígono de contorno.
@@ -574,7 +644,7 @@ export function validarGeometriaModelo(
   const L = modelo.geometria.largura ?? modelo.medidas.largura ?? 0;
   const H = modelo.geometria.altura ?? modelo.medidas.altura ?? 0;
   let poly = modelo.geometria.pontos_contorno ?? [];
-  if (poly.length < 3 && L > 0 && H > 0) {
+  if (modelo.geometria.tipo !== "L" && poly.length < 3 && L > 0 && H > 0) {
     poly = [
       { x: 0, y: 0 },
       { x: L, y: 0 },
@@ -617,6 +687,8 @@ export function validarGeometriaModelo(
           tipo: op.tipo,
           nome: op.nome,
           ordem: op.ordem ?? 0,
+          x: p.x,
+          y: p.y,
           motivo: `Ponto (${p.x.toFixed(1)}, ${p.y.toFixed(1)}) fora do contorno`,
         });
         break;
@@ -649,6 +721,12 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
   if ((modelo.medidas.largura ?? 0) <= 0 || (modelo.medidas.altura ?? 0) <= 0) {
     return { permitido: false, motivo: "Medidas mínimas da peça não definidas." };
   }
+  if (modeloEhBaseLObrigatoria(modelo) && modelo.geometria.tipo !== "L") {
+    return { permitido: false, motivo: "Base L não pode gerar CNC com contorno retangular." };
+  }
+  if (modelo.geometria.tipo === "L" && (modelo.geometria.pontos_contorno?.length ?? 0) < 6) {
+    return { permitido: false, motivo: "Contorno L incompleto (mín. 6 pontos)." };
+  }
   if ((modelo.geometria.pontos_contorno?.length ?? 0) < 4) {
     return { permitido: false, motivo: "Contorno da peça incompleto (mín. 4 pontos)." };
   }
@@ -660,6 +738,13 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
     return {
       permitido: false,
       motivo: `Operações fora do contorno (${validacao.forasDoContorno.length}). Corrigir antes de gerar CNC.`,
+      validacao,
+    };
+  }
+  if (modelo.geometria.tipo === "L") {
+    return {
+      permitido: true,
+      motivo: "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
       validacao,
     };
   }
