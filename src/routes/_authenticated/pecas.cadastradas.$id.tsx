@@ -629,6 +629,7 @@ function PecaCadastradaDetalhe() {
                 ? ((dadosBrutos as any).geometria_complexa_motivos as string[])
                 : []
             }
+            operacoesForaContorno={gcodeStatus.validacao?.forasDoContorno ?? []}
             onSaveContorno={(contorno) => salvarContorno.mutateAsync(contorno)}
 
             onAddOperacao={async (payload) => {
