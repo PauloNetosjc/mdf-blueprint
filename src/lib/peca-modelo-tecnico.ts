@@ -94,6 +94,9 @@ const FaceOperacionalSchema = z.object({ face: z.string() });
 const FaceVisualSchema = z.object({
   face: z.string(),
   tipo_vista: z.string().optional(),
+  largura_visual: z.number().nullable().optional(),
+  altura_visual: z.number().nullable().optional(),
+  geometria: z.string().nullable().optional(),
 });
 
 export const ModeloTecnicoSchema = z.object({
