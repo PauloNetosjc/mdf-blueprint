@@ -1357,7 +1357,7 @@ export function classificarDocumentoPdf(
 
   // Sinais de peça individual
   const faces_detectadas: number[] = [];
-  for (let i = 0; i <= 5; i++) {
+  for (let i = 0; i <= 12; i++) {
     if (new RegExp(`\\b(?:face|lado)\\s*${i}\\b`, "i").test(textoCompleto)) {
       faces_detectadas.push(i);
     }
