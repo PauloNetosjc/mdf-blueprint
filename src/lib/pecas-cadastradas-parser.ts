@@ -1217,7 +1217,22 @@ export async function parseTechnicalDrawingPdf(
     : null;
   const nomeDeFato = !!nome_peca && nome_peca !== nomeFallback;
 
-  const extracaoOperacoes = extrairOperacoes(linhas);
+  // CONTORNO_TECNICO é metadado de geometria, NÃO operação.
+  // Extrair primeiro e remover as linhas do bloco antes do parser de operações
+  // para impedir que "CONTORNO" vire usinagem ou que linhas como "543" virem furo.
+  const contornoTecnico = extrairContornoTecnicoPdf(linhas);
+  if (contornoTecnico.contorno) {
+    logs.push(
+      `CONTORNO_TECNICO detectado: tipo=${contornoTecnico.contorno.tipo ?? "?"} ` +
+        `face_principal=${contornoTecnico.contorno.face_principal ?? "?"} ` +
+        `pontos=${contornoTecnico.contorno.pontos.length} (linhas removidas do fluxo de operações)`,
+    );
+  }
+  const linhasSemContornoTecnico = linhas.filter(
+    (_l, idx) => !contornoTecnico.indices_consumidos.has(idx),
+  );
+
+  const extracaoOperacoes = extrairOperacoes(linhasSemContornoTecnico);
   alertas.push(...extracaoOperacoes.alertas);
   erros.push(...extracaoOperacoes.erros);
   logs.push(...extracaoOperacoes.debugRasgos);
