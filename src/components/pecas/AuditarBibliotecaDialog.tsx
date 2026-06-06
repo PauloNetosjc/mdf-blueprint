@@ -24,28 +24,33 @@ type Achado = {
   tipo: string;
   severidade: "erro" | "alerta";
   detalhe: string;
+  sugestao: string;
 };
 
 type Linha = {
   peca_id: string;
   codigo: string;
+  nome: string | null;
   pdf_nome: string | null;
   status_parser: string;
+  furos: number;
+  rasgos: number;
+  usinagens: number;
+  bordas: number;
+  erros_parser: string[];
+  alertas_parser: string[];
   achados: Achado[];
 };
 
 const MODULE_PREFIXES = new Set(["ARM", "CAN", "BAL", "RET", "SEQ", "SIS"]);
+// Prefixos que costumam ser peças retangulares simples (lisas, sem operação técnica).
+const PREFIXOS_PECA_SIMPLES = new Set(["FUN", "TRA", "PRA", "TAM", "TAB"]);
 
-const TIPOS_ERRO = new Set([
-  "furacao_detectada_sem_furos",
-  "rasgos_detectados_sem_rasgos",
-  "usinagens_detectadas_sem_usinagens",
-  "peca_sem_faces_layout",
-  "peca_sem_contorno_externo",
-  "peca_individual_sem_dados",
-  "modulo_com_operacoes",
-  "status_com_erros",
-]);
+type FaceLayout = {
+  face: string;
+  largura_visual?: number | null;
+  altura_visual?: number | null;
+};
 
 export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
   const [rodando, setRodando] = useState(false);
@@ -68,22 +73,23 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
       const { data: pecas, error: ePecas } = await db
         .from("pecas_cadastradas")
         .select(
-          "id,codigo_completo,prefixo,status_parser,erros_parser,parser_alertas_json,resumo_parser_json,dados_brutos_json,largura_ref,altura_ref,pdf_nome_arquivo,pdf_nome",
+          "id,codigo_completo,nome_peca,tipo_peca,prefixo,status_parser,erros_parser,parser_alertas_json,resumo_parser_json,dados_brutos_json,largura_ref,altura_ref,espessura_ref,material_ref,pdf_nome_arquivo,pdf_nome",
         )
         .order("codigo_completo", { ascending: true });
       if (ePecas) throw ePecas;
 
       const ids = (pecas ?? []).map((p: { id: string }) => p.id);
+      const safeIds = ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
 
       const [{ data: ops, error: eOps }, { data: brds, error: eBrds }] = await Promise.all([
         db
           .from("peca_cadastrada_operacoes")
           .select("peca_cadastrada_id,tipo,face,x,y,diametro,x1,x2,largura,profundidade")
-          .in("peca_cadastrada_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]),
+          .in("peca_cadastrada_id", safeIds),
         db
           .from("peca_cadastrada_bordas")
           .select("peca_cadastrada_id")
-          .in("peca_cadastrada_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]),
+          .in("peca_cadastrada_id", safeIds),
       ]);
       if (eOps) throw eOps;
       if (eBrds) throw eBrds;
@@ -116,6 +122,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
       for (const p of (pecas ?? []) as Array<{
         id: string;
         codigo_completo: string;
+        nome_peca: string | null;
+        tipo_peca: string | null;
         prefixo: string | null;
         status_parser: string;
         erros_parser: unknown[] | null;
@@ -124,6 +132,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         dados_brutos_json: Record<string, unknown> | null;
         largura_ref: number | null;
         altura_ref: number | null;
+        espessura_ref: number | null;
+        material_ref: string | null;
         pdf_nome_arquivo: string | null;
         pdf_nome: string | null;
       }>) {
@@ -142,83 +152,153 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
           p.status_parser === "ignorado_modulo" ||
           (p.prefixo ? MODULE_PREFIXES.has(p.prefixo) : false);
         const classificacao = String(resumo.classificacao ?? "");
-        const ehPecaIndividual = classificacao === "peca_individual" || (!ehModulo && classificacao !== "modulo_explodido");
+        const ehPecaIndividual =
+          classificacao === "peca_individual" ||
+          (!ehModulo && classificacao !== "modulo_explodido");
 
-        // 1. Seção Furação detectada mas 0 furos
-        const furacaoDetectada =
-          Number(resumo.furos_detectados ?? 0) > 0 ||
-          Boolean(dados.furacao_detectada) ||
-          (Array.isArray(dados.secoes_detectadas) && (dados.secoes_detectadas as string[]).includes("furacao"));
-        if (furacaoDetectada && furos.length === 0 && !ehModulo) {
-          achados.push({
-            tipo: "furacao_detectada_sem_furos",
-            severidade: "erro",
-            detalhe: "Seção Furação detectada mas 0 furos extraídos.",
-          });
+        // Detecção fraca vs forte. secoes_com_dados é a forte (parser nova).
+        const secoesDet = (resumo.secoes_detectadas ?? {}) as {
+          furacao?: boolean;
+          rasgos?: boolean;
+          usinagens?: boolean;
+        };
+        const secoesComDados = (resumo.secoes_com_dados ?? null) as null | {
+          furacao?: boolean;
+          rasgos?: boolean;
+          usinagens?: boolean;
+        };
+        const facesLayout = ((dados.faces_layout_json as { faces?: FaceLayout[] } | undefined)
+          ?.faces ?? []) as FaceLayout[];
+        const temContorno = Boolean(dados.contorno_externo_json);
+        const contornoOrigem = String(
+          (dados.contorno_externo_json as { origem?: string } | undefined)?.origem ?? "",
+        );
+
+        // ─── 1/2/3. Seção detectada mas operação não extraída ───────────────
+        // Só conta como ERRO REAL quando há evidência forte (linha numérica).
+        // Quando há apenas a palavra solta, vira ALERTA leve.
+        const furacaoForte = secoesComDados?.furacao === true;
+        const furacaoFraca = secoesDet.furacao === true || (resumo.furos_detectados as number) > 0;
+        if (furacaoFraca && furos.length === 0 && !ehModulo) {
+          if (furacaoForte) {
+            achados.push({
+              tipo: "furacao_detectada_sem_furos",
+              severidade: "erro",
+              detalhe: "Tabela de Furação com linhas numéricas, mas 0 furos extraídos.",
+              sugestao: "Investigar parser de furação — há candidato real no PDF.",
+            });
+          } else if (secoesComDados !== null) {
+            // Parser novo já analisou e disse que não há tabela real → ignora.
+          } else {
+            // Peça antiga: degrada para alerta até reprocessar.
+            achados.push({
+              tipo: "furacao_palavra_sem_tabela",
+              severidade: "alerta",
+              detalhe: "Palavra 'Furação' aparece no PDF, mas pode ser legenda/índice.",
+              sugestao: "Reprocessar com parser novo para confirmar.",
+            });
+          }
         }
 
-        // 2. Seção Rasgos detectada mas 0 rasgos
-        const rasgosDetectados =
-          Number(resumo.rasgos_detectados ?? 0) > 0 ||
-          Boolean(dados.rasgos_detectados) ||
-          (Array.isArray(dados.secoes_detectadas) && (dados.secoes_detectadas as string[]).includes("rasgos"));
-        if (rasgosDetectados && rasgos.length === 0 && !ehModulo) {
-          achados.push({
-            tipo: "rasgos_detectados_sem_rasgos",
-            severidade: "erro",
-            detalhe: "Seção Rasgos detectada mas 0 rasgos extraídos.",
-          });
+        const rasgosForte = secoesComDados?.rasgos === true;
+        const rasgosFraca = secoesDet.rasgos === true || (resumo.rasgos_detectados as number) > 0;
+        if (rasgosFraca && rasgos.length === 0 && !ehModulo) {
+          if (rasgosForte) {
+            achados.push({
+              tipo: "rasgos_detectados_sem_rasgos",
+              severidade: "erro",
+              detalhe: "Tabela de Rasgos com linha numérica, mas 0 rasgos extraídos.",
+              sugestao: "Investigar parser de rasgos — linha de 5 números não foi lida.",
+            });
+          } else if (secoesComDados !== null) {
+            // ignora — sem evidência
+          } else {
+            achados.push({
+              tipo: "rasgos_palavra_sem_tabela",
+              severidade: "alerta",
+              detalhe: "Palavra 'Rasgos' aparece no PDF, mas pode ser legenda/índice.",
+              sugestao: "Reprocessar com parser novo para confirmar.",
+            });
+          }
         }
 
-        // 3. Seção Usinagens detectada mas 0 usinagens
-        const usinDetectadas =
-          Number(resumo.usinagens_detectadas ?? 0) > 0 ||
-          (Array.isArray(dados.secoes_detectadas) && (dados.secoes_detectadas as string[]).includes("usinagens"));
-        if (usinDetectadas && usinagens.length === 0 && !ehModulo) {
-          achados.push({
-            tipo: "usinagens_detectadas_sem_usinagens",
-            severidade: "erro",
-            detalhe: "Seção Usinagens detectada mas 0 usinagens extraídas.",
-          });
+        const usinForte = secoesComDados?.usinagens === true;
+        const usinFraca =
+          secoesDet.usinagens === true || (resumo.usinagens_detectadas as number) > 0;
+        if (usinFraca && usinagens.length === 0 && !ehModulo) {
+          if (usinForte) {
+            achados.push({
+              tipo: "usinagens_detectadas_sem_usinagens",
+              severidade: "erro",
+              detalhe: "Tabela de Usinagens com linhas numéricas, mas 0 usinagens extraídas.",
+              sugestao: "Investigar parser de usinagens.",
+            });
+          } else if (secoesComDados !== null) {
+            // ignora
+          } else {
+            achados.push({
+              tipo: "usinagens_palavra_sem_tabela",
+              severidade: "alerta",
+              detalhe: "Palavra 'Usinagens' aparece no PDF, mas pode ser legenda/índice.",
+              sugestao: "Reprocessar com parser novo para confirmar.",
+            });
+          }
         }
 
-        // 4. Furos suspeitos
-        const largura = p.largura_ref ?? 0;
-        const altura = p.altura_ref ?? 0;
+        // ─── 4. Furos suspeitos (diâmetro / X/Y por face) ────────────────────
         for (const f of furos) {
           if ((f.diametro ?? 0) > 50) {
             achados.push({
               tipo: "furo_diametro_suspeito",
               severidade: "alerta",
               detalhe: `Furo Ø${f.diametro}mm > 50mm (face ${f.face ?? "?"}).`,
+              sugestao: "Verificar se parser confundiu rasgo/usinagem com furo.",
             });
             break;
           }
         }
-        if (largura > 0 && altura > 0) {
-          for (const f of furos) {
-            if ((f.y ?? 0) > altura + 1) {
+        // Y/X por face usando faces_layout_json quando disponível.
+        const tolerancia = 1;
+        for (const f of furos) {
+          const dimsFace = dimensoesDaFace(facesLayout, f.face, {
+            largura: p.largura_ref,
+            altura: p.altura_ref,
+            espessura: p.espessura_ref,
+          });
+          if (!dimsFace) continue;
+          const Yv = Number(f.y ?? 0);
+          const Xv = Number(f.x ?? 0);
+          if (Yv > dimsFace.altura + tolerancia) {
+            // Possível orientação invertida: Y cabe na largura.
+            if (Yv <= dimsFace.largura + tolerancia) {
+              achados.push({
+                tipo: "face_orientacao_possivel_invertida",
+                severidade: "alerta",
+                detalhe: `Furo Y=${Yv} > altura ${dimsFace.altura} da face ${f.face}, mas cabe na largura ${dimsFace.largura}.`,
+                sugestao: "Possível inversão de orientação da face. Validar faces_layout_json.",
+              });
+            } else {
               achados.push({
                 tipo: "furo_y_fora_face",
                 severidade: "alerta",
-                detalhe: `Furo Y=${f.y} > altura ${altura}.`,
+                detalhe: `Furo Y=${Yv} fora da face ${f.face} (altura ${dimsFace.altura}).`,
+                sugestao: "Investigar coordenadas do furo ou layout da face.",
               });
-              break;
             }
+            break;
           }
-          for (const f of furos) {
-            if ((f.x ?? 0) > largura + 1) {
-              achados.push({
-                tipo: "furo_x_fora_face",
-                severidade: "alerta",
-                detalhe: `Furo X=${f.x} > largura ${largura}.`,
-              });
-              break;
-            }
+          if (Xv > dimsFace.largura + tolerancia) {
+            achados.push({
+              tipo: "furo_x_fora_face",
+              severidade: "alerta",
+              detalhe: `Furo X=${Xv} fora da face ${f.face} (largura ${dimsFace.largura}).`,
+              sugestao: "Investigar coordenadas do furo ou layout da face.",
+            });
+            break;
           }
         }
 
-        // 5. Rasgos suspeitos
+        // ─── 5. Rasgos suspeitos ─────────────────────────────────────────────
         for (const r of rasgos) {
           const x1 = r.x1 ?? 0;
           const x2 = r.x2 ?? 0;
@@ -227,89 +307,115 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
               tipo: "rasgo_x2_menor_x1",
               severidade: "erro",
               detalhe: `Rasgo X2(${x2}) <= X1(${x1}).`,
+              sugestao: "Reprocessar peça — parser novo descarta rasgos com X2<=X1.",
             });
           }
-          if (!r.largura || r.largura === 0) {
+          if (!r.largura || Number(r.largura) === 0) {
             achados.push({
               tipo: "rasgo_largura_zerada",
               severidade: "erro",
               detalhe: "Rasgo com largura zerada.",
+              sugestao: "Reprocessar — parser novo exige largura > 0.",
             });
           }
-          if (!r.profundidade || r.profundidade === 0) {
+          if (!r.profundidade || Number(r.profundidade) === 0) {
             achados.push({
               tipo: "rasgo_profundidade_zerada",
               severidade: "alerta",
               detalhe: "Rasgo com profundidade zerada.",
-            });
-          }
-          if (largura > 0 && x2 > largura + 5) {
-            achados.push({
-              tipo: "rasgo_x2_fora_face",
-              severidade: "alerta",
-              detalhe: `Rasgo X2=${x2} > largura ${largura} (tolerância 5mm).`,
+              sugestao: "Reprocessar peça.",
             });
           }
         }
 
-        // 6. Sem faces_layout_json
+        // ─── 6. Sem faces_layout_json ───────────────────────────────────────
         if (ehPecaIndividual && !dados.faces_layout_json) {
           achados.push({
             tipo: "peca_sem_faces_layout",
             severidade: "erro",
             detalhe: "Peça individual sem faces_layout_json.",
+            sugestao: "Reprocessar peça (parser gera layout automaticamente).",
           });
         }
 
-        // 7. Sem contorno_externo_json
-        if (ehPecaIndividual && !dados.contorno_externo_json) {
+        // ─── 7. Sem contorno_externo_json ───────────────────────────────────
+        if (ehPecaIndividual && !temContorno) {
           achados.push({
             tipo: "peca_sem_contorno_externo",
             severidade: "erro",
             detalhe: "Peça individual sem contorno_externo_json.",
+            sugestao: "Reprocessar peça ou usar 'Reprocessar geometria'.",
           });
         }
 
-        // 8. B1 detectado mas sem fita associada
+        // ─── 8. B1 sem fita ─────────────────────────────────────────────────
         const temB1 =
           Boolean(dados.tem_b1) ||
-          Boolean(resumo.b1_detectado) ||
-          (Array.isArray(dados.marcadores) && (dados.marcadores as string[]).includes("B1"));
+          Boolean(dados.b1_multiplos_lados) ||
+          (Array.isArray(dados.indicadores_borda) &&
+            (dados.indicadores_borda as string[]).includes("B1"));
         if (temB1 && bordas === 0) {
           achados.push({
             tipo: "b1_sem_fita",
             severidade: "alerta",
             detalhe: "Marcador B1 detectado mas nenhuma borda/fita associada.",
+            sugestao: "Verificar tabela de fita no PDF.",
           });
         }
 
-        // 9. status_parser = com_erros
+        // ─── 9. status_parser = com_erros ───────────────────────────────────
         if (p.status_parser === "com_erros") {
           const errs = Array.isArray(p.erros_parser) ? (p.erros_parser as unknown[]) : [];
           achados.push({
             tipo: "status_com_erros",
             severidade: "erro",
-            detalhe: `status_parser=com_erros (${errs.length} mensagem(s)).`,
+            detalhe: `status_parser=com_erros (${errs.length} mensagem).`,
+            sugestao: "Reprocessar peça com parser atual.",
           });
         }
 
-        // 10. peca_individual sem operações e sem bordas
-        if (
+        // ─── 10. peça individual sem ops e sem bordas ───────────────────────
+        // NOVA REGRA: peças simples (FUN/Fundo etc) com cadastro válido viram OK.
+        const semOps =
           ehPecaIndividual &&
           !ehModulo &&
           furos.length === 0 &&
           rasgos.length === 0 &&
           usinagens.length === 0 &&
-          bordas === 0
-        ) {
-          achados.push({
-            tipo: "peca_individual_sem_dados",
-            severidade: "erro",
-            detalhe: "Peça individual sem operações e sem bordas.",
-          });
+          bordas === 0;
+        if (semOps) {
+          const tipoTxt = (p.tipo_peca ?? "").toLowerCase();
+          const ehPecaSimples =
+            (p.prefixo && PREFIXOS_PECA_SIMPLES.has(p.prefixo)) || tipoTxt.includes("fundo");
+          const cadastroValido =
+            Boolean(p.largura_ref) &&
+            Boolean(p.altura_ref) &&
+            Boolean(p.espessura_ref) &&
+            Boolean(p.material_ref) &&
+            temContorno &&
+            (contornoOrigem === "retangular" || contornoOrigem === "");
+          if (ehPecaSimples && cadastroValido) {
+            achados.push({
+              tipo: "peca_simples_sem_operacoes",
+              severidade: "alerta",
+              detalhe: "Peça retangular simples sem operações técnicas (esperado para Fundo/etc).",
+              sugestao: "Nenhuma ação. Considerar como OK.",
+            });
+          } else {
+            achados.push({
+              tipo: "peca_individual_sem_dados",
+              severidade: "erro",
+              detalhe:
+                `Peça individual sem operações, bordas e/ou cadastro incompleto ` +
+                `(largura:${p.largura_ref ?? "—"}, altura:${p.altura_ref ?? "—"}, ` +
+                `espessura:${p.espessura_ref ?? "—"}, material:${p.material_ref ?? "—"}, ` +
+                `contorno:${temContorno ? "sim" : "não"}).`,
+              sugestao: "Verificar PDF original — pode ser módulo classificado errado.",
+            });
+          }
         }
 
-        // 11. Módulo/explodido que criou operações
+        // ─── 11. Módulo com operações ───────────────────────────────────────
         if (
           (ehModulo || classificacao === "modulo_explodido") &&
           (furos.length > 0 || rasgos.length > 0 || usinagens.length > 0)
@@ -318,6 +424,7 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
             tipo: "modulo_com_operacoes",
             severidade: "erro",
             detalhe: `Módulo/explodido com operações indevidas (${furos.length}f/${rasgos.length}r/${usinagens.length}u).`,
+            sugestao: "Reclassificar como módulo e descartar operações.",
           });
         }
 
@@ -325,8 +432,19 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
           resultado.push({
             peca_id: p.id,
             codigo: p.codigo_completo,
+            nome: p.nome_peca,
             pdf_nome: p.pdf_nome_arquivo ?? p.pdf_nome ?? null,
             status_parser: p.status_parser,
+            furos: furos.length,
+            rasgos: rasgos.length,
+            usinagens: usinagens.length,
+            bordas,
+            erros_parser: (Array.isArray(p.erros_parser) ? p.erros_parser : []).map((x) =>
+              typeof x === "string" ? x : JSON.stringify(x),
+            ),
+            alertas_parser: (Array.isArray(p.parser_alertas_json) ? p.parser_alertas_json : []).map(
+              (x) => (typeof x === "string" ? x : JSON.stringify(x)),
+            ),
             achados,
           });
         }
@@ -346,7 +464,7 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
     let pecasComErro = 0;
     let pecasComAlerta = 0;
     for (const l of linhas ?? []) {
-      const temErro = l.achados.some((a) => a.severidade === "erro" || TIPOS_ERRO.has(a.tipo));
+      const temErro = l.achados.some((a) => a.severidade === "erro");
       if (temErro) pecasComErro++;
       else pecasComAlerta++;
       for (const a of l.achados) porTipo.set(a.tipo, (porTipo.get(a.tipo) ?? 0) + 1);
@@ -357,23 +475,48 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
 
   function exportarCSV() {
     if (!linhas) return;
-    const linhasCsv: string[] = [];
-    linhasCsv.push(["codigo", "pdf_nome", "status_parser", "tipo_achado", "severidade", "detalhe"].join(";"));
+    const out: string[] = [];
+    out.push(
+      [
+        "codigo",
+        "nome",
+        "pdf_nome",
+        "status_parser",
+        "furos",
+        "rasgos",
+        "usinagens",
+        "bordas",
+        "tipo_achado",
+        "severidade",
+        "detalhe",
+        "sugestao",
+        "erros_parser",
+        "alertas_parser",
+      ].join(";"),
+    );
     for (const l of linhas) {
       for (const a of l.achados) {
-        linhasCsv.push(
+        out.push(
           [
             csvEscape(l.codigo),
+            csvEscape(l.nome ?? ""),
             csvEscape(l.pdf_nome ?? ""),
             csvEscape(l.status_parser),
+            String(l.furos),
+            String(l.rasgos),
+            String(l.usinagens),
+            String(l.bordas),
             csvEscape(a.tipo),
             csvEscape(a.severidade),
             csvEscape(a.detalhe),
+            csvEscape(a.sugestao),
+            csvEscape(l.erros_parser.join(" | ")),
+            csvEscape(l.alertas_parser.join(" | ")),
           ].join(";"),
         );
       }
     }
-    const blob = new Blob(["\ufeff" + linhasCsv.join("\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\ufeff" + out.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -384,12 +527,12 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Auditar biblioteca de peças cadastradas</DialogTitle>
           <DialogDescription className="text-xs">
-            Análise somente-leitura. Nenhuma peça é alterada. Verifica padrões de
-            erro restantes no parser antes da reimportação.
+            Análise somente-leitura. Diferencia erro real do parser, alerta de revisão,
+            peça simples sem operação, módulo ignorado e possível orientação invertida.
           </DialogDescription>
         </DialogHeader>
 
@@ -411,7 +554,7 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
 
               <div className="rounded border border-border bg-surface-2 p-2">
                 <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                  Erros agrupados por tipo
+                  Achados agrupados por tipo
                 </div>
                 {stats.porTipo.size === 0 ? (
                   <div className="text-xs text-muted-foreground">Nenhum achado.</div>
@@ -437,11 +580,13 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
                 ) : (
                   linhas.map((l) => (
                     <div key={l.peca_id} className="border-b border-border/40 py-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <AlertTriangle className="h-3 w-3 text-amber-500" />
                         <span className="font-semibold text-foreground">{l.codigo}</span>
-                        <span className="text-muted-foreground">{l.pdf_nome ?? ""}</span>
-                        <span className="ml-auto text-muted-foreground">{l.status_parser}</span>
+                        <span className="text-muted-foreground">{l.nome ?? ""}</span>
+                        <span className="ml-auto text-muted-foreground">
+                          {l.status_parser} · {l.furos}f/{l.rasgos}r/{l.usinagens}u/{l.bordas}b
+                        </span>
                       </div>
                       <ul className="ml-5 list-disc text-[10px] text-muted-foreground">
                         {l.achados.map((a, i) => (
@@ -453,7 +598,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
                             >
                               [{a.tipo}]
                             </span>{" "}
-                            {a.detalhe}
+                            {a.detalhe}{" "}
+                            <span className="italic text-muted-foreground">→ {a.sugestao}</span>
                           </li>
                         ))}
                       </ul>
@@ -480,6 +626,36 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
       </DialogContent>
     </Dialog>
   );
+}
+
+function dimensoesDaFace(
+  faces: FaceLayout[],
+  faceNum: number | null,
+  ref: { largura: number | null; altura: number | null; espessura: number | null },
+): { largura: number; altura: number } | null {
+  if (faceNum == null) return null;
+  const f = faces.find((x) => String(x.face) === String(faceNum));
+  if (f && f.largura_visual != null && f.altura_visual != null) {
+    return { largura: Number(f.largura_visual), altura: Number(f.altura_visual) };
+  }
+  // Fallback por face padrão Promob quando layout não está cadastrado.
+  const L = Number(ref.largura ?? 0);
+  const A = Number(ref.altura ?? 0);
+  const E = Number(ref.espessura ?? 0);
+  if (!L || !A) return null;
+  switch (Number(faceNum)) {
+    case 0:
+    case 5:
+      return { largura: L, altura: A };
+    case 1:
+    case 3:
+      return { largura: E || 15, altura: A };
+    case 2:
+    case 4:
+      return { largura: L, altura: E || 15 };
+    default:
+      return { largura: L, altura: A };
+  }
 }
 
 function csvEscape(v: string): string {
