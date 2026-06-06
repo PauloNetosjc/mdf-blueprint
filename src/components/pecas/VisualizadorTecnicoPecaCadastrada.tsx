@@ -1849,6 +1849,7 @@ export function VisualizadorTecnicoPecaCadastrada({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
