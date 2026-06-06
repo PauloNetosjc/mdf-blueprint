@@ -1303,42 +1303,115 @@ export function VisualizadorTecnicoPecaCadastrada({
               )}
 
               {/* Cotas */}
-              <g
-                stroke="var(--color-foreground)"
-                strokeWidth={px(0.6)}
-                fill="var(--color-foreground)"
-                fontFamily="monospace"
-              >
-                <line
-                  x1={margin}
-                  y1={margin + partH + px(40)}
-                  x2={margin + partW}
-                  y2={margin + partH + px(40)}
-                />
-                <text
-                  x={margin + partW / 2}
-                  y={margin + partH + px(56)}
-                  fontSize={fontCota}
-                  textAnchor="middle"
-                >
-                  {partW} mm
-                </text>
-                <line
-                  x1={margin + partW + px(40)}
-                  y1={margin}
-                  x2={margin + partW + px(40)}
-                  y2={margin + partH}
-                />
-                <text
-                  x={margin + partW + px(56)}
-                  y={margin + partH / 2}
-                  fontSize={fontCota}
-                  textAnchor="middle"
-                  transform={`rotate(90 ${margin + partW + px(56)} ${margin + partH / 2})`}
-                >
-                  {partH} mm
-                </text>
-              </g>
+              {(() => {
+                const podeEditar = !!onSalvarCotaRapida && !modoTodasFaces;
+                const cotaStyle = podeEditar ? { cursor: "pointer" as const } : undefined;
+                const cotaProps = (tipo: CotaRapidaTipo, valor: number) =>
+                  podeEditar
+                    ? {
+                        style: cotaStyle,
+                        onClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setCotaEdit({ tipo, valorAtual: valor, novoValor: String(valor) });
+                        },
+                      }
+                    : {};
+                const lShape = detectarLDoContorno(contornoExterno?.pontos ?? []);
+                return (
+                  <g
+                    stroke="var(--color-foreground)"
+                    strokeWidth={px(0.6)}
+                    fill="var(--color-foreground)"
+                    fontFamily="monospace"
+                  >
+                    {/* Largura total */}
+                    <line
+                      x1={margin}
+                      y1={margin + partH + px(40)}
+                      x2={margin + partW}
+                      y2={margin + partH + px(40)}
+                    />
+                    <text
+                      x={margin + partW / 2}
+                      y={margin + partH + px(56)}
+                      fontSize={fontCota}
+                      textAnchor="middle"
+                      {...cotaProps("largura_total", partW)}
+                    >
+                      {partW} mm{podeEditar ? " ✎" : ""}
+                    </text>
+                    {/* Altura total */}
+                    <line
+                      x1={margin + partW + px(40)}
+                      y1={margin}
+                      x2={margin + partW + px(40)}
+                      y2={margin + partH}
+                    />
+                    <text
+                      x={margin + partW + px(56)}
+                      y={margin + partH / 2}
+                      fontSize={fontCota}
+                      textAnchor="middle"
+                      transform={`rotate(90 ${margin + partW + px(56)} ${margin + partH / 2})`}
+                      {...cotaProps("altura_total", partH)}
+                    >
+                      {partH} mm{podeEditar ? " ✎" : ""}
+                    </text>
+                    {/* Espessura (rótulo clicável apenas, fora do desenho) */}
+                    {espessura != null && podeEditar && (
+                      <text
+                        x={margin + px(8)}
+                        y={margin - px(12)}
+                        fontSize={fontCota}
+                        textAnchor="start"
+                        {...cotaProps("espessura", espessura)}
+                      >
+                        esp. {espessura} mm ✎
+                      </text>
+                    )}
+                    {/* Cotas internas para geometria em L */}
+                    {lShape && (
+                      <g>
+                        {/* recorte_x: linha ao longo da base do recorte (y=0 na peça → topo da área cortada) */}
+                        <line
+                          x1={margin}
+                          y1={margin + partH - lShape.recorte_y - px(20)}
+                          x2={margin + lShape.recorte_x}
+                          y2={margin + partH - lShape.recorte_y - px(20)}
+                          strokeDasharray={`${px(3)} ${px(3)}`}
+                        />
+                        <text
+                          x={margin + lShape.recorte_x / 2}
+                          y={margin + partH - lShape.recorte_y - px(28)}
+                          fontSize={fontCota}
+                          textAnchor="middle"
+                          {...cotaProps("recorte_x", lShape.recorte_x)}
+                        >
+                          {lShape.recorte_x} mm{podeEditar ? " ✎" : ""}
+                        </text>
+                        {/* recorte_y: linha vertical dentro do recorte */}
+                        <line
+                          x1={margin + lShape.recorte_x + px(20)}
+                          y1={margin + partH}
+                          x2={margin + lShape.recorte_x + px(20)}
+                          y2={margin + partH - lShape.recorte_y}
+                          strokeDasharray={`${px(3)} ${px(3)}`}
+                        />
+                        <text
+                          x={margin + lShape.recorte_x + px(34)}
+                          y={margin + partH - lShape.recorte_y / 2}
+                          fontSize={fontCota}
+                          textAnchor="middle"
+                          transform={`rotate(90 ${margin + lShape.recorte_x + px(34)} ${margin + partH - lShape.recorte_y / 2})`}
+                          {...cotaProps("recorte_y", lShape.recorte_y)}
+                        >
+                          {lShape.recorte_y} mm{podeEditar ? " ✎" : ""}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })()}
 
               {/* Operações */}
               {opsFace.map((op) => {
