@@ -175,6 +175,24 @@ async function extrairSubpaths(
   let ctm: Mat = mIdentity();
   const stack: Mat[] = [];
 
+  let cur: PontoMm[] = [];
+  let curStart: PontoMm | null = null;
+  let curClosed = false;
+  let cx = 0;
+  let cy = 0;
+
+  const flush = () => {
+    if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+    cur = [];
+    curStart = null;
+    curClosed = false;
+  };
+
+  const addPoint = (x: number, y: number) => {
+    const [tx, ty] = mApply(ctm, x, y);
+    cur.push({ x: tx, y: ty });
+  };
+
   // Aplica um único operador de path (moveTo, lineTo, curveTo, rectangle, closePath)
   // com seus argumentos já consumidos da lista plana de args do constructPath.
   const applyPathOp = (subFn: number, subArgs: number[]) => {
