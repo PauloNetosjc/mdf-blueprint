@@ -36,6 +36,7 @@ import {
   exportarModeloTecnicoJson,
   importarModeloTecnicoJson,
   podeGerarGcode,
+  salvarEdicaoManualCotas,
   type ModeloTecnicoJson,
 } from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
