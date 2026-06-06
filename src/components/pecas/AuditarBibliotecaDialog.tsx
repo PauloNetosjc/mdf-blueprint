@@ -346,12 +346,24 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         const motivosComplexa = Array.isArray(dados.geometria_complexa_motivos)
           ? (dados.geometria_complexa_motivos as string[])
           : [];
+        // Lê o modelo técnico canônico, se existir, para diferenciar geometria
+        // resolvida (ex.: Base L paramétrica) de geometria realmente pendente.
+        const modelo = (dados.modelo_tecnico_json ?? null) as
+          | { geometria?: { tipo?: string; pendente?: boolean; origem?: string } }
+          | null;
+        const geomPendente = Boolean(modelo?.geometria?.pendente);
+        const geomTipo = modelo?.geometria?.tipo ?? null;
+
         if (geometriaComplexa) {
           achados.push({
-            tipo: "geometria_complexa",
-            severidade: "alerta",
-            detalhe: `Peça com geometria complexa (não-retangular)${motivosComplexa.length ? ": " + motivosComplexa.join("; ") : ""}.`,
-            sugestao: "Usar modo 'Desenho original do PDF' no visualizador. Não validar como retângulo simples.",
+            tipo: geomPendente ? "geometria_pendente_conversao" : "geometria_complexa",
+            severidade: geomPendente ? "erro" : "alerta",
+            detalhe: geomPendente
+              ? `Geometria complexa NÃO convertida para modelo interno (tipo=${geomTipo ?? "?"}). G-code bloqueado.`
+              : `Peça com geometria ${geomTipo ?? "complexa"} (não-retangular)${motivosComplexa.length ? ": " + motivosComplexa.join("; ") : ""}.`,
+            sugestao: geomPendente
+              ? "Importar modelo técnico JSON calibrado para esta peça."
+              : "Modelo técnico canônico desenha o polígono real — peça não precisa virar retângulo.",
           });
         }
         if (ehPecaIndividual && !temContorno && !geometriaComplexa) {

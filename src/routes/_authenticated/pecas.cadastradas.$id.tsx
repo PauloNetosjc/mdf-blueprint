@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw } from "lucide-react";
+import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw, Download, Upload, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -32,6 +32,12 @@ import {
   getTipoPecaPorPrefixo,
 } from "@/lib/pecas-cadastradas-parser";
 import { reprocessarParserDePeca } from "@/lib/peca-cadastrada-reprocessar";
+import {
+  exportarModeloTecnicoJson,
+  importarModeloTecnicoJson,
+  podeGerarGcode,
+  type ModeloTecnicoJson,
+} from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
@@ -333,8 +339,20 @@ function PecaCadastradaDetalhe() {
     onError: (e: Error) => toast.error(`Erro ao reprocessar parser: ${e.message}`),
   });
 
+  // ---------- Modelo Técnico Canônico (exportar / importar / G-code) ----------
 
-
+  const importarModelo = useMutation({
+    mutationFn: async (jsonText: string) => importarModeloTecnicoJson(id, jsonText),
+    onSuccess: (r) => {
+      toast.success(
+        `Modelo técnico importado: ${r.operacoes} operações, ${r.bordas} bordas. Geometria: ${r.modelo.geometria.tipo}.`,
+      );
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] });
+    },
+    onError: (e: Error) => toast.error(`Falha ao importar modelo técnico: ${e.message}`),
+  });
 
   if (peca.isLoading) return <div className="p-6">Carregando...</div>;
   if (!peca.data) return <div className="p-6">Peça não encontrada.</div>;
@@ -349,10 +367,42 @@ function PecaCadastradaDetalhe() {
     ? (dadosBrutos.faces_detectadas as string[])
     : [];
   const contornoExterno = lerContornoExterno(dadosBrutos);
+  const modeloTecnico = (dadosBrutos.modelo_tecnico_json ?? null) as ModeloTecnicoJson | null;
+  const gcodeStatus = podeGerarGcode(modeloTecnico);
   const operacoesContorno = (ops.data ?? []).filter((o) => {
     const nome = (o.nome_operacao ?? "").toLowerCase();
     return o.tipo_operacao === "contorno" || o.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
   });
+
+  function handleExportarModelo() {
+    if (!modeloTecnico) {
+      toast.warning("Modelo técnico ainda não foi construído. Reprocesse o parser primeiro.");
+      return;
+    }
+    exportarModeloTecnicoJson(modeloTecnico, p.codigo_completo);
+  }
+
+  function handleImportarModelo() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      importarModelo.mutate(text);
+    };
+    input.click();
+  }
+
+  function handleGerarGcode() {
+    if (!gcodeStatus.permitido) {
+      toast.error(gcodeStatus.motivo);
+      return;
+    }
+    toast.info("Geração de G-code ainda não implementada (geometria do modelo está OK).");
+  }
+  
 
   return (
     <div className="p-6">
@@ -408,7 +458,48 @@ function PecaCadastradaDetalhe() {
             </AlertDialogContent>
           </AlertDialog>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportarModelo}
+            disabled={!modeloTecnico}
+            title={modeloTecnico ? "Baixar o modelo técnico canônico desta peça" : "Reprocessar parser para gerar o modelo"}
+          >
+            <Download className="mr-1 h-4 w-4" /> Exportar modelo técnico JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportarModelo}
+            disabled={importarModelo.isPending}
+          >
+            <Upload className="mr-1 h-4 w-4" />
+            {importarModelo.isPending ? "Importando…" : "Importar modelo técnico JSON"}
+          </Button>
+          <Button
+            variant={gcodeStatus.permitido ? "default" : "outline"}
+            size="sm"
+            onClick={handleGerarGcode}
+            disabled={!gcodeStatus.permitido}
+            title={gcodeStatus.motivo}
+          >
+            <Cpu className="mr-1 h-4 w-4" /> Gerar G-code
+          </Button>
+
         </div>
+
+        {modeloTecnico?.geometria.pendente && (
+          <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" /> Geometria pendente de conversão
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {gcodeStatus.motivo} Use <strong>Importar modelo técnico JSON</strong> para calibrar o contorno desta peça.
+            </p>
+          </div>
+        )}
+
+
 
 
         <div className="flex flex-wrap items-start justify-between gap-3">
