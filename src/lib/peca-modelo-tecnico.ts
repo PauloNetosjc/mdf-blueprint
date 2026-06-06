@@ -738,6 +738,13 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
       validacao,
     };
   }
+  if (modelo.geometria.tipo === "L") {
+    return {
+      permitido: true,
+      motivo: "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
+      validacao,
+    };
+  }
   return { permitido: true, motivo: "Geometria validada para CNC.", validacao };
 }
 
