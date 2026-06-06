@@ -914,7 +914,8 @@ export async function importarModeloTecnicoJson(
 
 // ---------- Edição manual de cotas (MVP) ----------
 
-import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
+
+
 
 export type FaceVisualInput = {
   face: string;
