@@ -27,6 +27,7 @@ import {
   construirModeloTecnico,
   contornoExternoDoModelo,
   ehBaseL,
+  gerarContornoBaseLInferior,
   gerarContornoBaseLInferiorPorValidacao,
 } from "@/lib/peca-modelo-tecnico";
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
@@ -58,6 +59,36 @@ type PecaMin = {
   dados_brutos_json: Record<string, unknown> | null;
   logs_parser: string[] | null;
 };
+
+function gerarFacesLayoutBaseL(largura: number, altura: number, espessura: number | null) {
+  const L = largura;
+  const A = altura;
+  const E = espessura ?? 18;
+  const GAP = 40;
+  const f7 = { w: L, h: A };
+  const f1 = { w: E, h: A };
+  const f5 = { w: E, h: A * 0.52 };
+  const f3 = { w: E, h: A * 0.48 };
+  const f2 = { w: L * 0.58, h: E };
+  const f4 = { w: L * 0.42, h: E };
+  const f6 = { w: L, h: E };
+  const x7 = f1.w + GAP;
+  const y7 = f6.h + GAP;
+  return {
+    origem: "automatico",
+    atualizado_em: new Date().toISOString(),
+    observacao: "Layout visual automático para Base L com faces 1 a 7.",
+    faces: [
+      { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x7, y_layout: 0, visivel: true },
+      { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: 0, y_layout: y7, visivel: true },
+      { face: "7", label: "F7 — Principal L", tipo_vista: "principal_L", largura_visual: f7.w, altura_visual: f7.h, x_layout: x7, y_layout: y7, visivel: true },
+      { face: "5", label: "F5 — Lateral direita superior", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: x7 + f7.w + GAP, y_layout: y7, visivel: true },
+      { face: "3", label: "F3 — Lateral direita inferior", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: x7 + f7.w + GAP, y_layout: y7 + f5.h + GAP, visivel: true },
+      { face: "2", label: "F2 — Inferior esquerda", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x7, y_layout: y7 + f7.h + GAP, visivel: true },
+      { face: "4", label: "F4 — Inferior direita", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x7 + f2.w + GAP, y_layout: y7 + f7.h + GAP, visivel: true },
+    ],
+  };
+}
 
 function ehOperacaoManual(op: { dados_brutos_json?: Record<string, unknown> | null }): boolean {
   const d = op.dados_brutos_json;
