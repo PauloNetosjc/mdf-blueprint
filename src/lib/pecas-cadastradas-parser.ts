@@ -445,7 +445,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const texto = linha.texto;
-    const numericLinha = isNumericCells(linha.cels);
+
 
     // 1) Cabeçalhos de seção — testados SEMPRE (mesmo que a linha pareça numérica,
     //    pois o cabeçalho "Rasgos Face 0" às vezes vem junto a tokens numéricos).
