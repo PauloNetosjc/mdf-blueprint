@@ -40,6 +40,8 @@ import {
 } from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import { PainelModeloTecnico } from "@/components/pecas/PainelModeloTecnico";
+
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
