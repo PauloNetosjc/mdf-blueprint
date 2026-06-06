@@ -150,7 +150,37 @@ type Props = {
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
   onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
+  onSalvarCotaRapida?: (input: {
+    tipo: "largura_total" | "altura_total" | "espessura" | "recorte_x" | "recorte_y";
+    valor: number;
+  }) => void | Promise<void>;
 };
+
+export type CotaRapidaTipo = "largura_total" | "altura_total" | "espessura" | "recorte_x" | "recorte_y";
+
+const ROTULOS_COTA: Record<CotaRapidaTipo, string> = {
+  largura_total: "Largura total",
+  altura_total: "Altura total",
+  espessura: "Espessura",
+  recorte_x: "Recorte X (horizontal)",
+  recorte_y: "Recorte Y (vertical)",
+};
+
+function detectarLDoContorno(pontos: Pt[]):
+  | null
+  | { recorte_x: number; recorte_y: number; largura_total: number; altura_total: number } {
+  if (!pontos || pontos.length !== 6) return null;
+  const xs = Array.from(new Set(pontos.map((p) => Math.round(p.x * 100) / 100))).sort((a, b) => a - b);
+  const ys = Array.from(new Set(pontos.map((p) => Math.round(p.y * 100) / 100))).sort((a, b) => a - b);
+  if (xs.length !== 3 || ys.length !== 3) return null;
+  if (xs[0] !== 0 || ys[0] !== 0) return null;
+  // Garante que o ponto interno (recorte_x, recorte_y) exista no polígono
+  const hasInner = pontos.some(
+    (p) => Math.abs(p.x - xs[1]) < 0.01 && Math.abs(p.y - ys[1]) < 0.01,
+  );
+  if (!hasInner) return null;
+  return { recorte_x: xs[1], recorte_y: ys[1], largura_total: xs[2], altura_total: ys[2] };
+}
 
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
@@ -576,6 +606,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   onEditOperacao,
   onDeleteOperacao,
   onSaveContorno,
+  onSalvarCotaRapida,
 }: Props) {
   const [modoVisual, setModoVisual] = useState<"engenharia" | "pdf" | "comparar">(
     geometriaComplexa && pdfStoragePath && pecaId ? "comparar" : "engenharia",
@@ -618,6 +649,12 @@ export function VisualizadorTecnicoPecaCadastrada({
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
   const [delOp, setDelOp] = useState<VisualizadorOperacao | null>(null);
   const [contornoOpen, setContornoOpen] = useState(false);
+  const [cotaEdit, setCotaEdit] = useState<{
+    tipo: CotaRapidaTipo;
+    valorAtual: number;
+    novoValor: string;
+  } | null>(null);
+  const [cotaSalvando, setCotaSalvando] = useState(false);
   const [modoTodasFaces, setModoTodasFaces] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
@@ -1266,42 +1303,115 @@ export function VisualizadorTecnicoPecaCadastrada({
               )}
 
               {/* Cotas */}
-              <g
-                stroke="var(--color-foreground)"
-                strokeWidth={px(0.6)}
-                fill="var(--color-foreground)"
-                fontFamily="monospace"
-              >
-                <line
-                  x1={margin}
-                  y1={margin + partH + px(40)}
-                  x2={margin + partW}
-                  y2={margin + partH + px(40)}
-                />
-                <text
-                  x={margin + partW / 2}
-                  y={margin + partH + px(56)}
-                  fontSize={fontCota}
-                  textAnchor="middle"
-                >
-                  {partW} mm
-                </text>
-                <line
-                  x1={margin + partW + px(40)}
-                  y1={margin}
-                  x2={margin + partW + px(40)}
-                  y2={margin + partH}
-                />
-                <text
-                  x={margin + partW + px(56)}
-                  y={margin + partH / 2}
-                  fontSize={fontCota}
-                  textAnchor="middle"
-                  transform={`rotate(90 ${margin + partW + px(56)} ${margin + partH / 2})`}
-                >
-                  {partH} mm
-                </text>
-              </g>
+              {(() => {
+                const podeEditar = !!onSalvarCotaRapida && !modoTodasFaces;
+                const cotaStyle = podeEditar ? { cursor: "pointer" as const } : undefined;
+                const cotaProps = (tipo: CotaRapidaTipo, valor: number) =>
+                  podeEditar
+                    ? {
+                        style: cotaStyle,
+                        onClick: (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setCotaEdit({ tipo, valorAtual: valor, novoValor: String(valor) });
+                        },
+                      }
+                    : {};
+                const lShape = detectarLDoContorno(contornoExterno?.pontos ?? []);
+                return (
+                  <g
+                    stroke="var(--color-foreground)"
+                    strokeWidth={px(0.6)}
+                    fill="var(--color-foreground)"
+                    fontFamily="monospace"
+                  >
+                    {/* Largura total */}
+                    <line
+                      x1={margin}
+                      y1={margin + partH + px(40)}
+                      x2={margin + partW}
+                      y2={margin + partH + px(40)}
+                    />
+                    <text
+                      x={margin + partW / 2}
+                      y={margin + partH + px(56)}
+                      fontSize={fontCota}
+                      textAnchor="middle"
+                      {...cotaProps("largura_total", partW)}
+                    >
+                      {partW} mm{podeEditar ? " ✎" : ""}
+                    </text>
+                    {/* Altura total */}
+                    <line
+                      x1={margin + partW + px(40)}
+                      y1={margin}
+                      x2={margin + partW + px(40)}
+                      y2={margin + partH}
+                    />
+                    <text
+                      x={margin + partW + px(56)}
+                      y={margin + partH / 2}
+                      fontSize={fontCota}
+                      textAnchor="middle"
+                      transform={`rotate(90 ${margin + partW + px(56)} ${margin + partH / 2})`}
+                      {...cotaProps("altura_total", partH)}
+                    >
+                      {partH} mm{podeEditar ? " ✎" : ""}
+                    </text>
+                    {/* Espessura (rótulo clicável apenas, fora do desenho) */}
+                    {espessura != null && podeEditar && (
+                      <text
+                        x={margin + px(8)}
+                        y={margin - px(12)}
+                        fontSize={fontCota}
+                        textAnchor="start"
+                        {...cotaProps("espessura", espessura)}
+                      >
+                        esp. {espessura} mm ✎
+                      </text>
+                    )}
+                    {/* Cotas internas para geometria em L */}
+                    {lShape && (
+                      <g>
+                        {/* recorte_x: linha ao longo da base do recorte (y=0 na peça → topo da área cortada) */}
+                        <line
+                          x1={margin}
+                          y1={margin + partH - lShape.recorte_y - px(20)}
+                          x2={margin + lShape.recorte_x}
+                          y2={margin + partH - lShape.recorte_y - px(20)}
+                          strokeDasharray={`${px(3)} ${px(3)}`}
+                        />
+                        <text
+                          x={margin + lShape.recorte_x / 2}
+                          y={margin + partH - lShape.recorte_y - px(28)}
+                          fontSize={fontCota}
+                          textAnchor="middle"
+                          {...cotaProps("recorte_x", lShape.recorte_x)}
+                        >
+                          {lShape.recorte_x} mm{podeEditar ? " ✎" : ""}
+                        </text>
+                        {/* recorte_y: linha vertical dentro do recorte */}
+                        <line
+                          x1={margin + lShape.recorte_x + px(20)}
+                          y1={margin + partH}
+                          x2={margin + lShape.recorte_x + px(20)}
+                          y2={margin + partH - lShape.recorte_y}
+                          strokeDasharray={`${px(3)} ${px(3)}`}
+                        />
+                        <text
+                          x={margin + lShape.recorte_x + px(34)}
+                          y={margin + partH - lShape.recorte_y / 2}
+                          fontSize={fontCota}
+                          textAnchor="middle"
+                          transform={`rotate(90 ${margin + lShape.recorte_x + px(34)} ${margin + partH - lShape.recorte_y / 2})`}
+                          {...cotaProps("recorte_y", lShape.recorte_y)}
+                        >
+                          {lShape.recorte_y} mm{podeEditar ? " ✎" : ""}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })()}
 
               {/* Operações */}
               {opsFace.map((op) => {
@@ -1946,6 +2056,62 @@ export function VisualizadorTecnicoPecaCadastrada({
               }}
             >
               <Trash2 className="mr-1 h-3 w-3" /> Excluir definitivamente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de edição rápida de cota (clique no desenho) */}
+      <Dialog open={!!cotaEdit} onOpenChange={(o) => { if (!o) setCotaEdit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar cota</DialogTitle>
+            <DialogDescription>
+              {cotaEdit ? ROTULOS_COTA[cotaEdit.tipo] : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {cotaEdit && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Valor atual</Label>
+                <div className="font-mono text-sm">{cotaEdit.valorAtual} mm</div>
+              </div>
+              <div>
+                <Label htmlFor="cota-novo-valor">Novo valor (mm)</Label>
+                <Input
+                  id="cota-novo-valor"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={cotaEdit.novoValor}
+                  onChange={(e) =>
+                    setCotaEdit((c) => (c ? { ...c, novoValor: e.target.value } : c))
+                  }
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCotaEdit(null)} disabled={cotaSalvando}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={cotaSalvando || !cotaEdit || !onSalvarCotaRapida}
+              onClick={async () => {
+                if (!cotaEdit || !onSalvarCotaRapida) return;
+                const v = Number(cotaEdit.novoValor);
+                if (!Number.isFinite(v) || v <= 0) return;
+                try {
+                  setCotaSalvando(true);
+                  await onSalvarCotaRapida({ tipo: cotaEdit.tipo, valor: v });
+                  setCotaEdit(null);
+                } finally {
+                  setCotaSalvando(false);
+                }
+              }}
+            >
+              {cotaSalvando ? "Salvando…" : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

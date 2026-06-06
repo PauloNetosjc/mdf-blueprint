@@ -36,6 +36,7 @@ import {
   exportarModeloTecnicoJson,
   importarModeloTecnicoJson,
   podeGerarGcode,
+  salvarEdicaoManualCotas,
   type ModeloTecnicoJson,
 } from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
@@ -770,6 +771,113 @@ function PecaCadastradaDetalhe() {
               }
               toast.success("Operação excluída.");
               qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+            }}
+            onSalvarCotaRapida={async ({ tipo, valor }) => {
+              if (!modeloTecnico) {
+                toast.error("Modelo técnico ainda não disponível para edição rápida.");
+                return;
+              }
+              const m = modeloTecnico;
+              const medAtual = {
+                largura: m.medidas?.largura ?? p.largura_ref ?? 0,
+                altura: m.medidas?.altura ?? p.altura_ref ?? 0,
+                espessura: m.medidas?.espessura ?? p.espessura_ref ?? 0,
+              };
+              const pts = m.geometria?.pontos_contorno ?? [];
+              // Detecta L atual para extrair recortes
+              let recorte_x: number | null = null;
+              let recorte_y: number | null = null;
+              let lTotW = medAtual.largura;
+              let lTotH = medAtual.altura;
+              if (pts.length === 6) {
+                const xs = Array.from(new Set(pts.map((q) => Math.round(q.x * 100) / 100))).sort((a, b) => a - b);
+                const ys = Array.from(new Set(pts.map((q) => Math.round(q.y * 100) / 100))).sort((a, b) => a - b);
+                if (xs.length === 3 && ys.length === 3 && xs[0] === 0 && ys[0] === 0) {
+                  recorte_x = xs[1];
+                  recorte_y = ys[1];
+                  lTotW = xs[2];
+                  lTotH = ys[2];
+                }
+              }
+              const isL = recorte_x != null && recorte_y != null;
+              let novosPontos = pts;
+              let novaTipo = m.geometria?.tipo ?? "retangular";
+              let novaLargura = medAtual.largura;
+              let novaAltura = medAtual.altura;
+              let novaEspessura = medAtual.espessura;
+
+              switch (tipo) {
+                case "espessura":
+                  novaEspessura = valor;
+                  break;
+                case "largura_total":
+                  novaLargura = valor;
+                  lTotW = valor;
+                  break;
+                case "altura_total":
+                  novaAltura = valor;
+                  lTotH = valor;
+                  break;
+                case "recorte_x":
+                  if (!isL) {
+                    toast.error("Esta peça não está marcada como L. Use 'Editar cotas da peça' para converter.");
+                    return;
+                  }
+                  recorte_x = valor;
+                  break;
+                case "recorte_y":
+                  if (!isL) {
+                    toast.error("Esta peça não está marcada como L. Use 'Editar cotas da peça' para converter.");
+                    return;
+                  }
+                  recorte_y = valor;
+                  break;
+              }
+
+              if (isL && (tipo === "largura_total" || tipo === "altura_total" || tipo === "recorte_x" || tipo === "recorte_y")) {
+                if (recorte_x == null || recorte_y == null) return;
+                if (recorte_x <= 0 || recorte_x >= lTotW || recorte_y <= 0 || recorte_y >= lTotH) {
+                  toast.error("Recorte precisa ser maior que 0 e menor que as cotas totais.");
+                  return;
+                }
+                novosPontos = [
+                  { x: 0, y: 0 },
+                  { x: recorte_x, y: 0 },
+                  { x: recorte_x, y: recorte_y },
+                  { x: lTotW, y: recorte_y },
+                  { x: lTotW, y: lTotH },
+                  { x: 0, y: lTotH },
+                ];
+                novaTipo = "L";
+                novaLargura = lTotW;
+                novaAltura = lTotH;
+              }
+
+              try {
+                await salvarEdicaoManualCotas(id, {
+                  medidas: {
+                    largura: novaLargura,
+                    altura: novaAltura,
+                    espessura: novaEspessura,
+                  },
+                  material: p.material_ref ?? null,
+                  fita: p.fita_ref ?? null,
+                  face_principal: m.geometria?.face_principal != null ? String(m.geometria.face_principal) : null,
+                  face_alinhamento: m.face_alinhamento ?? null,
+                  geometria: {
+                    tipo: novaTipo as "L" | "retangular",
+                    pontos_contorno: novosPontos,
+                  },
+                  faces_visuais: m.faces_visuais ?? [],
+                });
+                toast.success(`Cota "${tipo}" atualizada.`);
+                qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+                qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+                qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] });
+                qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+              } catch (e) {
+                toast.error((e as Error).message);
+              }
             }}
           />
           {p.pdf_url && (
