@@ -464,15 +464,33 @@ export function validarGeometriaModelo(
   if (poly.length < 3) {
     return { ok: false, forasDoContorno: [] };
   }
-  const faceAlvo = modelo.face_alinhamento ?? null;
+  // Determina face alvo numérica. `face_alinhamento` pode vir como letra
+  // ("A") herdada do parser — nesse caso usamos a face com mais operações
+  // (plano da peça, ex.: Face 7 em Base L). Operações em outras faces
+  // (laterais/topo) também são validadas porque suas coordenadas X/Y vivem
+  // no mesmo plano da peça e devem cair sobre a borda do polígono.
+  const contagemPorFace = new Map<string, number>();
+  for (const op of modelo.operacoes) {
+    const k = String(op.face);
+    contagemPorFace.set(k, (contagemPorFace.get(k) ?? 0) + 1);
+  }
+  const faceAlinhRaw = modelo.face_alinhamento ?? "";
+  const faceAlinhNum = /^\d+$/.test(faceAlinhRaw) ? faceAlinhRaw : null;
+  const facePlano =
+    faceAlinhNum ??
+    Array.from(contagemPorFace.entries())
+      .sort((a, b) => b[1] - a[1])[0]?.[0] ??
+    null;
+
   const foras: ValidacaoGeometrica["forasDoContorno"] = [];
   for (const op of modelo.operacoes) {
-    // Só valida operações na face de alinhamento (plano da peça).
-    if (faceAlvo != null && String(op.face) !== String(faceAlvo)) continue;
     const pts = pontosDeOperacao(op);
     if (pts.length === 0) continue;
+    // Tolerância maior para operações em faces de borda (laterais), pois
+    // tipicamente apoiam-se sobre o contorno externo.
+    const tol = String(op.face) === facePlano ? 0.75 : 1.5;
     for (const p of pts) {
-      if (!pontoDentroDoPoligono(p, poly, 0.75)) {
+      if (!pontoDentroDoPoligono(p, poly, tol)) {
         foras.push({
           face: String(op.face),
           tipo: op.tipo,
