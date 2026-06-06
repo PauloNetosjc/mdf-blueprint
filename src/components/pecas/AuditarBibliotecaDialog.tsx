@@ -302,7 +302,8 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         for (const r of rasgos) {
           const x1 = r.x1 ?? 0;
           const x2 = r.x2 ?? 0;
-          if (x2 <= x1) {
+          const ehRasgoLinha = r.y1 != null && r.y2 != null;
+          if (!ehRasgoLinha && x2 <= x1) {
             achados.push({
               tipo: "rasgo_x2_menor_x1",
               severidade: "erro",
