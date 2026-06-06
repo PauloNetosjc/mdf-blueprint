@@ -168,7 +168,14 @@ export type ResumoParser = {
   codigo_detectado: boolean;
   total_operacoes: number;
   faces_com_operacao: number[];
+  // Detecção fraca: a palavra (Furação/Rasgos/Usinagens) apareceu em algum lugar.
+  secoes_detectadas?: { furacao: boolean; rasgos: boolean; usinagens: boolean };
+  // Detecção forte: além da palavra, há linha candidata com números suficientes
+  // (≥4 para furação/usinagem, ≥5 para rasgos) nas próximas linhas.
+  // Só essa flag deve gerar erro real "tabela encontrada mas parser não extraiu".
+  secoes_com_dados?: { furacao: boolean; rasgos: boolean; usinagens: boolean };
 };
+
 
 export type ClassificacaoPdf = "peca_individual" | "modulo_explodido" | "desconhecido";
 
@@ -427,6 +434,33 @@ function detectarSecoes(linhas: Linha[]): SecaoDetectada {
   }
   return out;
 }
+
+/**
+ * Detecção forte: requer que dentro das próximas ~12 linhas após o cabeçalho
+ * exista pelo menos uma linha candidata com números suficientes
+ * (≥4 para furação/usinagem, ≥5 para rasgos). Sem isso, o termo no PDF
+ * é apenas legenda/índice/cabeçalho de relatório, não tabela real.
+ */
+function detectarSecoesComDados(linhas: Linha[]): SecaoDetectada {
+  const out: SecaoDetectada = { furacao: false, rasgos: false, usinagens: false };
+  const JANELA = 12;
+  for (let i = 0; i < linhas.length; i++) {
+    const t = linhas[i].texto;
+    const isFur = RE_FURACAO.test(t);
+    const isRas = RE_RASGOS.test(t);
+    const isUsi = RE_USINAGENS_SECAO.test(t) || RE_USINAGEM_ENTRADA.test(t);
+    if (!isFur && !isRas && !isUsi) continue;
+    // Procura linha candidata com números na janela posterior
+    for (let j = i + 1; j < Math.min(linhas.length, i + 1 + JANELA); j++) {
+      const nums = extrairNumerosOperacao(linhas[j].texto);
+      if (isFur && nums.length >= 4) { out.furacao = true; break; }
+      if (isRas && nums.length >= 5) { out.rasgos = true; break; }
+      if (isUsi && nums.length >= 3) { out.usinagens = true; break; }
+    }
+  }
+  return out;
+}
+
 
 type ExtracaoOperacoesResultado = {
   operacoes: OperacaoExtraida[];
@@ -1094,33 +1128,46 @@ export async function parseTechnicalDrawingPdf(
     alertas.push("Nenhuma furação, rasgo ou usinagem encontrada.");
   }
 
-  // Validação por seção: se a tabela existe mas nada foi extraído, registra alerta de parser.
+  // Validação por seção: só marca ERRO REAL se existir evidência forte
+  // (cabeçalho + linha candidata com números suficientes nas próximas linhas).
+  // Detecção apenas da palavra vira ALERTA, não erro.
   const secoes = detectarSecoes(linhas);
+  const secoesComDados = detectarSecoesComDados(linhas);
+
   if (secoes.furacao && furos === 0) {
-    alertas.push("Tabela de furação detectada, mas nenhum furo foi extraído.");
-    erros.push("Furação: tabela encontrada no PDF mas o parser não conseguiu extrair os furos.");
+    if (secoesComDados.furacao) {
+      alertas.push("Tabela de furação detectada, mas nenhum furo foi extraído.");
+      erros.push("Furação: tabela encontrada no PDF mas o parser não conseguiu extrair os furos.");
+    } else {
+      alertas.push("Palavra 'Furação' encontrada no PDF, mas sem linha numérica candidata abaixo (provável legenda/índice).");
+    }
   }
   if (secoes.rasgos && rasgos === 0) {
-    alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
-    // Inclui trecho bruto logo abaixo de "Rasgos" para facilitar depuração.
-    const idxRasgos = linhas.findIndex((l) => RE_RASGOS.test(l.texto));
-    const trecho =
-      idxRasgos >= 0
-        ? linhas
-            .slice(idxRasgos, idxRasgos + 8)
-            .map((l) => l.texto)
-            .join(" | ")
-        : "";
-    erros.push(
-      `Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.${
-        trecho ? ` Trecho: ${trecho}` : ""
-      }`,
-    );
+    if (secoesComDados.rasgos) {
+      alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
+      const idxRasgos = linhas.findIndex((l) => RE_RASGOS.test(l.texto));
+      const trecho =
+        idxRasgos >= 0
+          ? linhas.slice(idxRasgos, idxRasgos + 8).map((l) => l.texto).join(" | ")
+          : "";
+      erros.push(
+        `Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.${
+          trecho ? ` Trecho: ${trecho}` : ""
+        }`,
+      );
+    } else {
+      alertas.push("Palavra 'Rasgos' encontrada no PDF, mas sem linha numérica candidata abaixo (provável legenda/índice).");
+    }
   }
   if (secoes.usinagens && usinagens === 0) {
-    alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
-    erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
+    if (secoesComDados.usinagens) {
+      alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
+      erros.push("Usinagens: tabela encontrada no PDF mas o parser não conseguiu extrair as usinagens.");
+    } else {
+      alertas.push("Palavra 'Usinagens' encontrada no PDF, mas sem linha numérica candidata abaixo (provável legenda/índice).");
+    }
   }
+
 
   // Dentro da seção Furação não há conversão automática para rasgo; apenas alerta.
   for (const op of operacoes) {
@@ -1161,6 +1208,8 @@ export async function parseTechnicalDrawingPdf(
     codigo_detectado: !!codigo,
     total_operacoes: operacoes.length,
     faces_com_operacao: facesComOp,
+    secoes_detectadas: secoes,
+    secoes_com_dados: secoesComDados,
   };
 
   const classificacao = classificarDocumentoPdf(linhas, resumo);
