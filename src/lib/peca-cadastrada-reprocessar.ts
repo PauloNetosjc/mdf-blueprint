@@ -265,7 +265,7 @@ export async function reprocessarParserDePeca(
       nomeUpper.includes("BASE L") ||
       nomeUpper.startsWith("BAS") ||
       facesDetectadas > 5 ||
-      (result.operacoes ?? []).some((u: { tipo: string }) => u.tipo === "rasgo_linha");
+      (result.operacoes ?? []).some((u) => u.tipo_operacao === "rasgo" || (u.nome_operacao ?? "").toLowerCase().includes("rasgo_linha"));
 
     if (indiciosComplexos && typeof document !== "undefined") {
       try {
