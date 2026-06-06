@@ -613,9 +613,20 @@ export type ValidacaoGeometrica = {
     tipo: string;
     nome: string | null | undefined;
     ordem: number;
+    x?: number;
+    y?: number;
     motivo: string;
   }>;
 };
+
+function modeloEhBaseLObrigatoria(modelo: ModeloTecnicoJson): boolean {
+  const nome = modelo.nome ?? "";
+  const codigo = modelo.codigo.toUpperCase();
+  const temFace7 = modelo.faces.some((f) => f.face === "7") || modelo.operacoes.some((o) => String(o.face) === "7");
+  const temRasgoLinha = modelo.operacoes.some((o) => o.tipo === "rasgo" && o.y1 != null && o.y2 != null);
+  const temFaceAcima5 = modelo.operacoes.some((o) => Number(o.face) > 5) || modelo.faces_visuais.some((f) => Number(f.face) > 5);
+  return ehBaseL(nome, codigo.slice(0, 3)) || (codigo.startsWith("BAS") && temFace7 && temRasgoLinha && temFaceAcima5);
+}
 
 /**
  * Valida que toda operação cai dentro (ou na borda) do polígono de contorno.
@@ -630,7 +641,7 @@ export function validarGeometriaModelo(
   const L = modelo.geometria.largura ?? modelo.medidas.largura ?? 0;
   const H = modelo.geometria.altura ?? modelo.medidas.altura ?? 0;
   let poly = modelo.geometria.pontos_contorno ?? [];
-  if (poly.length < 3 && L > 0 && H > 0) {
+  if (modelo.geometria.tipo !== "L" && poly.length < 3 && L > 0 && H > 0) {
     poly = [
       { x: 0, y: 0 },
       { x: L, y: 0 },
@@ -673,6 +684,8 @@ export function validarGeometriaModelo(
           tipo: op.tipo,
           nome: op.nome,
           ordem: op.ordem ?? 0,
+          x: p.x,
+          y: p.y,
           motivo: `Ponto (${p.x.toFixed(1)}, ${p.y.toFixed(1)}) fora do contorno`,
         });
         break;
@@ -704,6 +717,12 @@ export function podeGerarGcode(modelo: ModeloTecnicoJson | null | undefined): {
   }
   if ((modelo.medidas.largura ?? 0) <= 0 || (modelo.medidas.altura ?? 0) <= 0) {
     return { permitido: false, motivo: "Medidas mínimas da peça não definidas." };
+  }
+  if (modeloEhBaseLObrigatoria(modelo) && modelo.geometria.tipo !== "L") {
+    return { permitido: false, motivo: "Base L não pode gerar CNC com contorno retangular." };
+  }
+  if (modelo.geometria.tipo === "L" && (modelo.geometria.pontos_contorno?.length ?? 0) < 6) {
+    return { permitido: false, motivo: "Contorno L incompleto (mín. 6 pontos)." };
   }
   if ((modelo.geometria.pontos_contorno?.length ?? 0) < 4) {
     return { permitido: false, motivo: "Contorno da peça incompleto (mín. 4 pontos)." };
