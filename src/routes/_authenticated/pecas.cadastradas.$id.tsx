@@ -862,7 +862,7 @@ function PecaCadastradaDetalhe() {
                   },
                   material: p.material_ref ?? null,
                   fita: p.fita_ref ?? null,
-                  face_principal: m.geometria?.face_principal ?? null,
+                  face_principal: m.geometria?.face_principal != null ? String(m.geometria.face_principal) : null,
                   face_alinhamento: m.face_alinhamento ?? null,
                   geometria: {
                     tipo: novaTipo as "L" | "retangular",
