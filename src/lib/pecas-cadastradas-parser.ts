@@ -346,10 +346,8 @@ function finalizarLinha(l: Linha): Linha {
 
 function toNum(s: string): number | null {
   const normalizado = s.trim().replace(",", ".");
-  if (!/\d/.test(normalizado)) return null;
-  const m = normalizado.match(/-?\d+(?:\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
+  if (!/^-?\d+(?:\.\d+)?$/.test(normalizado)) return null;
+  const n = Number(normalizado);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -370,6 +368,10 @@ function extrairNumerosTexto(texto: string): number[] {
     if (Number.isFinite(n)) out.push(n);
   }
   return out;
+}
+
+function extrairNumerosOperacao(texto: string): number[] {
+  return extrairNumerosTexto(texto.replace(/\bB\d{1,2}\b/gi, " "));
 }
 
 // Verifica se uma linha é "essencialmente numérica" mesmo quando as células
