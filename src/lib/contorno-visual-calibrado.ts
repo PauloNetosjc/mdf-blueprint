@@ -156,11 +156,20 @@ async function extrairSubpaths(
   pdfjs: PdfJs,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   page: any,
-): Promise<{ subpaths: Subpath[]; pageW: number; pageH: number }> {
+): Promise<{
+  subpaths: Subpath[];
+  pageW: number;
+  pageH: number;
+  opStats: Record<string, number>;
+  totalOps: number;
+}> {
   const viewport = page.getViewport({ scale: 1 });
   const opList = await page.getOperatorList();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const OPS: Record<string, number> = (pdfjs as any).OPS;
+  // Inverte OPS para nome humano
+  const OP_NAME: Record<number, string> = {};
+  for (const [k, v] of Object.entries(OPS)) OP_NAME[v] = k;
 
   const subpaths: Subpath[] = [];
   let ctm: Mat = mIdentity();
