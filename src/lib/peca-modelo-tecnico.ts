@@ -194,6 +194,33 @@ export type CandidatoContornoL = {
   fora: number;
 };
 
+function areaPoligonoAbs(pontos: Pt[]): number {
+  if (pontos.length < 3) return 0;
+  let area = 0;
+  for (let i = 0, j = pontos.length - 1; i < pontos.length; j = i++) {
+    area += pontos[j].x * pontos[i].y - pontos[i].x * pontos[j].y;
+  }
+  return Math.abs(area) / 2;
+}
+
+function ehContornoLValido(pontos: Pt[], largura: number, altura: number): boolean {
+  if (pontos.length < 6) return false;
+  const area = areaPoligonoAbs(pontos);
+  if (!(area > 0 && area < largura * altura - 0.01)) return false;
+  const internos = pontos.filter(
+    (p) => p.x > 0.01 && p.x < largura - 0.01 && p.y > 0.01 && p.y < altura - 0.01,
+  );
+  const temArestaInternaVertical = pontos.some((p, i) => {
+    const q = pontos[(i + 1) % pontos.length];
+    return Math.abs(p.x - q.x) < 0.01 && p.x > 0.01 && p.x < largura - 0.01;
+  });
+  const temArestaInternaHorizontal = pontos.some((p, i) => {
+    const q = pontos[(i + 1) % pontos.length];
+    return Math.abs(p.y - q.y) < 0.01 && p.y > 0.01 && p.y < altura - 0.01;
+  });
+  return internos.length >= 2 && temArestaInternaVertical && temArestaInternaHorizontal;
+}
+
 export function gerarContornoBaseLInferiorPorValidacao(
   largura: number,
   altura: number,
@@ -283,23 +310,24 @@ export function gerarContornoBaseLInferiorPorValidacao(
     }
   }
 
-  candidatos.sort((a, b) => a.fora - b.fora);
-  const melhor = candidatos[0] ?? null;
+  const candidatosL = candidatos.filter((c) => ehContornoLValido(c.pontos, largura, altura));
+  candidatosL.sort((a, b) => a.fora - b.fora);
+  const melhor = candidatosL[0] ?? null;
   if (!melhor) {
-    return { escolhido: null, candidatos, motivo: "Nenhum candidato gerado." };
+    return { escolhido: null, candidatos: candidatosL, motivo: "Nenhum candidato L válido gerado." };
   }
   if (melhor.fora === 0) {
     return {
       escolhido: melhor,
-      candidatos,
+      candidatos: candidatosL,
       motivo: `Candidato ${melhor.nome} mantém todas as operações dentro do contorno.`,
     };
   }
   return {
-    escolhido: null,
-    candidatos,
+    escolhido: melhor,
+    candidatos: candidatosL,
     motivo:
-      "Nenhum contorno L candidato contém todas as operações. Verificar orientação da peça ou coordenadas do parser.",
+      `Nenhum contorno L candidato contém todas as operações. Mantido melhor L (${melhor.nome}) com ${melhor.fora} operação(ões) fora para diagnóstico.`,
   };
 }
 
