@@ -13,6 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AlertTriangle, Plus, Save, Trash2, FileText, ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,11 +30,11 @@ import {
   ehDivisoria,
   FACE_LABELS,
   getTipoPecaPorPrefixo,
-  parseTechnicalDrawingPdf,
-  classificarStatusParser,
 } from "@/lib/pecas-cadastradas-parser";
+import { reprocessarParserDePeca } from "@/lib/peca-cadastrada-reprocessar";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
