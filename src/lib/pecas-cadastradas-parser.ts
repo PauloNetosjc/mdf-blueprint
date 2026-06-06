@@ -1327,30 +1327,46 @@ export async function parseTechnicalDrawingPdf(
   }
 
   baseResumo.pdf_lido = true;
-  const linhas = agruparEmLinhas(itens);
+
+  // CONTORNO_TECNICO é metadado de geometria, NÃO operação.
+  // EXTRAIR PRIMEIRO NO NÍVEL DE ITENS — o bloco fica na coluna esquerda do PDF
+  // e o agrupamento por Y colide com as tabelas da coluna direita, fazendo a
+  // tabela perder furos. Removendo aqui, as linhas ficam limpas.
+  const ctItens = extrairContornoDeItens(itens);
+  const itensSemContorno = ctItens.itensLimpos;
+  if (ctItens.contorno) {
+    logs.push(
+      `CONTORNO_TECNICO (itens) detectado: tipo=${ctItens.contorno.tipo ?? "?"} ` +
+        `face_principal=${ctItens.contorno.face_principal ?? "?"} ` +
+        `pontos=${ctItens.contorno.pontos.length} (itens removidos: ${ctItens.textos_consumidos.length})`,
+    );
+  }
+
+  const linhas = agruparEmLinhas(itensSemContorno);
   const medidas = extrairMedidas(linhas);
   if (medidas.largura) logs.push(`Medidas: ${medidas.largura} x ${medidas.altura} x ${medidas.espessura}`);
   const nome_peca = extrairNomePeca(linhas, codigo);
-  // Detecta se o nome veio de fallback (Tipo + código) ou do PDF de verdade
   const nomeFallback = codigo
     ? `${codigo.tipo_peca} ${codigo.codigo_principal}${codigo.sufixo}`.trim()
     : null;
   const nomeDeFato = !!nome_peca && nome_peca !== nomeFallback;
 
-  // CONTORNO_TECNICO é metadado de geometria, NÃO operação.
-  // Extrair primeiro e remover as linhas do bloco antes do parser de operações
-  // para impedir que "CONTORNO" vire usinagem ou que linhas como "543" virem furo.
-  const contornoTecnico = extrairContornoTecnicoPdf(linhas);
-  if (contornoTecnico.contorno) {
+  // Fallback (PDF antigo sem marcador de bloco): tenta extrair via linhas.
+  const contornoTecnico = ctItens.contorno
+    ? { contorno: ctItens.contorno, indices_consumidos: new Set<number>(), textos_consumidos: ctItens.textos_consumidos }
+    : extrairContornoTecnicoPdf(linhas);
+  if (!ctItens.contorno && contornoTecnico.contorno) {
     logs.push(
-      `CONTORNO_TECNICO detectado: tipo=${contornoTecnico.contorno.tipo ?? "?"} ` +
+      `CONTORNO_TECNICO (linhas, fallback) detectado: tipo=${contornoTecnico.contorno.tipo ?? "?"} ` +
         `face_principal=${contornoTecnico.contorno.face_principal ?? "?"} ` +
-        `pontos=${contornoTecnico.contorno.pontos.length} (linhas removidas do fluxo de operações)`,
+        `pontos=${contornoTecnico.contorno.pontos.length}`,
     );
   }
-  const linhasSemContornoTecnico = linhas.filter(
-    (_l, idx) => !contornoTecnico.indices_consumidos.has(idx),
-  );
+  const linhasSemContornoTecnico = ctItens.contorno
+    ? linhas
+    : linhas.filter((_l, idx) => !contornoTecnico.indices_consumidos.has(idx));
+
+
 
   const extracaoOperacoes = extrairOperacoes(linhasSemContornoTecnico);
   alertas.push(...extracaoOperacoes.alertas);
