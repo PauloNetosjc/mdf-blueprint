@@ -359,6 +359,34 @@ function isNumericCells(cels: { str: string }[]): boolean {
   return nums >= Math.max(2, Math.floor(cels.length * 0.7));
 }
 
+// Extrai TODOS os números de um texto livre, tolerando tokens colados como
+// "2488 7 4.5" dentro de uma mesma célula PDF, decimais com vírgula, etc.
+function extrairNumerosTexto(texto: string): number[] {
+  const out: number[] = [];
+  const re = /-?\d+(?:[.,]\d+)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(texto)) !== null) {
+    const n = Number(m[0].replace(",", "."));
+    if (Number.isFinite(n)) out.push(n);
+  }
+  return out;
+}
+
+// Verifica se uma linha é "essencialmente numérica" mesmo quando as células
+// vieram coladas pelo extractor do PDF. Aceita rótulos curtos como
+// "Y", "X1", "Larg:", "Prof:" que aparecem misturados em tabelas técnicas.
+function linhaPareceNumerica(texto: string, minNumeros: number): boolean {
+  const nums = extrairNumerosTexto(texto);
+  if (nums.length < minNumeros) return false;
+  // Remove números e rótulos comuns de tabela técnica e checa se sobra texto.
+  const limpo = texto
+    .replace(/-?\d+(?:[.,]\d+)?/g, " ")
+    .replace(/\b(Y|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*[0-5])\b/gi, " ")
+    .replace(/[:;,.\-()\[\]]/g, " ")
+    .trim();
+  return limpo.length <= 3; // tolera 1-3 caracteres residuais
+}
+
 function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
   return valores.length > qtd ? valores.slice(-qtd) : valores;
 }
@@ -417,7 +445,7 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i];
     const texto = linha.texto;
-    const numericLinha = isNumericCells(linha.cels);
+
 
     // 1) Cabeçalhos de seção — testados SEMPRE (mesmo que a linha pareça numérica,
     //    pois o cabeçalho "Rasgos Face 0" às vezes vem junto a tokens numéricos).
@@ -471,11 +499,24 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
     }
 
     if (!modo) continue;
-    if (!numericLinha) continue;
 
-    const valores = linha.cels
+    // Números das células (caminho original) — confiável quando cada coluna é
+    // uma cel separada. Caso o extractor cole "2488 7 4.5" em uma única cel,
+    // recorremos a `extrairNumerosTexto(linha.texto)` para recuperar todos os
+    // números da linha.
+    const valoresCels = linha.cels
       .map((c) => toNum(c.str))
       .filter((v): v is number => v != null);
+    const valoresTexto = extrairNumerosTexto(linha.texto);
+    const valores = valoresTexto.length > valoresCels.length ? valoresTexto : valoresCels;
+
+    // Critério mínimo para considerar a linha "numérica": furo precisa de >=4,
+    // rasgo precisa de >=5, usinagem precisa de >=3. Aceita tanto via cels
+    // (isNumericCells) quanto via texto livre (linhaPareceNumerica).
+    const minNumeros = modo === "rasgo" ? 5 : modo === "furo" ? 4 : 3;
+    const numericLinha =
+      isNumericCells(linha.cels) || linhaPareceNumerica(linha.texto, minNumeros);
+    if (!numericLinha) continue;
     if (valores.length < 2) continue;
 
     const faceFromCtx = faceCtx.get(i);
@@ -987,7 +1028,20 @@ export async function parseTechnicalDrawingPdf(
   }
   if (secoes.rasgos && rasgos === 0) {
     alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
-    erros.push("Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.");
+    // Inclui trecho bruto logo abaixo de "Rasgos" para facilitar depuração.
+    const idxRasgos = linhas.findIndex((l) => RE_RASGOS.test(l.texto));
+    const trecho =
+      idxRasgos >= 0
+        ? linhas
+            .slice(idxRasgos, idxRasgos + 8)
+            .map((l) => l.texto)
+            .join(" | ")
+        : "";
+    erros.push(
+      `Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.${
+        trecho ? ` Trecho: ${trecho}` : ""
+      }`,
+    );
   }
   if (secoes.usinagens && usinagens === 0) {
     alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
