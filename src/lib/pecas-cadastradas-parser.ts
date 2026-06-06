@@ -387,13 +387,12 @@ function extrairNumerosOperacao(texto: string): number[] {
 function linhaPareceNumerica(texto: string, minNumeros: number): boolean {
   const nums = extrairNumerosTexto(texto);
   if (nums.length < minNumeros) return false;
-  // Remove números e rótulos comuns de tabela técnica e checa se sobra texto.
   const limpo = texto
     .replace(/-?\d+(?:[.,]\d+)?/g, " ")
-    .replace(/\b(Y|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*[0-5])\b/gi, " ")
+    .replace(/\b(Y1?|Y2|X1?|X2|Larg\.?:?|Prof\.?:?|Diam\.?:?|Z|mm|Face\s*\d{1,2})\b/gi, " ")
     .replace(/[:;,.\-()\[\]]/g, " ")
     .trim();
-  return limpo.length <= 3; // tolera 1-3 caracteres residuais
+  return limpo.length <= 3;
 }
 
 function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
@@ -401,12 +400,11 @@ function ultimosValoresNumericos(valores: number[], qtd: number): number[] {
 }
 
 function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
-  // Map<indiceLinha, faceAtiva>
   const out = new Map<number, string>();
   let faceAtual = "";
   for (let i = 0; i < linhas.length; i++) {
     const t = linhas[i].texto.toLowerCase();
-    const m = t.match(/\b(?:face|lado)\s*([0-5])\b/);
+    const m = t.match(/\b(?:face|lado)\s*(\d{1,2})\b/);
     if (m) faceAtual = m[1];
     out.set(i, faceAtual);
   }
