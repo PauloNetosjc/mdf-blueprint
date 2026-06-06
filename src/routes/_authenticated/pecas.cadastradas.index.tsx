@@ -161,6 +161,7 @@ function PecasCadastradasPage() {
   const [ultimoDebug, setUltimoDebug] = useState<unknown | null>(null);
   const [mostrarModulos, setMostrarModulos] = useState(false);
   const [reprocessOpen, setReprocessOpen] = useState(false);
+  const [limparOpen, setLimparOpen] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
