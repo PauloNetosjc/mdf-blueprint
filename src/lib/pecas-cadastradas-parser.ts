@@ -543,15 +543,25 @@ export function extrairContornoTecnicoPdf(linhas: Linha[]): ExtracaoContornoTecn
     const v = Number(s.replace(",", "."));
     return Number.isFinite(v) ? v : null;
   };
-  const pontos_raw = get(/PONTOS\s*[:=]\s*([0-9.,;\-\s]+?)(?:FIM_CONTORNO_TECNICO|$)/i);
+  // Captura TUDO depois de PONTOS: até FIM_CONTORNO_TECNICO, próxima chave
+  // (CODIGO:/FACE_PRINCIPAL:/TIPO:/RECORTE_X:/RECORTE_Y:) ou fim da string.
+  // Regex permissivo (.+?) com flag /s para aceitar quebras de linha — o
+  // regex anterior, restrito a [0-9.,;\-\s], perdia o 6º par quando o pdfjs
+  // colava o último ponto numa célula separada.
+  const pontos_raw = get(
+    /PONTOS\s*[:=]\s*(.+?)(?:\s*(?:FIM_CONTORNO_TECNICO|CODIGO\s*[:=]|FACE_PRINCIPAL\s*[:=]|TIPO\s*[:=]|RECORTE_[XY]\s*[:=])|$)/is,
+  );
   const pontos: { x: number; y: number }[] = [];
   if (pontos_raw) {
-    const partes = pontos_raw.split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+    const partes = pontos_raw
+      .replace(/\s+/g, "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const p of partes) {
-      const m = p.match(/^\s*([\-0-9.,]+)\s*,\s*([\-0-9.,]+)\s*$/);
-      if (!m) continue;
-      const x = num(m[1]);
-      const y = num(m[2]);
+      const [sx, sy] = p.split(",");
+      const x = num(sx);
+      const y = num(sy);
       if (x != null && y != null) pontos.push({ x, y });
     }
   }
