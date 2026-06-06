@@ -430,6 +430,9 @@ export async function reprocessarParserDePeca(
   }
 
   dadosBrutosFinal.modelo_tecnico_json = modeloTecnico;
+  dadosBrutosFinal.geometria_complexa =
+    modeloTecnico.geometria.tipo !== "retangular" || modeloTecnico.geometria.pendente;
+  dadosBrutosFinal.geometria_complexa_motivos = modeloTecnico.avisos;
 
   // Se o modelo tem contorno paramétrico/válido (ex.: Base L), publica também
   // como contorno_externo_json para o visualizador desenhar o polígono real.
