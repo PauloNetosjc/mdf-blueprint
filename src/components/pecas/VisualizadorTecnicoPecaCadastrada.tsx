@@ -649,6 +649,12 @@ export function VisualizadorTecnicoPecaCadastrada({
   const [editOp, setEditOp] = useState<VisualizadorOperacao | null>(null);
   const [delOp, setDelOp] = useState<VisualizadorOperacao | null>(null);
   const [contornoOpen, setContornoOpen] = useState(false);
+  const [cotaEdit, setCotaEdit] = useState<{
+    tipo: CotaRapidaTipo;
+    valorAtual: number;
+    novoValor: string;
+  } | null>(null);
+  const [cotaSalvando, setCotaSalvando] = useState(false);
   const [modoTodasFaces, setModoTodasFaces] = useState(false);
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
