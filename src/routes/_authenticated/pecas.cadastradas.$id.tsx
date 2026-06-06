@@ -460,7 +460,48 @@ function PecaCadastradaDetalhe() {
             </AlertDialogContent>
           </AlertDialog>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportarModelo}
+            disabled={!modeloTecnico}
+            title={modeloTecnico ? "Baixar o modelo técnico canônico desta peça" : "Reprocessar parser para gerar o modelo"}
+          >
+            <Download className="mr-1 h-4 w-4" /> Exportar modelo técnico JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportarModelo}
+            disabled={importarModelo.isPending}
+          >
+            <Upload className="mr-1 h-4 w-4" />
+            {importarModelo.isPending ? "Importando…" : "Importar modelo técnico JSON"}
+          </Button>
+          <Button
+            variant={gcodeStatus.permitido ? "default" : "outline"}
+            size="sm"
+            onClick={handleGerarGcode}
+            disabled={!gcodeStatus.permitido}
+            title={gcodeStatus.motivo}
+          >
+            <Cpu className="mr-1 h-4 w-4" /> Gerar G-code
+          </Button>
+
         </div>
+
+        {modeloTecnico?.geometria.pendente && (
+          <div className="mb-3 rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" /> Geometria pendente de conversão
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {gcodeStatus.motivo} Use <strong>Importar modelo técnico JSON</strong> para calibrar o contorno desta peça.
+            </p>
+          </div>
+        )}
+
+
 
 
         <div className="flex flex-wrap items-start justify-between gap-3">
