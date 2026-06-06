@@ -518,8 +518,13 @@ function PecaCadastradaDetalhe() {
         )}
 
         {modeloTecnico && gcodeStatus.permitido && (
-          <div className="mb-3 inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-            ✓ Geometria validada para CNC
+          <div className="mb-3 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <div>✓ Geometria validada para CNC</div>
+            {modeloTecnico.geometria.tipo === "L" && (
+              <div className="mt-1 text-[11px] font-normal text-muted-foreground">
+                Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.
+              </div>
+            )}
           </div>
         )}
 
