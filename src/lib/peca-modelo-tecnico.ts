@@ -30,6 +30,7 @@ export const GeometriaOrigemSchema = z.enum([
   "pdf_texto",
   "pdf_vetor",
   "pdf_visual",
+  "pdf_visual_calibrado",
   "regra_parametrica",
   "manual",
 ]);
