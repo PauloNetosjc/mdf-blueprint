@@ -27,6 +27,7 @@ import {
   construirModeloTecnico,
   contornoExternoDoModelo,
 } from "@/lib/peca-modelo-tecnico";
+import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -205,6 +206,53 @@ export async function reprocessarParserDePeca(
   const faceAlinhamento =
     (dadosBrutosFinal.face_alinhamento as string | null) ?? null;
   const modeloTecnico = construirModeloTecnico(result, faceAlinhamento);
+
+  // ---------- Extração de contorno visual calibrado ----------
+  // Tenta ler os operadores vetoriais do PDF e reconstruir um contorno em mm
+  // calibrado pelas medidas reais. Se conseguir, sobrescreve a geometria do
+  // modelo técnico (origem = pdf_visual_calibrado).
+  if (result.largura_ref && result.altura_ref) {
+    try {
+      const pdfBytes = await file.arrayBuffer();
+      const visual = await extrairContornoVisualCalibrado(pdfBytes, {
+        largura: result.largura_ref,
+        altura: result.altura_ref,
+      });
+      dadosBrutosFinal.contorno_visual_diagnostico = {
+        em: new Date().toISOString(),
+        tipo: visual.tipo,
+        confianca: visual.confianca,
+        pendente: visual.pendente,
+        escala_mm_por_unidade: visual.escala_mm_por_unidade,
+        origem_pagina: visual.origem_pagina,
+        pontos: visual.pontos.length,
+        diagnostico: visual.diagnostico,
+      };
+      if (!visual.pendente && visual.pontos.length >= 3) {
+        modeloTecnico.geometria = {
+          ...modeloTecnico.geometria,
+          tipo: visual.tipo,
+          origem: "pdf_visual_calibrado",
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+          pontos_contorno: visual.pontos,
+          confianca: visual.confianca,
+          pendente: false,
+        };
+        if (!modeloTecnico.avisos.some((a) => a.includes("complexo não convertido"))) {
+          modeloTecnico.avisos = modeloTecnico.avisos.filter(
+            (a) => !a.includes("Importe um modelo técnico JSON"),
+          );
+        }
+      }
+    } catch (e) {
+      dadosBrutosFinal.contorno_visual_diagnostico = {
+        em: new Date().toISOString(),
+        erro: (e as Error).message,
+      };
+    }
+  }
+
   dadosBrutosFinal.modelo_tecnico_json = modeloTecnico;
 
   // Se o modelo tem contorno paramétrico/válido (ex.: Base L), publica também
