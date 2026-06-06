@@ -831,6 +831,10 @@ function PecasCadastradasPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Reprocessar erros{arquivosComErro.length ? ` (${arquivosComErro.length})` : ""}
           </Button>
+          <Button variant="outline" onClick={() => setReprocessParserOpen(true)} disabled={importando}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reprocessar erros do parser
+          </Button>
           <Button variant="outline" onClick={() => setReprocessOpen(true)} disabled={importando}>
             <Shapes className="mr-2 h-4 w-4" />
             Reprocessar geometria
