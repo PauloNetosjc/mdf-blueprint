@@ -405,7 +405,7 @@ function extrairFacesPorContexto(linhas: Linha[]): Map<number, string> {
 }
 
 // Section detection helpers — tolerant to acentuação and plural/concatenado
-const RE_FURACAO = /\bfura[cç][aãáà][oõ]e?s?\b/i;
+const RE_FURACAO = /\bfura[cç](?:[aãáà][oõ]|[oõ]es?)\b/i;
 const RE_RASGOS = /\brasgo?s?\b/i;
 const RE_USINAGENS_SECAO = /\businagens?\b/i;
 const RE_USINAGEM_ENTRADA = /(usinagem\s*param[eé]trica\s*\d*|contorno)/i;
