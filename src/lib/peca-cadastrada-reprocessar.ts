@@ -258,12 +258,55 @@ export async function reprocessarParserDePeca(
     (dadosBrutosFinal.face_alinhamento as string | null) ?? null;
   const modeloTecnico = construirModeloTecnico(result, faceAlinhamento);
 
+  // ---------- CONTORNO_TECNICO embutido no PDF (prioridade máxima) ----------
+  // Se o PDF traz o bloco CONTORNO_TECNICO ... FIM_CONTORNO_TECNICO, a
+  // geometria vem PRONTA do desenho técnico. Esta é a fonte mais confiável e
+  // sobrescreve qualquer regra paramétrica ou extração visual posterior.
+  const contornoTecnicoPdf = (dadosBrutosFinal.contorno_tecnico_pdf ?? null) as
+    | {
+        codigo: string | null;
+        face_principal: string | null;
+        tipo: string | null;
+        pontos: { x: number; y: number }[];
+      }
+    | null;
+  let geometriaResolvidaPorContornoTecnico = false;
+  if (
+    contornoTecnicoPdf &&
+    Array.isArray(contornoTecnicoPdf.pontos) &&
+    contornoTecnicoPdf.pontos.length >= 3 &&
+    result.largura_ref &&
+    result.altura_ref
+  ) {
+    const tipoCt = (contornoTecnicoPdf.tipo ?? "").toLowerCase();
+    const tipoGeometria: "L" | "poligono_complexo" | "retangular" =
+      tipoCt === "l"
+        ? "L"
+        : tipoCt === "retangular"
+          ? "retangular"
+          : "poligono_complexo";
+    modeloTecnico.geometria = {
+      ...modeloTecnico.geometria,
+      tipo: tipoGeometria,
+      origem: "contorno_tecnico_pdf",
+      largura: result.largura_ref,
+      altura: result.altura_ref,
+      pontos_contorno: contornoTecnicoPdf.pontos,
+      confianca: "alta",
+      pendente: false,
+    };
+    modeloTecnico.avisos = modeloTecnico.avisos.filter(
+      (a) => !a.includes("Importe um modelo técnico JSON"),
+    );
+    geometriaResolvidaPorContornoTecnico = true;
+  }
+
   // ---------- Extração de contorno visual calibrado ----------
   // 1) Tenta o caminho vetorial (rápido, ideal para PDFs com paths nativos).
   // 2) Para peças complexas, tenta também o RASTER calibrado (renderiza a
   //    página em canvas, detecta o polígono real por análise de imagem e
   //    calibra pela cota geral). O raster prevalece sobre a paramétrica.
-  if (result.largura_ref && result.altura_ref) {
+  if (!geometriaResolvidaPorContornoTecnico && result.largura_ref && result.altura_ref) {
     const pdfBytes = await file.arrayBuffer();
 
     try {
