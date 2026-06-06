@@ -543,15 +543,25 @@ export function extrairContornoTecnicoPdf(linhas: Linha[]): ExtracaoContornoTecn
     const v = Number(s.replace(",", "."));
     return Number.isFinite(v) ? v : null;
   };
-  const pontos_raw = get(/PONTOS\s*[:=]\s*([0-9.,;\-\s]+?)(?:FIM_CONTORNO_TECNICO|$)/i);
+  // Captura TUDO depois de PONTOS: até FIM_CONTORNO_TECNICO, próxima chave
+  // (CODIGO:/FACE_PRINCIPAL:/TIPO:/RECORTE_X:/RECORTE_Y:) ou fim da string.
+  // Regex permissivo (.+?) com flag /s para aceitar quebras de linha — o
+  // regex anterior, restrito a [0-9.,;\-\s], perdia o 6º par quando o pdfjs
+  // colava o último ponto numa célula separada.
+  const pontos_raw = get(
+    /PONTOS\s*[:=]\s*(.+?)(?:\s*(?:FIM_CONTORNO_TECNICO|CODIGO\s*[:=]|FACE_PRINCIPAL\s*[:=]|TIPO\s*[:=]|RECORTE_[XY]\s*[:=])|$)/is,
+  );
   const pontos: { x: number; y: number }[] = [];
   if (pontos_raw) {
-    const partes = pontos_raw.split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+    const partes = pontos_raw
+      .replace(/\s+/g, "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const p of partes) {
-      const m = p.match(/^\s*([\-0-9.,]+)\s*,\s*([\-0-9.,]+)\s*$/);
-      if (!m) continue;
-      const x = num(m[1]);
-      const y = num(m[2]);
+      const [sx, sy] = p.split(",");
+      const x = num(sx);
+      const y = num(sy);
       if (x != null && y != null) pontos.push({ x, y });
     }
   }
@@ -652,26 +662,39 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     if (RE_USINAGENS_SECAO.test(texto)) {
       flushUsinagem();
       sectionAtual = "usinagem";
+      faceAtual = null;
       continue;
     }
     if (RE_RASGOS.test(texto)) {
       flushUsinagem();
       sectionAtual = "rasgo";
+      faceAtual = null;
+      // Cabeçalho combinado "Rasgos Face 7"
+      const fm = texto.match(/\bFace\s+(\d{1,2})\b/i);
+      if (fm) faceAtual = fm[1];
       logRasgo("ignorado_header");
       continue;
     }
     if (RE_FURACAO.test(texto)) {
       flushUsinagem();
       sectionAtual = "furacao";
+      faceAtual = null;
+      // Cabeçalho combinado "Furação Face 2"
+      const fm = texto.match(/\bFace\s+(\d{1,2})\b/i);
+      if (fm) faceAtual = fm[1];
       continue;
     }
 
-    // 2) Face ativa — antes de processar valores da seção.
-    const faceMatch = texto.match(/\b(?:face|lado)\s*(\d{1,2})\b/i);
-    if (faceMatch) {
-      faceAtual = faceMatch[1];
-      if (sectionAtual === "rasgo") logRasgo("ignorado_header");
-      continue;
+    // 2) Face ativa — SOMENTE dentro de seção técnica ativa.
+    // Rótulos visuais ("Face 0", "Face 7" do desenho) NÃO devem alterar
+    // faceAtual quando não estamos dentro de furação/rasgo/usinagem.
+    if (sectionAtual) {
+      const faceMatch = texto.match(/\bFace\s+(\d{1,2})\b/i);
+      if (faceMatch) {
+        faceAtual = faceMatch[1];
+        if (sectionAtual === "rasgo") logRasgo("ignorado_header");
+        continue;
+      }
     }
 
     if (!sectionAtual) {
@@ -707,9 +730,11 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
       continue;
     }
 
-    const faceFromCtx = faceAtual ?? faceCtx.get(i);
+    // Face vem APENAS do cabeçalho técnico (faceAtual). Não usar fallback
+    // global (faceCtx) — ele captura rótulos visuais do desenho e contamina
+    // operações (ex.: furos da Face 2 viraram Face 0).
     const faceFromUsin: string | null = usinagemAtual ? usinagemAtual.face : null;
-    const face: string | null = faceFromCtx || faceFromUsin;
+    const face: string | null = faceAtual ?? faceFromUsin;
 
     if (sectionAtual === "furacao") {
       // Máquina de estados rígida: só Furação cria furo. Linhas com 5+ números
