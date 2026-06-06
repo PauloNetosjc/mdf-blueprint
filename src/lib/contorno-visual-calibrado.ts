@@ -294,7 +294,7 @@ async function extrairSubpaths(
   }
   if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
 
-  return { subpaths, pageW: viewport.width, pageH: viewport.height };
+  return { subpaths, pageW: viewport.width, pageH: viewport.height, opStats, totalOps: fnArray.length };
 }
 
 export async function extrairContornoVisualCalibrado(
