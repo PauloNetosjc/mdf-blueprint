@@ -25,6 +25,12 @@ import {
   classificarStatusParser,
   type ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+import { gerarFacesLayoutAutomatico } from "@/lib/faces-layout-gerador";
+import {
+  gerarContornoExternoDeOperacoes,
+  gerarContornoRetangular,
+  type VisualizadorOperacao,
+} from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 import {
   Tooltip,
   TooltipContent,
@@ -296,6 +302,72 @@ function PecasCadastradasPage() {
 
       const pecaRows = parsed.map(({ result, fileName, storagePath, modulo }) => {
         const { status, motivo } = classificarStatusParser(result);
+        const ehPecaIndividual = result.classificacao.classificacao === "peca_individual";
+
+        // Auto-geração de faces_layout_json e contorno_externo_json para peças individuais.
+        // Garante que a biblioteca nasça correta no upload, sem edição manual.
+        let dadosBrutosFinal: Record<string, unknown> = { ...result.dados_brutos };
+        if (ehPecaIndividual && result.largura_ref && result.altura_ref) {
+          const facesPresentes = Array.from(
+            new Set(
+              result.operacoes
+                .map((o) => o.face)
+                .filter((f): f is string => f != null && f !== ""),
+            ),
+          );
+          const facesLayout = gerarFacesLayoutAutomatico({
+            largura: result.largura_ref,
+            altura: result.altura_ref,
+            espessura: result.espessura_ref,
+            prefixo: result.codigo.prefixo,
+            tipo: result.codigo.tipo_peca,
+            facesPresentes,
+          });
+
+          // Contorno externo: usa pontos das usinagens quando houver; senão retangular.
+          const opsParaContorno: VisualizadorOperacao[] = result.operacoes.map((o) => ({
+            id: "",
+            tipo_operacao: o.tipo_operacao,
+            nome_operacao: o.nome_operacao,
+            face: o.face != null ? Number(o.face) : 0,
+            x: o.x,
+            y: o.y,
+            diametro: o.diametro,
+            profundidade: o.profundidade,
+            largura: o.largura,
+            comprimento: o.comprimento,
+            x1: o.x1,
+            x2: o.x2,
+            y1: o.y1,
+            y2: o.y2,
+            ancora_x: o.ancora_x,
+            ancora_y: o.ancora_y,
+            offset_x: o.offset_x,
+            offset_y: o.offset_y,
+            pontos_json: o.pontos as unknown as VisualizadorOperacao["pontos_json"],
+            confianca_parser: o.confianca_parser,
+            ordem: o.ordem,
+          }));
+          const contornoGerado =
+            gerarContornoExternoDeOperacoes(result.largura_ref, result.altura_ref, opsParaContorno)
+            ?? gerarContornoRetangular(result.largura_ref, result.altura_ref);
+          const usouFallback = (contornoGerado.recuos ?? []).some((r) => r.origem === "fallback");
+
+          dadosBrutosFinal = {
+            ...dadosBrutosFinal,
+            faces_layout_json: facesLayout,
+            contorno_externo_json: contornoGerado,
+            diagnostico_geometria: {
+              origem: contornoGerado.origem,
+              pontos: contornoGerado.pontos.length,
+              recuos: contornoGerado.recuos?.length ?? 0,
+              presets: contornoGerado.presets_aplicados ?? [],
+              acao: usouFallback ? "atualizado_fallback" : "atualizado_parser",
+              atualizado_em: new Date().toISOString(),
+            },
+          };
+        }
+
         return {
           user_id: userId,
           codigo: result.codigo.codigo_completo,
@@ -333,7 +405,7 @@ function PecasCadastradasPage() {
             modulo_origem: modulo,
             classificacao: result.classificacao.classificacao,
           },
-          dados_brutos_json: result.dados_brutos,
+          dados_brutos_json: dadosBrutosFinal,
         };
       });
 
@@ -342,6 +414,8 @@ function PecasCadastradasPage() {
       const pendentesClass = parsed.filter((p) => p.result.classificacao.classificacao === "desconhecido").length;
       if (ignoradosModulo > 0) appendLog(logsGerais, `↷ ${ignoradosModulo} PDFs ignorados como módulo/explodido`);
       if (pendentesClass > 0) appendLog(logsGerais, `? ${pendentesClass} PDFs pendentes de classificação manual`);
+
+
 
       const pecaIdByCodigo = new Map<string, string>();
       const pecaBatches = chunkArray(pecaRows, PECA_BATCH_SIZE);
