@@ -41,6 +41,8 @@ import {
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 import { PainelModeloTecnico } from "@/components/pecas/PainelModeloTecnico";
+import { EditorCotasPecaDialog } from "@/components/pecas/EditorCotasPecaDialog";
+import { Pencil } from "lucide-react";
 
 
 
