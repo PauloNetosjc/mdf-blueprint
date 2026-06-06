@@ -97,6 +97,10 @@ export const FACE_LABELS: Record<string, string> = {
   "3": "Face 3",
   "4": "Face 4",
   "5": "Face 5",
+  "6": "Face 6",
+  "7": "Face 7",
+  "8": "Face 8",
+  "9": "Face 9",
 };
 
 export function nomeFace(face: string | null | undefined): string {
