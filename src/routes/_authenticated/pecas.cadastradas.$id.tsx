@@ -499,6 +499,30 @@ function PecaCadastradaDetalhe() {
           </div>
         )}
 
+        {modeloTecnico && !modeloTecnico.geometria.pendente && gcodeStatus.validacao && !gcodeStatus.validacao.ok && (
+          <div className="mb-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Operações fora do contorno. Corrigir antes de gerar CNC.
+            </div>
+            <ul className="ml-5 list-disc text-xs text-muted-foreground">
+              {gcodeStatus.validacao.forasDoContorno.slice(0, 6).map((f, i) => (
+                <li key={i}>
+                  Face {f.face} · #{f.ordem} {f.tipo}{f.nome ? ` (${f.nome})` : ""} — {f.motivo}
+                </li>
+              ))}
+              {gcodeStatus.validacao.forasDoContorno.length > 6 && (
+                <li>… e mais {gcodeStatus.validacao.forasDoContorno.length - 6}.</li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {modeloTecnico && gcodeStatus.permitido && (
+          <div className="mb-3 inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            ✓ Geometria validada para CNC
+          </div>
+        )}
+
 
 
 
