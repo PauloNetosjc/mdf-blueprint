@@ -308,6 +308,47 @@ async function extrairSubpaths(
       } else {
         opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
       }
+    } else if (
+      fn === OPS.moveTo ||
+      fn === OPS.lineTo ||
+      fn === OPS.rectangle ||
+      fn === OPS.curveTo ||
+      fn === OPS.curveTo2 ||
+      fn === OPS.curveTo3 ||
+      fn === OPS.closePath
+    ) {
+      applyPathOp(fn, args);
+    } else if (
+      fn === OPS.stroke ||
+      fn === OPS.closeStroke ||
+      fn === OPS.fillStroke ||
+      fn === OPS.eoFillStroke ||
+      fn === OPS.closeFillStroke ||
+      fn === OPS.closeEOFillStroke ||
+      fn === OPS.fill ||
+      fn === OPS.eoFill
+    ) {
+      if (
+        fn === OPS.closeStroke ||
+        fn === OPS.closeFillStroke ||
+        fn === OPS.closeEOFillStroke ||
+        fn === OPS.fill ||
+        fn === OPS.eoFill ||
+        fn === OPS.fillStroke ||
+        fn === OPS.eoFillStroke
+      ) {
+        if (!curClosed && curStart != null && cur.length >= 2) {
+          const sx = (curStart as PontoMm).x;
+          const sy = (curStart as PontoMm).y;
+          cur.push({ x: sx, y: sy });
+          curClosed = true;
+        }
+      }
+      flush();
+    } else if (fn === OPS.endPath) {
+      cur = [];
+      curStart = null;
+      curClosed = false;
     }
   }
   if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
