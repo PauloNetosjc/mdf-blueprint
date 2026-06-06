@@ -256,15 +256,16 @@ export async function reprocessarParserDePeca(
     // Heurística: a peça é complexa? Se ainda estiver pendente ou marcada
     // como não-retangular sem pontos reais, vale tentar o raster.
     const geom = modeloTecnico.geometria;
-    const nomeUpper = (result.codigo ?? "").toUpperCase();
+    const nomeUpper = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
+    const facesDetectadas = result.resumo?.faces_com_operacao?.length ?? 0;
     const indiciosComplexos =
       geom.pendente ||
       geom.origem === "regra_parametrica" ||
       (geom.tipo !== "retangular" && (!geom.pontos_contorno || geom.pontos_contorno.length < 3)) ||
       nomeUpper.includes("BASE L") ||
       nomeUpper.startsWith("BAS") ||
-      (result.faces?.length ?? 0) > 5 ||
-      (result.usinagens ?? []).some((u) => u.tipo === "rasgo_linha");
+      facesDetectadas > 5 ||
+      (result.operacoes ?? []).some((u: { tipo: string }) => u.tipo === "rasgo_linha");
 
     if (indiciosComplexos && typeof document !== "undefined") {
       try {
