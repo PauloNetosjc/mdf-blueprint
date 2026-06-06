@@ -385,6 +385,7 @@ export async function reprocessarParserDePeca(
       temRasgoLinha2;
     const precisaFallback =
       geom.pendente ||
+      (ehBaseLDetectada && geom.tipo !== "L") ||
       geom.tipo === "retangular" ||
       !geom.pontos_contorno ||
       geom.pontos_contorno.length < (ehBaseLDetectada ? 6 : 3);
