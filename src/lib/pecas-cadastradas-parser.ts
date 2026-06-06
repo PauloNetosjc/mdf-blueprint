@@ -428,10 +428,21 @@ function detectarSecoes(linhas: Linha[]): SecaoDetectada {
   return out;
 }
 
-function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
+type ExtracaoOperacoesResultado = {
+  operacoes: OperacaoExtraida[];
+  debugRasgos: string[];
+  alertas: string[];
+  erros: string[];
+};
+
+function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
   const ops: OperacaoExtraida[] = [];
   const faceCtx = extrairFacesPorContexto(linhas);
-  let modo: "furo" | "rasgo" | "usinagem" | null = null;
+  const debugRasgos: string[] = [];
+  const alertas: string[] = [];
+  const erros: string[] = [];
+  let sectionAtual: "furacao" | "rasgo" | "usinagem" | null = null;
+  let faceAtual: string | null = null;
   let ordem = 0;
   let usinagemAtual: OperacaoExtraida | null = null;
   let ordemPonto = 0;
