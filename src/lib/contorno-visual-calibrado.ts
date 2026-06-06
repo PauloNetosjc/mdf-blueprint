@@ -283,8 +283,8 @@ async function extrairSubpaths(
     } else if (fn === OPS.transform) {
       ctm = mMul(ctm, [args[0], args[1], args[2], args[3], args[4], args[5]]);
     } else if (fn === OPS.constructPath) {
-      // pdfjs v6: argsArray[i] = [opCode, ...args] (uma operação por chamada).
-      // Versões anteriores (batched): argsArray[i] = [ops[], args[], minMax[]].
+      // pdfjs v6: argsArray[i] = [opCode, ...args] (uma op de path por chamada).
+      // opCode pode ser path-builder (moveTo/lineTo/...) OU paint (stroke/fill/...).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const a0: any = (args as any)[0];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,7 +292,38 @@ async function extrairSubpaths(
       if (typeof a0 === "number") {
         const subFn = a0;
         const subArgs = (args as number[]).slice(1);
-        applyPathOp(subFn, subArgs);
+        if (
+          subFn === OPS.moveTo || subFn === OPS.lineTo ||
+          subFn === OPS.rectangle || subFn === OPS.curveTo ||
+          subFn === OPS.curveTo2 || subFn === OPS.curveTo3 ||
+          subFn === OPS.closePath
+        ) {
+          applyPathOp(subFn, subArgs);
+        } else if (
+          subFn === OPS.stroke || subFn === OPS.closeStroke ||
+          subFn === OPS.fillStroke || subFn === OPS.eoFillStroke ||
+          subFn === OPS.closeFillStroke || subFn === OPS.closeEOFillStroke ||
+          subFn === OPS.fill || subFn === OPS.eoFill
+        ) {
+          if (
+            subFn === OPS.closeStroke || subFn === OPS.closeFillStroke ||
+            subFn === OPS.closeEOFillStroke || subFn === OPS.fill ||
+            subFn === OPS.eoFill || subFn === OPS.fillStroke ||
+            subFn === OPS.eoFillStroke
+          ) {
+            if (!curClosed && curStart != null && cur.length >= 2) {
+              const sx = (curStart as PontoMm).x;
+              const sy = (curStart as PontoMm).y;
+              cur.push({ x: sx, y: sy });
+              curClosed = true;
+            }
+          }
+          flush();
+        } else if (subFn === OPS.endPath) {
+          cur = []; curStart = null; curClosed = false;
+        } else {
+          opStats[`constructPath:sub${subFn}`] = (opStats[`constructPath:sub${subFn}`] ?? 0) + 1;
+        }
       } else if (Array.isArray(a0) || ArrayBuffer.isView(a0)) {
         const subOps = Array.from(a0 as ArrayLike<number>);
         const subArgsFlat = Array.from(
@@ -308,47 +339,6 @@ async function extrairSubpaths(
       } else {
         opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
       }
-    } else if (
-      fn === OPS.moveTo ||
-      fn === OPS.lineTo ||
-      fn === OPS.rectangle ||
-      fn === OPS.curveTo ||
-      fn === OPS.curveTo2 ||
-      fn === OPS.curveTo3 ||
-      fn === OPS.closePath
-    ) {
-      applyPathOp(fn, args);
-    } else if (
-      fn === OPS.stroke ||
-      fn === OPS.closeStroke ||
-      fn === OPS.fillStroke ||
-      fn === OPS.eoFillStroke ||
-      fn === OPS.closeFillStroke ||
-      fn === OPS.closeEOFillStroke ||
-      fn === OPS.fill ||
-      fn === OPS.eoFill
-    ) {
-      if (
-        fn === OPS.closeStroke ||
-        fn === OPS.closeFillStroke ||
-        fn === OPS.closeEOFillStroke ||
-        fn === OPS.fill ||
-        fn === OPS.eoFill ||
-        fn === OPS.fillStroke ||
-        fn === OPS.eoFillStroke
-      ) {
-        if (!curClosed && curStart != null && cur.length >= 2) {
-          const sx = (curStart as PontoMm).x;
-          const sy = (curStart as PontoMm).y;
-          cur.push({ x: sx, y: sy });
-          curClosed = true;
-        }
-      }
-      flush();
-    } else if (fn === OPS.endPath) {
-      cur = [];
-      curStart = null;
-      curClosed = false;
     }
   }
   if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
