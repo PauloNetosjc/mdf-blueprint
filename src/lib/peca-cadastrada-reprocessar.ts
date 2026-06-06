@@ -199,6 +199,27 @@ export async function reprocessarParserDePeca(
     };
   }
 
+  // ---------- Modelo Técnico Canônico ----------
+  // Este é o objeto operacional do sistema. Visualizador interno e geração de
+  // G-code devem ler dele, NÃO do PDF original.
+  const faceAlinhamento =
+    (dadosBrutosFinal.face_alinhamento as string | null) ?? null;
+  const modeloTecnico = construirModeloTecnico(result, faceAlinhamento);
+  dadosBrutosFinal.modelo_tecnico_json = modeloTecnico;
+
+  // Se o modelo tem contorno paramétrico/válido (ex.: Base L), publica também
+  // como contorno_externo_json para o visualizador desenhar o polígono real.
+  if (
+    !contornoEhManual &&
+    !modeloTecnico.geometria.pendente &&
+    modeloTecnico.geometria.tipo !== "retangular"
+  ) {
+    const contornoDoModelo = contornoExternoDoModelo(modeloTecnico);
+    if (contornoDoModelo) {
+      dadosBrutosFinal.contorno_externo_json = contornoDoModelo;
+    }
+  }
+
   // Acrescenta log de reprocessamento (preserva histórico)
   const logsAnteriores = Array.isArray(p.logs_parser) ? p.logs_parser : [];
   const cabecalhoLog = `--- reprocessar_parser @ ${new Date().toISOString()} ---`;
