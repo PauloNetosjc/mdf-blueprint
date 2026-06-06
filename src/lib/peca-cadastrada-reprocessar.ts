@@ -26,6 +26,8 @@ import {
 import {
   construirModeloTecnico,
   contornoExternoDoModelo,
+  ehBaseL,
+  gerarContornoBaseLInferior,
 } from "@/lib/peca-modelo-tecnico";
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
 import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado";
@@ -313,6 +315,55 @@ export async function reprocessarParserDePeca(
           erro: (e as Error).message,
         };
       }
+    }
+  }
+
+  // ---------- Fallback técnico: Base L Inferior ----------
+  // Se nenhuma extração visual gerou contorno e a peça é claramente Base L,
+  // aplica a regra paramétrica específica (não a regra 50/50 genérica) para
+  // não deixar pontos_contorno vazio.
+  {
+    const geom = modeloTecnico.geometria;
+    const precisaFallback =
+      geom.pendente || !geom.pontos_contorno || geom.pontos_contorno.length < 3;
+    const nomeUpper2 = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
+    const prefixo = result.codigo?.prefixo ?? null;
+    const facesDetectadas2 = result.resumo?.faces_com_operacao?.length ?? 0;
+    const temRasgoLinha2 = (result.operacoes ?? []).some(
+      (u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null,
+    );
+    const ehBaseLDetectada =
+      ehBaseL(result.nome_peca, prefixo) ||
+      nomeUpper2.startsWith("BAS") ||
+      facesDetectadas2 > 5 ||
+      temRasgoLinha2;
+    const L = result.largura_ref;
+    const H = result.altura_ref;
+    if (precisaFallback && ehBaseLDetectada && L && H) {
+      const pts = gerarContornoBaseLInferior(L, H);
+      modeloTecnico.geometria = {
+        ...geom,
+        tipo: "L",
+        origem: "regra_base_l_inferior",
+        largura: L,
+        altura: H,
+        pontos_contorno: pts,
+        confianca: "media",
+        pendente: false,
+      };
+      modeloTecnico.avisos = [
+        ...modeloTecnico.avisos.filter(
+          (a) => !a.includes("Importe um modelo técnico JSON"),
+        ),
+        "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
+      ];
+      dadosBrutosFinal.contorno_base_l_diagnostico = {
+        em: new Date().toISOString(),
+        aplicado: true,
+        largura: L,
+        altura: H,
+        pontos: pts.length,
+      };
     }
   }
 

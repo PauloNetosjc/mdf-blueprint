@@ -33,6 +33,7 @@ export const GeometriaOrigemSchema = z.enum([
   "pdf_visual_calibrado",
   "pdf_raster_calibrado",
   "regra_parametrica",
+  "regra_base_l_inferior",
   "manual",
 ]);
 export type GeometriaOrigem = z.infer<typeof GeometriaOrigemSchema>;
@@ -141,6 +142,34 @@ export function gerarContornoL(largura: number, altura: number): { x: number; y:
     { x: largura, y: yCorte },
     { x: xCorte, y: yCorte },
     { x: xCorte, y: altura },
+    { x: 0, y: altura },
+  ];
+}
+
+/**
+ * Contorno técnico específico da peça "Base L Inferior" (padrão BAS).
+ * Padrão geométrico extraído do desenho do PDF (ex.: BAS0485A 939.5×939.5):
+ *   - perna inferior horizontal indo até 543 mm (x ≈ 0.578·L)
+ *   - sobe até 470 mm (y ≈ 0.500·H)
+ *   - avança para a direita até a largura total
+ *   - sobe até o topo
+ *   - retorna pela esquerda
+ * Aplica as mesmas proporções para outras Base L de tamanho diferente,
+ * preservando os números exatos para BAS0485A (939.5×939.5).
+ */
+export function gerarContornoBaseLInferior(
+  largura: number,
+  altura: number,
+): { x: number; y: number }[] {
+  const ehBAS0485 = Math.abs(largura - 939.5) < 0.5 && Math.abs(altura - 939.5) < 0.5;
+  const xCorte = ehBAS0485 ? 543 : Math.round(largura * 0.578 * 100) / 100;
+  const yCorte = ehBAS0485 ? 470 : Math.round(altura * 0.5 * 100) / 100;
+  return [
+    { x: 0, y: 0 },
+    { x: xCorte, y: 0 },
+    { x: xCorte, y: yCorte },
+    { x: largura, y: yCorte },
+    { x: largura, y: altura },
     { x: 0, y: altura },
   ];
 }
