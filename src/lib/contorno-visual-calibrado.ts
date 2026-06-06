@@ -324,9 +324,10 @@ async function extrairSubpaths(
         fn === OPS.fillStroke ||
         fn === OPS.eoFillStroke
       ) {
-        const st: PontoMm | null = curStart;
-        if (!curClosed && st && cur.length >= 2) {
-          cur.push({ x: st.x, y: st.y });
+        if (!curClosed && curStart != null && cur.length >= 2) {
+          const sx = (curStart as PontoMm).x;
+          const sy = (curStart as PontoMm).y;
+          cur.push({ x: sx, y: sy });
           curClosed = true;
         }
       }
