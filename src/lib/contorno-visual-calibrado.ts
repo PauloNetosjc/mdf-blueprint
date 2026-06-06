@@ -346,7 +346,7 @@ export async function extrairContornoVisualCalibrado(
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
     try {
       const page = await doc.getPage(pageNum);
-      const { subpaths, pageW, pageH } = await extrairSubpaths(pdfjs, page);
+      const { subpaths, pageW, pageH, opStats, totalOps } = await extrairSubpaths(pdfjs, page);
       const diagPg = Math.hypot(pageW, pageH);
       const minBB = diagPg * 0.1; // subpath precisa cobrir >10% da diagonal
 
@@ -358,8 +358,13 @@ export async function extrairContornoVisualCalibrado(
         })
         .filter((x) => x.bb.w >= minBB && x.bb.h >= minBB);
 
+      const opsResumo = Object.entries(opStats)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ");
       diag.push(
-        `página ${pageNum}: ${subpaths.length} subpaths, ${closedBig.length} fechados grandes (>=${minBB.toFixed(0)} pt)`,
+        `página ${pageNum}: ${totalOps} ops [${opsResumo}], ${subpaths.length} subpaths (${subpaths.filter((s) => s.closed).length} fechados), ${closedBig.length} fechados grandes (>=${minBB.toFixed(0)} pt)`,
       );
 
       for (const { s, bb } of closedBig) {
