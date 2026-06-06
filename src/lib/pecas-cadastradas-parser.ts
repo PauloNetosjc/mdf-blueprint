@@ -1053,16 +1053,44 @@ export async function parseTechnicalDrawingPdf(
     erros,
     alertas,
     resumo,
-    dados_brutos: {
-      total_linhas: linhas.length,
-      face_alinhamento: faceAlinhamento?.letra ?? null,
-      face_alinhamento_regiao: faceAlinhamento?.regiao ?? null,
-      face_alinhamento_detalhe: faceAlinhamento,
-      indicadores_borda: indicadoresBorda.map((b) => b.marcador),
-      indicadores_borda_detalhe: indicadoresBorda,
-      faces_detectadas: facesVisuais.faces_detectadas,
-      face_principal_visual: facesVisuais.face_principal_visual,
-    },
+    dados_brutos: (() => {
+      // Conta ocorrências por marcador (B1/B2/...) para detectar "múltiplos lados".
+      const ocorrenciasPorMarcador = indicadoresBorda.reduce<Record<string, number>>((acc, b) => {
+        acc[b.marcador] = (acc[b.marcador] ?? 0) + 1;
+        return acc;
+      }, {});
+      const ladosPorMarcador = indicadoresBorda.reduce<Record<string, string[]>>((acc, b) => {
+        const arr = acc[b.marcador] ?? (acc[b.marcador] = []);
+        if (!arr.includes(b.regiao)) arr.push(b.regiao);
+        return acc;
+      }, {});
+      const indicadores_borda_json = Object.keys(ocorrenciasPorMarcador).map((marcador) => ({
+        marcador,
+        ocorrencias: ocorrenciasPorMarcador[marcador],
+        lados: ladosPorMarcador[marcador] ?? [],
+        multiplos_lados: (ladosPorMarcador[marcador] ?? []).length > 1
+          || ocorrenciasPorMarcador[marcador] > 1,
+        fita_associada: bordas[0]?.codigo_borda ?? null,
+      }));
+      const b1MultiplosLados = indicadores_borda_json.some(
+        (i) => i.marcador === "B1" && i.multiplos_lados,
+      );
+      if (b1MultiplosLados) {
+        alertas.push("B1 detectado em múltiplos lados. Revisar lados se necessário.");
+      }
+      return {
+        total_linhas: linhas.length,
+        face_alinhamento: faceAlinhamento?.letra ?? null,
+        face_alinhamento_regiao: faceAlinhamento?.regiao ?? null,
+        face_alinhamento_detalhe: faceAlinhamento,
+        indicadores_borda: indicadoresBorda.map((b) => b.marcador),
+        indicadores_borda_detalhe: indicadoresBorda,
+        indicadores_borda_json,
+        b1_multiplos_lados: b1MultiplosLados,
+        faces_detectadas: facesVisuais.faces_detectadas,
+        face_principal_visual: facesVisuais.face_principal_visual,
+      };
+    })(),
     classificacao,
   };
 }
