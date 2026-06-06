@@ -150,7 +150,37 @@ type Props = {
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
   onSaveContorno?: (contorno: ContornoExterno) => void | Promise<void>;
+  onSalvarCotaRapida?: (input: {
+    tipo: "largura_total" | "altura_total" | "espessura" | "recorte_x" | "recorte_y";
+    valor: number;
+  }) => void | Promise<void>;
 };
+
+export type CotaRapidaTipo = "largura_total" | "altura_total" | "espessura" | "recorte_x" | "recorte_y";
+
+const ROTULOS_COTA: Record<CotaRapidaTipo, string> = {
+  largura_total: "Largura total",
+  altura_total: "Altura total",
+  espessura: "Espessura",
+  recorte_x: "Recorte X (horizontal)",
+  recorte_y: "Recorte Y (vertical)",
+};
+
+function detectarLDoContorno(pontos: Pt[]):
+  | null
+  | { recorte_x: number; recorte_y: number; largura_total: number; altura_total: number } {
+  if (!pontos || pontos.length !== 6) return null;
+  const xs = Array.from(new Set(pontos.map((p) => Math.round(p.x * 100) / 100))).sort((a, b) => a - b);
+  const ys = Array.from(new Set(pontos.map((p) => Math.round(p.y * 100) / 100))).sort((a, b) => a - b);
+  if (xs.length !== 3 || ys.length !== 3) return null;
+  if (xs[0] !== 0 || ys[0] !== 0) return null;
+  // Garante que o ponto interno (recorte_x, recorte_y) exista no polígono
+  const hasInner = pontos.some(
+    (p) => Math.abs(p.x - xs[1]) < 0.01 && Math.abs(p.y - ys[1]) < 0.01,
+  );
+  if (!hasInner) return null;
+  return { recorte_x: xs[1], recorte_y: ys[1], largura_total: xs[2], altura_total: ys[2] };
+}
 
 
 const TIPO_USINAGEM = ["usinagem_parametrica", "contorno", "usinagem", "recorte", "rebaixo", "cava"];
