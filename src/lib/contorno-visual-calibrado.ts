@@ -283,17 +283,32 @@ async function extrairSubpaths(
     } else if (fn === OPS.transform) {
       ctm = mMul(ctm, [args[0], args[1], args[2], args[3], args[4], args[5]]);
     } else if (fn === OPS.constructPath) {
-      // args = [ops: number[], args: number[], minMax?: number[]]
+      // pdfjs varia o shape de args[0]: Array, Int32Array ou objeto {ops,args}.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const subOps = (args as any)[0] as number[];
+      const a0: any = (args as any)[0];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const subArgsFlat = (args as any)[1] as number[];
-      let ai = 0;
-      for (const sub of subOps) {
-        const need = argLen[sub] ?? 0;
-        const slice = subArgsFlat.slice(ai, ai + need);
-        ai += need;
-        applyPathOp(sub, slice);
+      const a1: any = (args as any)[1];
+      let subOpsRaw: ArrayLike<number> | null = null;
+      let subArgsRaw: ArrayLike<number> | null = null;
+      if (Array.isArray(a0) || ArrayBuffer.isView(a0)) {
+        subOpsRaw = a0 as ArrayLike<number>;
+        subArgsRaw = (Array.isArray(a1) || ArrayBuffer.isView(a1) ? a1 : []) as ArrayLike<number>;
+      } else if (a0 && (Array.isArray(a0.ops) || ArrayBuffer.isView(a0.ops))) {
+        subOpsRaw = a0.ops as ArrayLike<number>;
+        subArgsRaw = (a0.args ?? []) as ArrayLike<number>;
+      }
+      if (subOpsRaw && subArgsRaw) {
+        const subOps = Array.from(subOpsRaw);
+        const subArgsFlat = Array.from(subArgsRaw);
+        let ai = 0;
+        for (const sub of subOps) {
+          const need = argLen[sub] ?? 0;
+          const slice = subArgsFlat.slice(ai, ai + need);
+          ai += need;
+          applyPathOp(sub, slice);
+        }
+      } else {
+        opStats["constructPath:unknownShape"] = (opStats["constructPath:unknownShape"] ?? 0) + 1;
       }
     } else if (
       fn === OPS.moveTo ||
