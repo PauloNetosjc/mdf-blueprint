@@ -39,7 +39,7 @@ import {
   type ModeloTecnicoJson,
 } from "@/lib/peca-modelo-tecnico";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
-import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -368,6 +368,11 @@ function PecaCadastradaDetalhe() {
     : [];
   const contornoExterno = lerContornoExterno(dadosBrutos);
   const modeloTecnico = (dadosBrutos.modelo_tecnico_json ?? null) as ModeloTecnicoJson | null;
+  const facesLayoutJson = (dadosBrutos.faces_layout_json ?? null) as FacesLayoutJson | null;
+  const geometriaComplexa = Boolean(dadosBrutos.geometria_complexa);
+  const geometriaComplexaMotivos = Array.isArray(dadosBrutos.geometria_complexa_motivos)
+    ? (dadosBrutos.geometria_complexa_motivos as string[])
+    : [];
   const gcodeStatus = podeGerarGcode(modeloTecnico);
   const operacoesContorno = (ops.data ?? []).filter((o) => {
     const nome = (o.nome_operacao ?? "").toLowerCase();
