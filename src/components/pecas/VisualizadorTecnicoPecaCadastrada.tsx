@@ -874,6 +874,10 @@ export function VisualizadorTecnicoPecaCadastrada({
     return { ...outlineOperacoes, temContornoExterno: false, temContornoAplicado: false };
   }, [contornoSalvo, outlineOperacoes, partH]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
+  const opForaContorno = (op: VisualizadorOperacao) =>
+    operacoesForaContorno.some(
+      (f) => String(f.face) === String(op.face) && Number(f.ordem) === Number(op.ordem) && f.tipo === op.tipo_operacao,
+    );
   const recuoPorOpId = useMemo(() => {
     const m = new Map<string, ContornoAplicado>();
     outlineOperacoes.recuos.forEach((r) => m.set(r.opId, r));
