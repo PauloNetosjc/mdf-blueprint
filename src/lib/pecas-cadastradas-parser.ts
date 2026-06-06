@@ -499,11 +499,24 @@ function extrairOperacoes(linhas: Linha[]): OperacaoExtraida[] {
     }
 
     if (!modo) continue;
-    if (!numericLinha) continue;
 
-    const valores = linha.cels
+    // Números das células (caminho original) — confiável quando cada coluna é
+    // uma cel separada. Caso o extractor cole "2488 7 4.5" em uma única cel,
+    // recorremos a `extrairNumerosTexto(linha.texto)` para recuperar todos os
+    // números da linha.
+    const valoresCels = linha.cels
       .map((c) => toNum(c.str))
       .filter((v): v is number => v != null);
+    const valoresTexto = extrairNumerosTexto(linha.texto);
+    const valores = valoresTexto.length > valoresCels.length ? valoresTexto : valoresCels;
+
+    // Critério mínimo para considerar a linha "numérica": furo precisa de >=4,
+    // rasgo precisa de >=5, usinagem precisa de >=3. Aceita tanto via cels
+    // (isNumericCells) quanto via texto livre (linhaPareceNumerica).
+    const minNumeros = modo === "rasgo" ? 5 : modo === "furo" ? 4 : 3;
+    const numericLinha =
+      isNumericCells(linha.cels) || linhaPareceNumerica(linha.texto, minNumeros);
+    if (!numericLinha) continue;
     if (valores.length < 2) continue;
 
     const faceFromCtx = faceCtx.get(i);
