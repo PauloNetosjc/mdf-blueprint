@@ -494,7 +494,7 @@ function PecaCadastradaDetalhe() {
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
             <span className="font-semibold text-muted-foreground">Marcadores do PDF:</span>
             {faceAlinhamento && (
-              <Badge variant="outline" className="font-mono">Alinhamento: {faceAlinhamento}</Badge>
+              <Badge variant="outline" className="font-mono">Face de alinhamento: {faceAlinhamento}</Badge>
             )}
             {indicadoresBorda.map((m) => (
               <Badge key={m} variant="secondary" className="font-mono">{m}</Badge>
