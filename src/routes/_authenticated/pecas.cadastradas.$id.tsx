@@ -339,8 +339,22 @@ function PecaCadastradaDetalhe() {
     onError: (e: Error) => toast.error(`Erro ao reprocessar parser: ${e.message}`),
   });
 
+  // ---------- Modelo Técnico Canônico (exportar / importar / G-code) ----------
+  const importFileRef = useState<HTMLInputElement | null>(null);
+  // useState para o input para poder resetar; usamos closure simples abaixo.
 
-
+  const importarModelo = useMutation({
+    mutationFn: async (jsonText: string) => importarModeloTecnicoJson(id, jsonText),
+    onSuccess: (r) => {
+      toast.success(
+        `Modelo técnico importado: ${r.operacoes} operações, ${r.bordas} bordas. Geometria: ${r.modelo.geometria.tipo}.`,
+      );
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-ops", id] });
+      qc.invalidateQueries({ queryKey: ["peca-cadastrada-bordas", id] });
+    },
+    onError: (e: Error) => toast.error(`Falha ao importar modelo técnico: ${e.message}`),
+  });
 
   if (peca.isLoading) return <div className="p-6">Carregando...</div>;
   if (!peca.data) return <div className="p-6">Peça não encontrada.</div>;
@@ -355,10 +369,42 @@ function PecaCadastradaDetalhe() {
     ? (dadosBrutos.faces_detectadas as string[])
     : [];
   const contornoExterno = lerContornoExterno(dadosBrutos);
+  const modeloTecnico = (dadosBrutos.modelo_tecnico_json ?? null) as ModeloTecnicoJson | null;
+  const gcodeStatus = podeGerarGcode(modeloTecnico);
   const operacoesContorno = (ops.data ?? []).filter((o) => {
     const nome = (o.nome_operacao ?? "").toLowerCase();
     return o.tipo_operacao === "contorno" || o.tipo_operacao === "usinagem_parametrica" || nome.includes("contorno");
   });
+
+  function handleExportarModelo() {
+    if (!modeloTecnico) {
+      toast.warning("Modelo técnico ainda não foi construído. Reprocesse o parser primeiro.");
+      return;
+    }
+    exportarModeloTecnicoJson(modeloTecnico, p.codigo_completo);
+  }
+
+  function handleImportarModelo() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      importarModelo.mutate(text);
+    };
+    input.click();
+  }
+
+  function handleGerarGcode() {
+    if (!gcodeStatus.permitido) {
+      toast.error(gcodeStatus.motivo);
+      return;
+    }
+    toast.info("Geração de G-code ainda não implementada (geometria do modelo está OK).");
+  }
+  void importFileRef;
 
   return (
     <div className="p-6">
