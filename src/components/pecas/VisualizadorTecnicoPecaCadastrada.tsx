@@ -1310,6 +1310,25 @@ export function VisualizadorTecnicoPecaCadastrada({
                   );
                 }
                 if (op.tipo_operacao === "rasgo") {
+                  if (op.y1 != null && op.y2 != null) {
+                    const x1 = op.x1 ?? op.x ?? 0;
+                    const x2 = op.x2 ?? op.x ?? x1;
+                    const larg = Math.max(op.largura ?? 6, minHoleR * 1.5);
+                    return (
+                      <g key={op.id} onClick={(e) => { e.stopPropagation(); setOpSel(op.id); }} style={{ cursor: "pointer" }}>
+                        <line
+                          x1={margin + x1}
+                          y1={margin + partH - op.y1}
+                          x2={margin + x2}
+                          y2={margin + partH - op.y2}
+                          stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                          strokeWidth={larg}
+                          strokeLinecap="round"
+                          opacity={0.85}
+                        />
+                      </g>
+                    );
+                  }
                   const y = op.y ?? 0;
                   const x1 = op.x1 ?? op.x ?? 0;
                   const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
@@ -1485,6 +1504,26 @@ export function VisualizadorTecnicoPecaCadastrada({
                             );
                           }
                           if (op.tipo_operacao === "rasgo") {
+                            if (op.y1 != null && op.y2 != null) {
+                              const x1 = op.x1 ?? op.x ?? 0;
+                              const x2 = op.x2 ?? op.x ?? x1;
+                              const larg = Math.max(op.largura ?? 6, px(3));
+                              return (
+                                <line
+                                  key={op.id}
+                                  x1={bx + x1}
+                                  y1={by + box.h - op.y1}
+                                  x2={bx + x2}
+                                  y2={by + box.h - op.y2}
+                                  stroke={sel ? "var(--color-primary)" : "var(--color-accent)"}
+                                  strokeWidth={larg}
+                                  strokeLinecap="round"
+                                  opacity={0.85}
+                                  onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(op.id); }}
+                                  style={{ cursor: "pointer" }}
+                                />
+                              );
+                            }
                             const y = op.y ?? 0;
                             const x1 = op.x1 ?? op.x ?? 0;
                             const x2 = op.x2 ?? (op.x ?? 0) + (op.comprimento ?? 30);
