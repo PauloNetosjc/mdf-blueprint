@@ -1045,6 +1045,14 @@ function PecasCadastradasPage() {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
         }}
       />
+      <ReprocessarParserErrosDialog
+        open={reprocessParserOpen}
+        onOpenChange={setReprocessParserOpen}
+        onConcluido={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
+        }}
+      />
       <LimparBibliotecaDialog
         open={limparOpen}
         onOpenChange={setLimparOpen}
