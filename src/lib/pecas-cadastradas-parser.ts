@@ -1175,11 +1175,22 @@ export function classificarDocumentoPdf(
   if (resumo.bordas_detectadas > 0) scorePeca += 1;
 
   // Decisão
-  // Módulo é prioritário quando tem AMBOS "Composições" + "Ferragens"
+  // Sinal forte de módulo: Composições+Ferragens, OU Composições/Ferragens sem
+  // qualquer seção técnica de peça (Furação/Rasgos) na página principal.
   if (tem_composicoes && tem_ferragens) {
     return {
       classificacao: "modulo_explodido",
       motivo: "PDF contém tabelas de Composições e Ferragens (módulo/explodido)",
+      confianca: "alta",
+      sinais,
+    };
+  }
+  if ((tem_composicoes || tem_ferragens) && !tem_furacao_tabela && !tem_rasgos_tabela) {
+    return {
+      classificacao: "modulo_explodido",
+      motivo: tem_composicoes
+        ? "PDF contém tabela de Composições sem seção técnica da peça"
+        : "PDF contém tabela de Ferragens sem seção técnica da peça",
       confianca: "alta",
       sinais,
     };
