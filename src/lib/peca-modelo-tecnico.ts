@@ -48,6 +48,7 @@ export const GeometriaSchema = z.object({
   pontos_contorno: z.array(PontoSchema).default([]),
   confianca: z.enum(["alta", "media", "baixa"]).default("media"),
   pendente: z.boolean().default(false),
+  face_principal: z.union([z.string(), z.number()]).nullable().optional(),
 });
 
 export const OperacaoModeloSchema = z.object({
