@@ -509,7 +509,7 @@ function PecaCadastradaDetalhe() {
           open={editorCotasOpen}
           onOpenChange={setEditorCotasOpen}
           pecaId={id}
-          codigo={p.codigo_completo ?? p.codigo ?? ""}
+          codigo={p.codigo_completo ?? ""}
           modelo={modeloTecnico}
           operacoes={(ops.data ?? []).map((o) => ({
             face: o.face,
