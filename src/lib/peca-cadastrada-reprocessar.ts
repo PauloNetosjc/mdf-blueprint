@@ -340,29 +340,53 @@ export async function reprocessarParserDePeca(
     const L = result.largura_ref;
     const H = result.altura_ref;
     if (precisaFallback && ehBaseLDetectada && L && H) {
-      const pts = gerarContornoBaseLInferior(L, H);
-      modeloTecnico.geometria = {
-        ...geom,
-        tipo: "L",
-        origem: "regra_base_l_inferior",
-        largura: L,
-        altura: H,
-        pontos_contorno: pts,
-        confianca: "media",
-        pendente: false,
-      };
-      modeloTecnico.avisos = [
-        ...modeloTecnico.avisos.filter(
-          (a) => !a.includes("Importe um modelo técnico JSON"),
-        ),
-        "Geometria em L gerada por regra técnica Base L Inferior. Conferir antes de enviar à máquina.",
-      ];
+      const opsModelo = modeloTecnico.operacoes;
+      const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
+      if (resultado.escolhido) {
+        modeloTecnico.geometria = {
+          ...geom,
+          tipo: "L",
+          origem: "regra_base_l_inferior_validada_por_operacoes",
+          largura: L,
+          altura: H,
+          pontos_contorno: resultado.escolhido.pontos,
+          confianca: "media",
+          pendente: false,
+        };
+        modeloTecnico.avisos = [
+          ...modeloTecnico.avisos.filter(
+            (a) => !a.includes("Importe um modelo técnico JSON"),
+          ),
+          `Geometria em L escolhida por validação (${resultado.escolhido.nome}). Conferir antes de enviar à máquina.`,
+        ];
+      } else {
+        // Nenhum candidato segura todas as operações dentro.
+        modeloTecnico.geometria = {
+          ...geom,
+          tipo: "L",
+          origem: "regra_base_l_inferior_validada_por_operacoes",
+          largura: L,
+          altura: H,
+          pontos_contorno: [],
+          confianca: "baixa",
+          pendente: true,
+        };
+        modeloTecnico.avisos = [
+          ...modeloTecnico.avisos,
+          resultado.motivo,
+        ];
+      }
       dadosBrutosFinal.contorno_base_l_diagnostico = {
         em: new Date().toISOString(),
-        aplicado: true,
         largura: L,
         altura: H,
-        pontos: pts.length,
+        escolhido: resultado.escolhido?.nome ?? null,
+        motivo: resultado.motivo,
+        candidatos: resultado.candidatos.map((c) => ({
+          nome: c.nome,
+          fora: c.fora,
+          pontos: c.pontos.length,
+        })),
       };
     }
   }
