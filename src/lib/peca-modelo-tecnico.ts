@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
 import type {
   BordaExtraida,
   OperacaoExtraida,
