@@ -61,12 +61,6 @@ function ehOperacaoManual(op: { dados_brutos_json?: Record<string, unknown> | nu
   return !("linha" in d || "valores" in d || "valores_interpretados" in d || "sectionAtual" in d);
 }
 
-function ehBordaManual(b: { dados_brutos_json?: Record<string, unknown> | null }): boolean {
-  const d = b.dados_brutos_json;
-  if (!d || typeof d !== "object") return false;
-  return (d as Record<string, unknown>).origem === "manual";
-}
-
 async function baixarPdf(pdfPath: string, nome: string): Promise<File> {
   const { data: signed, error } = await supabase.storage
     .from("pecas-cadastradas")
