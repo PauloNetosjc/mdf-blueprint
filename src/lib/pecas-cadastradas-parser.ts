@@ -646,6 +646,53 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         logRasgo("descartado");
         continue;
       }
+      // Dois formatos suportados:
+      //  - rasgo horizontal: Y X1 X2 Larg Prof  (5 números)
+      //  - rasgo por linha:  X1 Y1 X2 Y2 Larg Prof (6 números)
+      // Se houver >=6 números, interpretamos como rasgo_linha (preserva vertical, diagonais etc).
+      if (valores.length >= 6) {
+        const v = ultimosValoresNumericos(valores, 6);
+        const [x1, y1, x2, y2, larg, prof] = v;
+        const distancia = Math.hypot(x2 - x1, y2 - y1);
+        const valido =
+          distancia > 0 &&
+          larg > 0 && larg <= 100 &&
+          prof != null && prof > 0 && prof <= 100;
+        if (!valido) {
+          logRasgo("erro_validacao_linha", { valoresInterpretados: v });
+          continue;
+        }
+        ops.push({
+          tipo_operacao: "rasgo",
+          nome_operacao: "rasgo_linha",
+          face,
+          x: (x1 + x2) / 2,
+          y: (y1 + y2) / 2,
+          z: null,
+          diametro: null,
+          profundidade: prof,
+          largura: larg,
+          comprimento: distancia,
+          x1, x2, y1, y2,
+          ordem: ordem++,
+          ancora_x: null,
+          ancora_y: null,
+          offset_x: null,
+          offset_y: null,
+          pontos: [],
+          confianca_parser: "alta",
+          dados_brutos: {
+            linha: linha.texto,
+            sectionAtual: "rasgo",
+            faceAtual: face,
+            valores,
+            valores_interpretados: v,
+            subtipo: "rasgo_linha",
+          },
+        });
+        logRasgo("criado_rasgo_linha", { valoresInterpretados: v });
+        continue;
+      }
       const valoresRasgo = ultimosValoresNumericos(valores, 5);
       const [y, x1, x2, larg, prof] = [
         valoresRasgo[0],
@@ -681,7 +728,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
         offset_y: null,
         pontos: [],
         confianca_parser: "alta",
-        dados_brutos: { linha: linha.texto, sectionAtual: "rasgo", faceAtual: face, valores, valores_interpretados: valoresRasgo },
+        dados_brutos: { linha: linha.texto, sectionAtual: "rasgo", faceAtual: face, valores, valores_interpretados: valoresRasgo, subtipo: "rasgo_horizontal" },
       });
       logRasgo("criado_rasgo", { valoresInterpretados: valoresRasgo });
     } else if (sectionAtual === "usinagem") {
