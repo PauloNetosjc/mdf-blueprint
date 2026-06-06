@@ -1031,7 +1031,11 @@ export async function parseTechnicalDrawingPdf(
     : null;
   const nomeDeFato = !!nome_peca && nome_peca !== nomeFallback;
 
-  let operacoes = extrairOperacoes(linhas);
+  const extracaoOperacoes = extrairOperacoes(linhas);
+  alertas.push(...extracaoOperacoes.alertas);
+  erros.push(...extracaoOperacoes.erros);
+  logs.push(...extracaoOperacoes.debugRasgos);
+  let operacoes = extracaoOperacoes.operacoes;
   logs.push(`Operações detectadas: ${operacoes.length}`);
   operacoes = operacoes.map((op) => inferOperationAnchors(op, medidas.largura, medidas.altura));
   const bordas = extrairBordas(linhas);
