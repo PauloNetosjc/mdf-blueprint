@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Copy, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, FileWarning, Pencil, Plus, Trash2 } from "lucide-react";
+import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 
 const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
 
