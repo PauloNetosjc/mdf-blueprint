@@ -1208,6 +1208,8 @@ export async function parseTechnicalDrawingPdf(
     codigo_detectado: !!codigo,
     total_operacoes: operacoes.length,
     faces_com_operacao: facesComOp,
+    secoes_detectadas: secoes,
+    secoes_com_dados: secoesComDados,
   };
 
   const classificacao = classificarDocumentoPdf(linhas, resumo);
