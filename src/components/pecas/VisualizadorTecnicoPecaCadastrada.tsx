@@ -562,11 +562,20 @@ export function VisualizadorTecnicoPecaCadastrada({
   facesDetectadas = [],
   contornoExterno,
   facesLayout,
+  pecaId,
+  pdfStoragePath,
+  pdfNomeArquivo,
+  geometriaComplexa,
+  geometriaComplexaMotivos = [],
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
   onSaveContorno,
 }: Props) {
+  const [modoVisual, setModoVisual] = useState<"engenharia" | "pdf" | "comparar">(
+    geometriaComplexa && pdfStoragePath && pecaId ? "comparar" : "engenharia",
+  );
+  const podeMostrarPdf = !!(pdfStoragePath && pecaId);
   const opsPorFace = useMemo(() => {
     const m = new Map<string, VisualizadorOperacao[]>();
     for (const o of operacoes) {
