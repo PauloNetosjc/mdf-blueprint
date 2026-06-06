@@ -622,11 +622,23 @@ function PecaCadastradaDetalhe() {
 
       <Tabs value={aba} onValueChange={setAba} className="w-full">
         <TabsList>
+          <TabsTrigger value="modelo">Modelo técnico</TabsTrigger>
           <TabsTrigger value="visualizador">Visualizador ({ops.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="bordas">Bordas ({bordas.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="pdf">PDF Original</TabsTrigger>
           <TabsTrigger value="debug">Debug / Logs</TabsTrigger>
         </TabsList>
+
+        {/* ───── MODELO TÉCNICO (validador) ───── */}
+        <TabsContent value="modelo" className="space-y-4">
+          <PainelModeloTecnico
+            codigo={p.codigo_completo}
+            modelo={modeloTecnico}
+            operacoes={ops.data ?? []}
+          />
+        </TabsContent>
+
+
 
         {/* ───── VISUALIZADOR ───── */}
         <TabsContent value="visualizador" className="space-y-4">
