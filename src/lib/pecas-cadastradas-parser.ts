@@ -1461,6 +1461,7 @@ export async function parseTechnicalDrawingPdf(
         face_principal_visual: facesVisuais.face_principal_visual,
         geometria_complexa: geometriaComplexa,
         geometria_complexa_motivos: motivos,
+        contorno_tecnico_pdf: contornoTecnico.contorno,
       };
     })(),
     classificacao,
