@@ -613,6 +613,11 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
       );
     };
 
+    // Guarda contra resquícios do bloco CONTORNO_TECNICO (metadado, não operação).
+    if (/CONTORNO_TECNICO|FIM_CONTORNO_TECNICO|FACE_PRINCIPAL|RECORTE_X|RECORTE_Y|^PONTOS\s*[:=]/i.test(texto)) {
+      continue;
+    }
+
     // 1) Cabeçalhos de seção — SEMPRE antes de qualquer leitura numérica.
     if (RE_USINAGEM_ENTRADA.test(texto)) {
       flushUsinagem();
