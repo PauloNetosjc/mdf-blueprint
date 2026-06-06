@@ -617,7 +617,8 @@ export async function extrairContornoVisualCalibrado(
   }
 
   try {
-    await doc.destroy();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (doc as any).destroy?.();
   } catch {
     /* ignore */
   }
