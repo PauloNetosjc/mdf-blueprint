@@ -505,6 +505,15 @@ function PecaCadastradaDetalhe() {
             facesDetectadas={facesDetectadas}
             contornoExterno={contornoExterno}
             facesLayout={(dadosBrutos as any).faces_layout_json ?? null}
+            pecaId={p.id}
+            pdfStoragePath={p.pdf_url}
+            pdfNomeArquivo={p.pdf_nome_arquivo}
+            geometriaComplexa={Boolean((dadosBrutos as any).geometria_complexa)}
+            geometriaComplexaMotivos={
+              Array.isArray((dadosBrutos as any).geometria_complexa_motivos)
+                ? ((dadosBrutos as any).geometria_complexa_motivos as string[])
+                : []
+            }
             onSaveContorno={(contorno) => salvarContorno.mutateAsync(contorno)}
 
             onAddOperacao={async (payload) => {
