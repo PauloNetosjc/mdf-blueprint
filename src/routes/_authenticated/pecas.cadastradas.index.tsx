@@ -759,6 +759,10 @@ function PecasCadastradasPage() {
             <Shapes className="mr-2 h-4 w-4" />
             Reprocessar geometria
           </Button>
+          <Button variant="destructive" onClick={() => setLimparOpen(true)} disabled={importando}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Limpar biblioteca
+          </Button>
           {ultimoDebug != null ? (
             <Button variant="ghost" size="sm" onClick={baixarDebugJson}>
               Baixar JSON de debug
