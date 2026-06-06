@@ -764,10 +764,12 @@ export function VisualizadorTecnicoPecaCadastrada({
       if (pontos.some((p) => p.x < 0 || p.x > partW || p.y < 0 || p.y > partH)) a.push("Pontos fora da peça");
     }
     if (o.tipo_operacao === "rasgo") {
+      const ehRasgoLinha = o.y1 != null && o.y2 != null;
       if (o.x1 != null && o.x1 < 0) a.push("X1 fora da peça");
       if (o.x2 != null && o.x2 > partW) a.push("X2 fora da peça");
-      if (o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
-      if (o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
+      // rasgo_linha (X1/Y1/X2/Y2) permite x1 == x2 (vertical) e x2 < x1 (diagonal invertida).
+      if (!ehRasgoLinha && o.x1 != null && o.x2 != null && o.x2 <= o.x1) a.push("X2 deve ser maior que X1");
+      if (!ehRasgoLinha && o.y != null && (o.y < 0 || o.y > partH)) a.push("Y fora da peça");
       if (o.largura != null && o.largura <= 0) a.push("Largura inválida");
       if (espessura != null && o.profundidade != null && o.profundidade > espessura)
         a.push("Profundidade > espessura");
