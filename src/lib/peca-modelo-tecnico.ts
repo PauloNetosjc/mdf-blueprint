@@ -34,6 +34,7 @@ export const GeometriaOrigemSchema = z.enum([
   "pdf_raster_calibrado",
   "regra_parametrica",
   "regra_base_l_inferior",
+  "regra_base_l_inferior_validada_por_operacoes",
   "manual",
 ]);
 export type GeometriaOrigem = z.infer<typeof GeometriaOrigemSchema>;
@@ -172,6 +173,126 @@ export function gerarContornoBaseLInferior(
     { x: largura, y: altura },
     { x: 0, y: altura },
   ];
+}
+
+/**
+ * Gera vários candidatos de contorno em L (4 cantos × 2 orientações de cut)
+ * e retorna o que deixar mais operações dentro. A escolha é puramente
+ * geométrica — não muda nenhuma operação extraída pelo parser.
+ */
+export type CandidatoContornoL = {
+  nome: string;
+  pontos: { x: number; y: number }[];
+  fora: number;
+};
+
+export function gerarContornoBaseLInferiorPorValidacao(
+  largura: number,
+  altura: number,
+  operacoes: OperacaoModelo[],
+): { escolhido: CandidatoContornoL | null; candidatos: CandidatoContornoL[]; motivo: string } {
+  const ehBAS0485 =
+    Math.abs(largura - 939.5) < 0.5 && Math.abs(altura - 939.5) < 0.5;
+  const cwBase = ehBAS0485 ? largura - 543 : Math.round(largura * 0.422 * 100) / 100;
+  const chBase = ehBAS0485 ? 470 : Math.round(altura * 0.5 * 100) / 100;
+
+  const cutDims: Array<[number, number]> = [
+    [cwBase, chBase],
+    [chBase, cwBase],
+  ];
+  const cantos = ["BR", "BL", "TR", "TL"] as const;
+  const candidatos: CandidatoContornoL[] = [];
+
+  const polyDoCanto = (
+    canto: (typeof cantos)[number],
+    cw: number,
+    ch: number,
+  ): { x: number; y: number }[] => {
+    const L = largura, H = altura;
+    switch (canto) {
+      case "BR":
+        return [
+          { x: 0, y: 0 },
+          { x: L - cw, y: 0 },
+          { x: L - cw, y: ch },
+          { x: L, y: ch },
+          { x: L, y: H },
+          { x: 0, y: H },
+        ];
+      case "BL":
+        return [
+          { x: cw, y: 0 },
+          { x: L, y: 0 },
+          { x: L, y: H },
+          { x: 0, y: H },
+          { x: 0, y: ch },
+          { x: cw, y: ch },
+        ];
+      case "TR":
+        return [
+          { x: 0, y: 0 },
+          { x: L, y: 0 },
+          { x: L, y: H - ch },
+          { x: L - cw, y: H - ch },
+          { x: L - cw, y: H },
+          { x: 0, y: H },
+        ];
+      case "TL":
+        return [
+          { x: 0, y: 0 },
+          { x: L, y: 0 },
+          { x: L, y: H },
+          { x: cw, y: H },
+          { x: cw, y: H - ch },
+          { x: 0, y: H - ch },
+        ];
+    }
+  };
+
+  const contarFora = (poly: { x: number; y: number }[]): number => {
+    let fora = 0;
+    for (const op of operacoes) {
+      const pts = pontosDeOperacao(op);
+      if (!pts.length) continue;
+      for (const p of pts) {
+        if (!pontoDentroDoPoligono(p, poly, 0.75)) {
+          fora++;
+          break;
+        }
+      }
+    }
+    return fora;
+  };
+
+  for (const [cw, ch] of cutDims) {
+    for (const canto of cantos) {
+      const pts = polyDoCanto(canto, cw, ch);
+      candidatos.push({
+        nome: `${canto}_${Math.round(cw)}x${Math.round(ch)}`,
+        pontos: pts,
+        fora: contarFora(pts),
+      });
+    }
+  }
+
+  candidatos.sort((a, b) => a.fora - b.fora);
+  const melhor = candidatos[0] ?? null;
+  if (!melhor) {
+    return { escolhido: null, candidatos, motivo: "Nenhum candidato gerado." };
+  }
+  if (melhor.fora === 0) {
+    return {
+      escolhido: melhor,
+      candidatos,
+      motivo: `Candidato ${melhor.nome} mantém todas as operações dentro do contorno.`,
+    };
+  }
+  return {
+    escolhido: null,
+    candidatos,
+    motivo:
+      "Nenhum contorno L candidato contém todas as operações. Verificar orientação da peça ou coordenadas do parser.",
+  };
 }
 
 export function classificarGeometria(args: {
