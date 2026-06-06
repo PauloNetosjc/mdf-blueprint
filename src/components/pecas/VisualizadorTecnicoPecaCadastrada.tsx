@@ -841,17 +841,18 @@ export function VisualizadorTecnicoPecaCadastrada({
     () => gerarPathExternoPeca({ largura: partW, altura: partH, operacoes: contornosExternos }),
     [contornosExternos, partW, partH],
   );
-  const podeUsarContornoSalvo = faceSel === "0" || faceSel === "5";
+  // Usa contorno salvo (modelo técnico / manual) sempre que suas dimensões
+  // baterem com as da face renderizada. Antes era restrito a faces 0/5, mas
+  // peças complexas (ex.: Base L) têm sua geometria principal em outras faces
+  // (ex.: Face 7) — limitar a 0/5 fazia o visualizador cair no retângulo.
   const contornoSalvo = useMemo(() => {
-    if (!podeUsarContornoSalvo) return null;
     const c = contornoExternoValido(contornoExterno);
     if (!c) return null;
-    // Ignora contorno salvo se as dimensões não baterem com a face atual
-    // (ex.: contorno salvo em 460x219 mas face renderizada em 219x460)
     const tol = 0.5;
     if (Math.abs(c.largura - partW) > tol || Math.abs(c.altura - partH) > tol) return null;
     return c;
-  }, [contornoExterno, podeUsarContornoSalvo, partW, partH]);
+  }, [contornoExterno, partW, partH]);
+  const podeUsarContornoSalvo = !!contornoSalvo;
   const outline = useMemo(() => {
     if (contornoSalvo) {
       const pontosTecnicos = contornoSalvo.pontos;
