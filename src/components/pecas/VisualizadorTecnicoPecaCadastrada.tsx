@@ -142,6 +142,7 @@ type Props = {
   pdfNomeArquivo?: string | null;
   geometriaComplexa?: boolean;
   geometriaComplexaMotivos?: string[];
+  operacoesForaContorno?: Array<{ face: string; ordem: number; tipo: string; motivo: string }>;
   onAddOperacao?: (payload: NovaOperacaoPayload) => void | Promise<void>;
   onEditOperacao?: (payload: EditarOperacaoPayload) => void | Promise<void>;
   onDeleteOperacao?: (id: string) => void | Promise<void>;
@@ -567,6 +568,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   pdfNomeArquivo,
   geometriaComplexa,
   geometriaComplexaMotivos = [],
+  operacoesForaContorno = [],
   onAddOperacao,
   onEditOperacao,
   onDeleteOperacao,
@@ -593,9 +595,7 @@ export function VisualizadorTecnicoPecaCadastrada({
       ...facesDetectadas.map(String),
     ];
     const s = new Set<string>(
-      geometriaComplexa && facesComOperacao.length > 0
-        ? facesComOperacao
-        : geometriaComplexa
+      geometriaComplexa
         ? [...facesComOperacao, ...facesVisuais]
         : [...FACES_PADRAO, ...facesComOperacao, ...facesVisuais],
     );
@@ -604,6 +604,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
   const faceInicial = useMemo(() => {
+    if (faces.includes("7")) return "7";
     if (!geometriaComplexa) return faces[0] ?? "0";
     return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
   }, [faces, geometriaComplexa, opsPorFace]);
