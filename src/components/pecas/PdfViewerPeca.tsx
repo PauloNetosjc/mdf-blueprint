@@ -91,7 +91,8 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
         pdfBytesRef.current = bytes.slice(0);
 
         const pdfjs = await loadPdfJs();
-        const doc = await pdfjs.getDocument({ data: bytes.slice(0) }).promise;
+        const loadingTask = pdfjs.getDocument({ data: bytes.slice(0) });
+        const doc = await loadingTask.promise;
         const page = await doc.getPage(1);
         const viewportBase = page.getViewport({ scale: 1 });
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -105,12 +106,12 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
         canvas.height = Math.ceil(viewport.height);
         canvas.style.width = `${viewportBase.width}px`;
         canvas.style.height = `${viewportBase.height}px`;
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         if (cancel || seq !== renderSeq.current) return;
         const size = { w: viewportBase.width, h: viewportBase.height };
         setPageSize(size);
         requestAnimationFrame(() => fitToView(size));
-        doc.destroy();
+        await loadingTask.destroy();
       } catch (e) {
         if (!cancel) setRenderError((e as Error).message);
       } finally {
