@@ -1451,21 +1451,35 @@ export function VisualizadorTecnicoPecaCadastrada({
                     const ativa = box.face === faceSel;
                     const bx = margin + box.x;
                     const by = margin + box.y;
+                    const pathFaceL = box.face === "7" && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
+                      ? pathTecnicoParaSvg(contornoSalvo.pontos, box.h)
+                      : null;
                     return (
                       <g
                         key={`face-box-${box.face}`}
                         onClick={(e) => { e.stopPropagation(); setFaceSel(box.face); setOpSel(null); }}
                         style={{ cursor: "pointer" }}
                       >
-                        <rect
-                          x={bx}
-                          y={by}
-                          width={box.w}
-                          height={box.h}
-                          fill="var(--color-surface)"
-                          stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
-                          strokeWidth={ativa ? px(2.5) : px(1.2)}
-                        />
+                        {pathFaceL ? (
+                          <path
+                            d={pathFaceL}
+                            transform={`translate(${bx} ${by})`}
+                            fill="var(--color-surface)"
+                            stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                            strokeWidth={ativa ? px(2.5) : px(1.2)}
+                            strokeLinejoin="miter"
+                          />
+                        ) : (
+                          <rect
+                            x={bx}
+                            y={by}
+                            width={box.w}
+                            height={box.h}
+                            fill="var(--color-surface)"
+                            stroke={ativa ? "var(--color-primary)" : "var(--color-foreground)"}
+                            strokeWidth={ativa ? px(2.5) : px(1.2)}
+                          />
+                        )}
                         {/* Label da face */}
                         <text
                           x={bx + box.w / 2}
