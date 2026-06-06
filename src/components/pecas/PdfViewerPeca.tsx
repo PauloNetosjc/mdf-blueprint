@@ -47,6 +47,7 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
   const renderSeq = useRef(0);
   const panState = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const pdfBytesRef = useRef<ArrayBuffer | null>(null);
+  const pageSizeRef = useRef<{ w: number; h: number } | null>(null);
 
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -58,20 +59,21 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
   const pageW = pageSize?.w ?? 1;
   const pageH = pageSize?.h ?? 1;
 
-  const fitToView = useCallback((size = pageSize) => {
+  const fitToView = useCallback((size?: { w: number; h: number } | null) => {
     const el = containerRef.current;
-    if (!el || !size) {
+    const targetSize = size ?? pageSizeRef.current;
+    if (!el || !targetSize) {
       setZoom(1);
       setPan({ x: 0, y: 0 });
       return;
     }
     const cw = el.clientWidth;
     const ch = el.clientHeight;
-    const z = Math.min(cw / size.w, ch / size.h) * 0.95;
+    const z = Math.min(cw / targetSize.w, ch / targetSize.h) * 0.95;
     const newZoom = Math.max(z, 0.05);
     setZoom(newZoom);
-    setPan({ x: (cw - size.w * newZoom) / 2, y: (ch - size.h * newZoom) / 2 });
-  }, [pageSize]);
+    setPan({ x: (cw - targetSize.w * newZoom) / 2, y: (ch - targetSize.h * newZoom) / 2 });
+  }, []);
 
   useEffect(() => {
     if (!url) return;
@@ -80,6 +82,7 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
     setLoading(true);
     setRenderError(null);
     setPageSize(null);
+    pageSizeRef.current = null;
     pdfBytesRef.current = null;
 
     (async () => {
@@ -109,6 +112,7 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
         await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         if (cancel || seq !== renderSeq.current) return;
         const size = { w: viewportBase.width, h: viewportBase.height };
+        pageSizeRef.current = size;
         setPageSize(size);
         requestAnimationFrame(() => fitToView(size));
         await loadingTask.destroy();
