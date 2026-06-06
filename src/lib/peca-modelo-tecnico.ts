@@ -218,7 +218,7 @@ function ehContornoLValido(pontos: Pt[], largura: number, altura: number): boole
     const q = pontos[(i + 1) % pontos.length];
     return Math.abs(p.y - q.y) < 0.01 && p.y > 0.01 && p.y < altura - 0.01;
   });
-  return internos.length >= 2 && temArestaInternaVertical && temArestaInternaHorizontal;
+  return internos.length >= 1 && temArestaInternaVertical && temArestaInternaHorizontal;
 }
 
 export function gerarContornoBaseLInferiorPorValidacao(
