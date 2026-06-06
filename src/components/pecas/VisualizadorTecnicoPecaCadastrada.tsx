@@ -897,8 +897,111 @@ export function VisualizadorTecnicoPecaCadastrada({
     });
   }, [codigo, isLat3854A, outline.pathSvg, outline.temContornoExterno, partW, partH, outline.pontosTecnicos, outline.contornosAplicados]);
 
+  const headerModos = (
+    <div className="flex flex-col gap-2">
+      {podeMostrarPdf && (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
+          <span className="font-semibold text-muted-foreground">Modo:</span>
+          <div className="flex overflow-hidden rounded border border-border">
+            <button
+              type="button"
+              className={`px-3 py-1 text-xs transition ${modoVisual === "engenharia" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("engenharia")}
+            >
+              Engenharia interpretada
+            </button>
+            <button
+              type="button"
+              className={`border-l border-border px-3 py-1 text-xs transition ${modoVisual === "pdf" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("pdf")}
+            >
+              Desenho original do PDF
+            </button>
+            <button
+              type="button"
+              className={`border-l border-border px-3 py-1 text-xs transition ${modoVisual === "comparar" ? "bg-primary text-primary-foreground" : "bg-surface hover:bg-surface-2"}`}
+              onClick={() => setModoVisual("comparar")}
+            >
+              Comparar com PDF
+            </button>
+          </div>
+          {geometriaComplexa && (
+            <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">
+              <FileWarning className="mr-1 h-3 w-3" /> Geometria complexa
+            </Badge>
+          )}
+        </div>
+      )}
+      {geometriaComplexa && (
+        <div className="flex items-start gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-900 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+          <div>
+            <strong>Geometria complexa detectada.</strong>{" "}
+            Compare com o desenho original do PDF antes de gerar CNC.
+            {geometriaComplexaMotivos.length > 0 && (
+              <span className="ml-1 text-muted-foreground">
+                ({geometriaComplexaMotivos.join("; ")})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (modoVisual === "pdf" && podeMostrarPdf && pecaId && pdfStoragePath) {
+    return (
+      <div className="space-y-3">
+        {headerModos}
+        <PdfViewerPeca pecaId={pecaId} storagePath={pdfStoragePath} nomeArquivo={pdfNomeArquivo ?? null} />
+      </div>
+    );
+  }
+
+  if (modoVisual === "comparar" && podeMostrarPdf && pecaId && pdfStoragePath) {
+    return (
+      <div className="space-y-3">
+        {headerModos}
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded border border-border bg-surface p-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Engenharia interpretada
+            </div>
+            <VisualizadorTecnicoPecaCadastrada
+              codigo={codigo}
+              nome={nome}
+              tipo={tipo}
+              largura={largura}
+              altura={altura}
+              espessura={espessura}
+              operacoes={operacoes}
+              bordas={bordas}
+              faceAlinhamento={faceAlinhamento}
+              indicadoresBorda={indicadoresBorda}
+              facesDetectadas={facesDetectadas}
+              contornoExterno={contornoExterno}
+              facesLayout={facesLayout}
+              onAddOperacao={onAddOperacao}
+              onEditOperacao={onEditOperacao}
+              onDeleteOperacao={onDeleteOperacao}
+              onSaveContorno={onSaveContorno}
+            />
+          </div>
+          <div className="rounded border border-border bg-surface p-2">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Desenho original do PDF
+            </div>
+            <PdfViewerPeca pecaId={pecaId} storagePath={pdfStoragePath} nomeArquivo={pdfNomeArquivo ?? null} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
+    <div className="space-y-3">
+      {headerModos}
+      <div className="grid gap-3 lg:grid-cols-[200px_1fr_300px]">
       {/* Painel esquerdo: faces */}
       <aside className="rounded border border-border bg-surface p-2">
         <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Faces</h3>
