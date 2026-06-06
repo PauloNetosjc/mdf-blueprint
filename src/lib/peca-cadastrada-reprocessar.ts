@@ -176,14 +176,22 @@ export async function reprocessarParserDePeca(
           .filter((f): f is string => f != null && f !== ""),
       ),
     );
-    const facesLayout = gerarFacesLayoutAutomatico({
-      largura: result.largura_ref,
-      altura: result.altura_ref,
-      espessura: result.espessura_ref,
-      prefixo: result.codigo.prefixo,
-      tipo: result.codigo.tipo_peca,
-      facesPresentes,
-    });
+    const baseLDetectadaLayout =
+      ehBaseL(result.nome_peca, result.codigo.prefixo) ||
+      ((result.codigo.prefixo ?? "").toUpperCase() === "BAS" &&
+        facesPresentes.includes("7") &&
+        facesPresentes.some((f) => Number(f) > 5) &&
+        result.operacoes.some((u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null));
+    const facesLayout = baseLDetectadaLayout
+      ? gerarFacesLayoutBaseL(result.largura_ref, result.altura_ref, result.espessura_ref)
+      : gerarFacesLayoutAutomatico({
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+          espessura: result.espessura_ref,
+          prefixo: result.codigo.prefixo,
+          tipo: result.codigo.tipo_peca,
+          facesPresentes,
+        });
     const opsParaContorno: VisualizadorOperacao[] = result.operacoes.map((o) => ({
       id: "",
       tipo_operacao: o.tipo_operacao,
@@ -207,9 +215,18 @@ export async function reprocessarParserDePeca(
       confianca_parser: o.confianca_parser,
       ordem: o.ordem,
     }));
-    const contornoGerado =
-      gerarContornoExternoDeOperacoes(result.largura_ref, result.altura_ref, opsParaContorno) ??
-      gerarContornoRetangular(result.largura_ref, result.altura_ref);
+    const contornoGerado = baseLDetectadaLayout
+      ? {
+          origem: "parser_pdf" as const,
+          largura: result.largura_ref,
+          altura: result.altura_ref,
+          pontos: gerarContornoBaseLInferior(result.largura_ref, result.altura_ref),
+          recuos: [],
+          presets_aplicados: ["regra_base_l_inferior"],
+          observacao: "Contorno L técnico para Base L Inferior.",
+        }
+      : gerarContornoExternoDeOperacoes(result.largura_ref, result.altura_ref, opsParaContorno) ??
+        gerarContornoRetangular(result.largura_ref, result.altura_ref);
     const usouFallback = (contornoGerado.recuos ?? []).some((r) => r.origem === "fallback");
 
     dadosBrutosFinal = {
