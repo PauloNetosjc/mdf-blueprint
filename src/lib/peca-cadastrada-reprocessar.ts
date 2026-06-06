@@ -23,6 +23,10 @@ import {
   gerarContornoRetangular,
   type VisualizadorOperacao,
 } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
+import {
+  construirModeloTecnico,
+  contornoExternoDoModelo,
+} from "@/lib/peca-modelo-tecnico";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
