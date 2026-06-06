@@ -576,6 +576,96 @@ export function extrairContornoTecnicoPdf(linhas: Linha[]): ExtracaoContornoTecn
   return { contorno, indices_consumidos: indices, textos_consumidos: textos };
 }
 
+// ---------- Extração no nível de ITENS ----------
+//
+// O bloco CONTORNO_TECNICO costuma ficar na coluna esquerda do PDF (X≈26 ou 45),
+// enquanto as tabelas técnicas (Furação/Rasgos) ficam na coluna direita (X≈550).
+// Quando agrupamos por Y, as linhas das duas colunas colidem e o texto do bloco
+// contamina linhas numéricas (ex.: "PONTOS:... 69 7.75 8 13"), fazendo a tabela
+// perder furos. Para resolver isso de forma determinística, removemos os itens
+// do bloco CONTORNO_TECNICO ANTES do agrupamento em linhas.
+//
+// Esta função:
+//  1. Identifica e remove os itens do bloco CONTORNO_TECNICO / FIM_CONTORNO_TECNICO
+//     e demais anotações auxiliares (RY=, RX=, "Este bloco foi adicionado..." etc).
+//  2. Concatena os textos removidos e parseia o conteúdo (TIPO, FACE_PRINCIPAL,
+//     RECORTE_X/Y, PONTOS / PONTOS_CONTORNO).
+//  3. Devolve { contorno, itensLimpos, textos_consumidos }.
+
+const RE_ITEM_CT_KEY =
+  /^(?:CONTORNO_TECNICO|FIM_CONTORNO_TECNICO|CODIGO\s*[:=]|TIPO\s*[:=]|FACE_PRINCIPAL\s*[:=]|RECORTE_[XY]\s*[:=]|PONTOS(?:_CONTORNO)?\s*[:=])/i;
+const RE_ITEM_CT_ANOTACAO =
+  /^(?:CONTORNO[\s_]+TECNICO[\s_]+ADICIONADO|Este\s+bloco\s+foi\s+adicionado|Esquema\s+do\s+contorno|RY\s*=|RX\s*=)/i;
+
+export function extrairContornoDeItens(
+  itens: Item[],
+): { contorno: ContornoTecnicoPdf | null; itensLimpos: Item[]; textos_consumidos: string[] } {
+  const textos: string[] = [];
+  const itensLimpos: Item[] = [];
+  for (const it of itens) {
+    const s = it.str.trim();
+    if (RE_ITEM_CT_KEY.test(s) || RE_ITEM_CT_ANOTACAO.test(s)) {
+      textos.push(s);
+      continue;
+    }
+    itensLimpos.push(it);
+  }
+  if (textos.length === 0) {
+    return { contorno: null, itensLimpos, textos_consumidos: textos };
+  }
+  const joined = textos.join(" \n ");
+  const get = (re: RegExp) => {
+    const m = joined.match(re);
+    return m ? m[1].trim() : null;
+  };
+  const num = (s: string | null): number | null => {
+    if (!s) return null;
+    const v = Number(s.replace(",", "."));
+    return Number.isFinite(v) ? v : null;
+  };
+  const pontos_raw = get(
+    /PONTOS(?:_CONTORNO)?\s*[:=]\s*([0-9.,;\-\s]+?)(?:\s*(?:FIM_CONTORNO_TECNICO|CODIGO\s*[:=]|FACE_PRINCIPAL\s*[:=]|TIPO\s*[:=]|RECORTE_[XY]\s*[:=]|$))/is,
+  );
+  const pontos: { x: number; y: number }[] = [];
+  if (pontos_raw) {
+    const partes = pontos_raw
+      .replace(/\s+/g, "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const p of partes) {
+      const [sx, sy] = p.split(",");
+      const x = num(sx);
+      const y = num(sy);
+      if (x != null && y != null) pontos.push({ x, y });
+    }
+  }
+  const tipoRaw = get(/TIPO\s*[:=]\s*([A-Za-z]+)/i);
+  const faceRaw = get(/FACE_PRINCIPAL\s*[:=]\s*([0-9]+)/i);
+  const codigoRaw = get(/\bCODIGO\s*[:=]\s*([A-Za-z0-9_-]+)/i);
+  const contorno: ContornoTecnicoPdf = {
+    codigo: codigoRaw,
+    face_principal: faceRaw,
+    tipo: tipoRaw ? tipoRaw.toUpperCase() : null,
+    recorte_x: num(get(/RECORTE_X\s*[:=]\s*([\-0-9.,]+)/i)),
+    recorte_y: num(get(/RECORTE_Y\s*[:=]\s*([\-0-9.,]+)/i)),
+    pontos,
+  };
+  const algoUtil =
+    contorno.tipo != null ||
+    contorno.face_principal != null ||
+    contorno.recorte_x != null ||
+    contorno.recorte_y != null ||
+    contorno.pontos.length > 0;
+  return {
+    contorno: algoUtil ? contorno : null,
+    itensLimpos,
+    textos_consumidos: textos,
+  };
+}
+
+
+
 
 type ExtracaoOperacoesResultado = {
   operacoes: OperacaoExtraida[];
@@ -1237,30 +1327,46 @@ export async function parseTechnicalDrawingPdf(
   }
 
   baseResumo.pdf_lido = true;
-  const linhas = agruparEmLinhas(itens);
+
+  // CONTORNO_TECNICO é metadado de geometria, NÃO operação.
+  // EXTRAIR PRIMEIRO NO NÍVEL DE ITENS — o bloco fica na coluna esquerda do PDF
+  // e o agrupamento por Y colide com as tabelas da coluna direita, fazendo a
+  // tabela perder furos. Removendo aqui, as linhas ficam limpas.
+  const ctItens = extrairContornoDeItens(itens);
+  const itensSemContorno = ctItens.itensLimpos;
+  if (ctItens.contorno) {
+    logs.push(
+      `CONTORNO_TECNICO (itens) detectado: tipo=${ctItens.contorno.tipo ?? "?"} ` +
+        `face_principal=${ctItens.contorno.face_principal ?? "?"} ` +
+        `pontos=${ctItens.contorno.pontos.length} (itens removidos: ${ctItens.textos_consumidos.length})`,
+    );
+  }
+
+  const linhas = agruparEmLinhas(itensSemContorno);
   const medidas = extrairMedidas(linhas);
   if (medidas.largura) logs.push(`Medidas: ${medidas.largura} x ${medidas.altura} x ${medidas.espessura}`);
   const nome_peca = extrairNomePeca(linhas, codigo);
-  // Detecta se o nome veio de fallback (Tipo + código) ou do PDF de verdade
   const nomeFallback = codigo
     ? `${codigo.tipo_peca} ${codigo.codigo_principal}${codigo.sufixo}`.trim()
     : null;
   const nomeDeFato = !!nome_peca && nome_peca !== nomeFallback;
 
-  // CONTORNO_TECNICO é metadado de geometria, NÃO operação.
-  // Extrair primeiro e remover as linhas do bloco antes do parser de operações
-  // para impedir que "CONTORNO" vire usinagem ou que linhas como "543" virem furo.
-  const contornoTecnico = extrairContornoTecnicoPdf(linhas);
-  if (contornoTecnico.contorno) {
+  // Fallback (PDF antigo sem marcador de bloco): tenta extrair via linhas.
+  const contornoTecnico = ctItens.contorno
+    ? { contorno: ctItens.contorno, indices_consumidos: new Set<number>(), textos_consumidos: ctItens.textos_consumidos }
+    : extrairContornoTecnicoPdf(linhas);
+  if (!ctItens.contorno && contornoTecnico.contorno) {
     logs.push(
-      `CONTORNO_TECNICO detectado: tipo=${contornoTecnico.contorno.tipo ?? "?"} ` +
+      `CONTORNO_TECNICO (linhas, fallback) detectado: tipo=${contornoTecnico.contorno.tipo ?? "?"} ` +
         `face_principal=${contornoTecnico.contorno.face_principal ?? "?"} ` +
-        `pontos=${contornoTecnico.contorno.pontos.length} (linhas removidas do fluxo de operações)`,
+        `pontos=${contornoTecnico.contorno.pontos.length}`,
     );
   }
-  const linhasSemContornoTecnico = linhas.filter(
-    (_l, idx) => !contornoTecnico.indices_consumidos.has(idx),
-  );
+  const linhasSemContornoTecnico = ctItens.contorno
+    ? linhas
+    : linhas.filter((_l, idx) => !contornoTecnico.indices_consumidos.has(idx));
+
+
 
   const extracaoOperacoes = extrairOperacoes(linhasSemContornoTecnico);
   alertas.push(...extracaoOperacoes.alertas);
