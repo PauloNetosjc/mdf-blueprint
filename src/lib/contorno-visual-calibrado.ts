@@ -429,7 +429,6 @@ export async function extrairContornoVisualCalibrado(
 
       const opsResumo = Object.entries(opStats)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
         .map(([k, v]) => `${k}=${v}`)
         .join(", ");
       diag.push(
