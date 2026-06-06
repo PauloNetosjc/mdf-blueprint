@@ -1300,6 +1300,32 @@ export async function parseTechnicalDrawingPdf(
       if (b1MultiplosLados) {
         alertas.push("B1 detectado em múltiplos lados. Revisar lados se necessário.");
       }
+      // Geometria complexa: a peça NÃO pode ser reduzida a um retângulo simples.
+      // Critérios (qualquer um basta):
+      //  - faces detectadas acima de F5 (ex: Face 7 em Base L);
+      //  - prefixo BAS + nome contendo "Base L";
+      //  - existência de rasgo no formato X1/Y1/X2/Y2 (subtipo rasgo_linha);
+      //  - nome amigável contém "Base L" / "L Inferior".
+      const facesAcimaDe5 = facesVisuais.faces_detectadas
+        .map((f) => Number(f))
+        .filter((n) => Number.isFinite(n) && n > 5);
+      const temRasgoLinha = operacoes.some(
+        (o) => o.tipo_operacao === "rasgo" && o.y1 != null && o.y2 != null,
+      );
+      const nomeMin = (nome_peca ?? "").toLowerCase();
+      const ehBaseL =
+        (codigo?.prefixo === "BAS" && /\bbase\s*l\b|l\s*inferior|l\s*superior/i.test(nomeMin)) ||
+        /\bbase\s*l\b/i.test(nomeMin);
+      const motivos: string[] = [];
+      if (facesAcimaDe5.length > 0) motivos.push(`faces > F5 detectadas: ${facesAcimaDe5.join(", ")}`);
+      if (temRasgoLinha) motivos.push("rasgo no formato X1/Y1/X2/Y2 (rasgo_linha)");
+      if (ehBaseL) motivos.push("peça do tipo Base L");
+      const geometriaComplexa = motivos.length > 0;
+      if (geometriaComplexa) {
+        alertas.push(
+          `Geometria complexa detectada — visualize o desenho original do PDF antes de gerar CNC (${motivos.join("; ")}).`,
+        );
+      }
       return {
         total_linhas: linhas.length,
         face_alinhamento: faceAlinhamento?.letra ?? null,
@@ -1311,6 +1337,8 @@ export async function parseTechnicalDrawingPdf(
         b1_multiplos_lados: b1MultiplosLados,
         faces_detectadas: facesVisuais.faces_detectadas,
         face_principal_visual: facesVisuais.face_principal_visual,
+        geometria_complexa: geometriaComplexa,
+        geometria_complexa_motivos: motivos,
       };
     })(),
     classificacao,
