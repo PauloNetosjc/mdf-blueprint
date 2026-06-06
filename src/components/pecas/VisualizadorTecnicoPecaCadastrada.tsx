@@ -946,6 +946,18 @@ export function VisualizadorTecnicoPecaCadastrada({
               Layout múltiplo de faces não definido — usando layout padrão.
             </span>
           )}
+          {(() => {
+            const counts = (indicadoresBorda ?? []).reduce<Record<string, number>>((acc, k) => {
+              acc[k] = (acc[k] ?? 0) + 1; return acc;
+            }, {});
+            const chips = Object.entries(counts);
+            if (chips.length === 0) return null;
+            return chips.map(([k, n]) => (
+              <span key={k} className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary">
+                {k}{n > 1 ? " — múltiplos lados" : ""}
+              </span>
+            ));
+          })()}
           <div className="ml-auto flex items-center gap-1">
             <Button
               size="sm"

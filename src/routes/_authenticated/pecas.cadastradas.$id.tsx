@@ -97,6 +97,7 @@ type Borda = {
   espessura: number | null;
   largura: number | null;
   cor: string | null;
+  indicador_desenho?: string | null;
 };
 
 const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
@@ -493,10 +494,14 @@ function PecaCadastradaDetalhe() {
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded border border-border bg-surface p-2 text-xs">
             <span className="font-semibold text-muted-foreground">Marcadores do PDF:</span>
             {faceAlinhamento && (
-              <Badge variant="outline" className="font-mono">Alinhamento: {faceAlinhamento}</Badge>
+              <Badge variant="outline" className="font-mono">Face de alinhamento: {faceAlinhamento}</Badge>
             )}
-            {indicadoresBorda.map((m) => (
-              <Badge key={m} variant="secondary" className="font-mono">{m}</Badge>
+            {Object.entries(
+              indicadoresBorda.reduce<Record<string, number>>((a, k) => { a[k] = (a[k] ?? 0) + 1; return a; }, {})
+            ).map(([m, n]) => (
+              <Badge key={m} variant="secondary" className="font-mono">
+                {m}{n > 1 ? " — múltiplos lados" : ""}
+              </Badge>
             ))}
           </div>
         )}
@@ -643,20 +648,31 @@ function PecaCadastradaDetalhe() {
               </Button>
             </div>
             <div className="space-y-2 p-2">
-              {(bordas.data ?? []).map((b) => (
-                <div key={b.id}>
-                  {(!b.lado || b.lado === "desconhecido") && (
-                    <div className="mb-1 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                      <AlertTriangle className="h-3 w-3" /> Lado não identificado no PDF
-                    </div>
-                  )}
-                  <BordaRow
-                    borda={b}
-                    onSave={(u) => salvarBorda.mutate(u)}
-                    onDelete={() => apagarBorda.mutate(b.id)}
-                  />
-                </div>
-              ))}
+              {(bordas.data ?? []).map((b) => {
+                const ind = b.indicador_desenho ?? null;
+                const ocorr = ind ? indicadoresBorda.filter((x) => x === ind).length : 0;
+                const multi = ocorr > 1;
+                return (
+                  <div key={b.id}>
+                    {multi && ind && (
+                      <div className="mb-1 flex items-center gap-1 text-[11px] text-primary">
+                        <AlertTriangle className="h-3 w-3" /> {ind} — múltiplos lados. Revisar lados se necessário.
+                      </div>
+                    )}
+                    {!multi && (!b.lado || b.lado === "desconhecido") && (
+                      <div className="mb-1 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="h-3 w-3" />{" "}
+                        {ind ? `${ind} detectado — lado a confirmar` : "Lado não identificado no PDF"}
+                      </div>
+                    )}
+                    <BordaRow
+                      borda={b}
+                      onSave={(u) => salvarBorda.mutate(u)}
+                      onDelete={() => apagarBorda.mutate(b.id)}
+                    />
+                  </div>
+                );
+              })}
               {!bordas.data?.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   Nenhuma fita detectada.
@@ -690,6 +706,32 @@ function PecaCadastradaDetalhe() {
             <CampoCab label="Faces detectadas" valor={facesDetectadas.join(", ") || "—"} mono />
             <CampoCab label="Operações por face" valor={facesOrdenadas.map((f) => `${f}:${opsPorFace.get(f)!.length}`).join("  ") || "—"} mono />
           </div>
+
+          <details open className="rounded border border-border bg-surface p-2 text-xs">
+            <summary className="cursor-pointer font-medium">Marcadores do PDF</summary>
+            {(() => {
+              const counts = indicadoresBorda.reduce<Record<string, number>>((a, k) => {
+                a[k] = (a[k] ?? 0) + 1; return a;
+              }, {});
+              const entries = Object.entries(counts);
+              const hasB1 = entries.some(([k]) => k.toUpperCase() === "B1");
+              return (
+                <div className="mt-2 space-y-1">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <CampoCab label="Alinhamento" valor={faceAlinhamento ?? "—"} mono />
+                    <CampoCab label="B1 detectado" valor={hasB1 ? "sim" : "não"} mono />
+                    <CampoCab label="Fita associada" valor={p.fita_ref ?? "—"} mono />
+                    <CampoCab label="Ocorrências" valor={entries.length === 0 ? "—" : entries.map(([k, n]) => `${k}×${n}`).join("  ")} mono />
+                  </div>
+                  {entries.some(([, n]) => n > 1) && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Lados exatos: revisar se necessário.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </details>
 
           <details open className="rounded border border-border bg-surface p-2 text-xs">
             <summary className="cursor-pointer font-medium">Diagnóstico de Geometria</summary>
