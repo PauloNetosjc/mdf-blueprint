@@ -951,17 +951,17 @@ export function extrairFacesVisuais(linhas: Linha[]): {
 } {
   const faces = new Set<string>();
   for (const l of linhas) {
-    const matches = l.texto.match(/\b(?:face|lado)\s*([0-5])\b/gi);
+    const matches = l.texto.match(/\b(?:face|lado)\s*(\d{1,2})\b/gi);
     if (matches) {
       for (const m of matches) {
-        const n = m.match(/([0-5])/);
+        const n = m.match(/(\d{1,2})/);
         if (n) faces.add(n[1]);
       }
     }
   }
   const counts = new Map<string, number>();
   for (const l of linhas) {
-    const m = l.texto.trim().match(/^([0-5])$/);
+    const m = l.texto.trim().match(/^(\d{1,2})$/);
     if (m) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
   }
   let principal: string | null = null;
