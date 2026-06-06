@@ -1028,7 +1028,20 @@ export async function parseTechnicalDrawingPdf(
   }
   if (secoes.rasgos && rasgos === 0) {
     alertas.push("Tabela de rasgos detectada, mas nenhum rasgo foi extraído.");
-    erros.push("Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.");
+    // Inclui trecho bruto logo abaixo de "Rasgos" para facilitar depuração.
+    const idxRasgos = linhas.findIndex((l) => RE_RASGOS.test(l.texto));
+    const trecho =
+      idxRasgos >= 0
+        ? linhas
+            .slice(idxRasgos, idxRasgos + 8)
+            .map((l) => l.texto)
+            .join(" | ")
+        : "";
+    erros.push(
+      `Rasgos: tabela encontrada no PDF mas o parser não conseguiu extrair os rasgos.${
+        trecho ? ` Trecho: ${trecho}` : ""
+      }`,
+    );
   }
   if (secoes.usinagens && usinagens === 0) {
     alertas.push("Tabela de usinagens detectada, mas nenhuma usinagem foi extraída.");
