@@ -615,6 +615,20 @@ export function VisualizadorTecnicoPecaCadastrada({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faceSel, largura, altura, espessura, facesLayoutMap]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const origem = facesLayoutMap.get(faceSel) ? "faces_layout_json" : "fallback";
+    // eslint-disable-next-line no-console
+    console.info("[FACE SELECIONADA]", {
+      codigo,
+      faceSelecionada: faceSel,
+      larguraFace: partW,
+      alturaFace: partH,
+      origemDimensao: origem,
+      operacoes: (opsPorFace.get(faceSel) ?? []).length,
+    });
+  }, [codigo, faceSel, partW, partH, facesLayoutMap, opsPorFace]);
+
   // Layout global para o modo "Ver todas as faces"
   const todasFacesLayout = useMemo(() => {
     const GAP = 40;
@@ -791,10 +805,16 @@ export function VisualizadorTecnicoPecaCadastrada({
     [contornosExternos, partW, partH],
   );
   const podeUsarContornoSalvo = faceSel === "0" || faceSel === "5";
-  const contornoSalvo = useMemo(
-    () => podeUsarContornoSalvo ? contornoExternoValido(contornoExterno) : null,
-    [contornoExterno, podeUsarContornoSalvo],
-  );
+  const contornoSalvo = useMemo(() => {
+    if (!podeUsarContornoSalvo) return null;
+    const c = contornoExternoValido(contornoExterno);
+    if (!c) return null;
+    // Ignora contorno salvo se as dimensões não baterem com a face atual
+    // (ex.: contorno salvo em 460x219 mas face renderizada em 219x460)
+    const tol = 0.5;
+    if (Math.abs(c.largura - partW) > tol || Math.abs(c.altura - partH) > tol) return null;
+    return c;
+  }, [contornoExterno, podeUsarContornoSalvo, partW, partH]);
   const outline = useMemo(() => {
     if (contornoSalvo) {
       const pontosTecnicos = contornoSalvo.pontos;
