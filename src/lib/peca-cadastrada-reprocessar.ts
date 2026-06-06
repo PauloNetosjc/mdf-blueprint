@@ -434,7 +434,7 @@ export async function reprocessarParserDePeca(
       geom.pontos_contorno.length < (ehBaseLDetectada ? 6 : 3);
     const L = result.largura_ref;
     const H = result.altura_ref;
-    if (precisaFallback && ehBaseLDetectada && L && H) {
+    if (!geometriaResolvidaPorContornoTecnico && precisaFallback && ehBaseLDetectada && L && H) {
       const opsModelo = modeloTecnico.operacoes;
       const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
       const contornoL = gerarContornoBaseLInferior(L, H);
