@@ -643,20 +643,31 @@ function PecaCadastradaDetalhe() {
               </Button>
             </div>
             <div className="space-y-2 p-2">
-              {(bordas.data ?? []).map((b) => (
-                <div key={b.id}>
-                  {(!b.lado || b.lado === "desconhecido") && (
-                    <div className="mb-1 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
-                      <AlertTriangle className="h-3 w-3" /> Lado não identificado no PDF
-                    </div>
-                  )}
-                  <BordaRow
-                    borda={b}
-                    onSave={(u) => salvarBorda.mutate(u)}
-                    onDelete={() => apagarBorda.mutate(b.id)}
-                  />
-                </div>
-              ))}
+              {(bordas.data ?? []).map((b) => {
+                const ind = b.indicador_desenho ?? null;
+                const ocorr = ind ? indicadoresBorda.filter((x) => x === ind).length : 0;
+                const multi = ocorr > 1;
+                return (
+                  <div key={b.id}>
+                    {multi && ind && (
+                      <div className="mb-1 flex items-center gap-1 text-[11px] text-primary">
+                        <AlertTriangle className="h-3 w-3" /> {ind} — múltiplos lados. Revisar lados se necessário.
+                      </div>
+                    )}
+                    {!multi && (!b.lado || b.lado === "desconhecido") && (
+                      <div className="mb-1 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="h-3 w-3" />{" "}
+                        {ind ? `${ind} detectado — lado a confirmar` : "Lado não identificado no PDF"}
+                      </div>
+                    )}
+                    <BordaRow
+                      borda={b}
+                      onSave={(u) => salvarBorda.mutate(u)}
+                      onDelete={() => apagarBorda.mutate(b.id)}
+                    />
+                  </div>
+                );
+              })}
               {!bordas.data?.length && (
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   Nenhuma fita detectada.
