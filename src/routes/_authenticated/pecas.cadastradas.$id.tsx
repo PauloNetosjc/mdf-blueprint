@@ -97,6 +97,7 @@ type Borda = {
   espessura: number | null;
   largura: number | null;
   cor: string | null;
+  indicador_desenho?: string | null;
 };
 
 const TIPOS_OP = ["furo", "rasgo", "rebaixo", "usinagem_parametrica", "contorno", "usinagem", "outro"];
