@@ -496,8 +496,12 @@ function PecaCadastradaDetalhe() {
             {faceAlinhamento && (
               <Badge variant="outline" className="font-mono">Face de alinhamento: {faceAlinhamento}</Badge>
             )}
-            {indicadoresBorda.map((m) => (
-              <Badge key={m} variant="secondary" className="font-mono">{m}</Badge>
+            {Object.entries(
+              indicadoresBorda.reduce<Record<string, number>>((a, k) => { a[k] = (a[k] ?? 0) + 1; return a; }, {})
+            ).map(([m, n]) => (
+              <Badge key={m} variant="secondary" className="font-mono">
+                {m}{n > 1 ? " — múltiplos lados" : ""}
+              </Badge>
             ))}
           </div>
         )}
