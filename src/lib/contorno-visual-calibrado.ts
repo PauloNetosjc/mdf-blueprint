@@ -175,25 +175,79 @@ async function extrairSubpaths(
   let ctm: Mat = mIdentity();
   const stack: Mat[] = [];
 
-  // Pontos do subpath atual (em coordenadas do PDF, já transformadas).
-  let cur: PontoMm[] = [];
-  let curStart: PontoMm | null = null;
-  let curClosed = false;
-  let cx = 0;
-  let cy = 0;
-
-  const flush = () => {
-    if (cur.length >= 2) {
-      subpaths.push({ pts: cur, closed: curClosed });
+  // Aplica um único operador de path (moveTo, lineTo, curveTo, rectangle, closePath)
+  // com seus argumentos já consumidos da lista plana de args do constructPath.
+  const applyPathOp = (subFn: number, subArgs: number[]) => {
+    if (subFn === OPS.moveTo) {
+      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+      cur = [];
+      curClosed = false;
+      cx = subArgs[0];
+      cy = subArgs[1];
+      addPoint(cx, cy);
+      curStart = cur[cur.length - 1];
+    } else if (subFn === OPS.lineTo) {
+      cx = subArgs[0];
+      cy = subArgs[1];
+      addPoint(cx, cy);
+    } else if (subFn === OPS.rectangle) {
+      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
+      cur = [];
+      const [rx, ry, rw, rh] = subArgs;
+      const corners: [number, number][] = [
+        [rx, ry],
+        [rx + rw, ry],
+        [rx + rw, ry + rh],
+        [rx, ry + rh],
+      ];
+      for (const [a, b] of corners) addPoint(a, b);
+      curStart = cur[0];
+      subpaths.push({ pts: cur, closed: true });
+      cur = [];
+      curStart = null;
+      curClosed = false;
+      cx = rx;
+      cy = ry;
+    } else if (subFn === OPS.curveTo) {
+      // x1 y1 x2 y2 x3 y3 → endpoint final
+      const ex = subArgs[4];
+      const ey = subArgs[5];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.curveTo2) {
+      // x2 y2 x3 y3 → endpoint final
+      const ex = subArgs[2];
+      const ey = subArgs[3];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.curveTo3) {
+      // x1 y1 x3 y3 → endpoint final
+      const ex = subArgs[2];
+      const ey = subArgs[3];
+      cx = ex;
+      cy = ey;
+      addPoint(ex, ey);
+    } else if (subFn === OPS.closePath) {
+      if (curStart) {
+        cur.push({ x: curStart.x, y: curStart.y });
+        curClosed = true;
+        cx = curStart.x;
+        cy = curStart.y;
+      }
     }
-    cur = [];
-    curStart = null;
-    curClosed = false;
   };
 
-  const addPoint = (x: number, y: number) => {
-    const [tx, ty] = mApply(ctm, x, y);
-    cur.push({ x: tx, y: ty });
+  // Tamanho de args por op (PDF spec)
+  const argLen: Record<number, number> = {
+    [OPS.moveTo]: 2,
+    [OPS.lineTo]: 2,
+    [OPS.rectangle]: 4,
+    [OPS.curveTo]: 6,
+    [OPS.curveTo2]: 4,
+    [OPS.curveTo3]: 4,
+    [OPS.closePath]: 0,
   };
 
   const fnArray = opList.fnArray as number[];
@@ -210,57 +264,29 @@ async function extrairSubpaths(
       ctm = stack.pop() ?? mIdentity();
     } else if (fn === OPS.transform) {
       ctm = mMul(ctm, [args[0], args[1], args[2], args[3], args[4], args[5]]);
-    } else if (fn === OPS.moveTo) {
-      // novo subpath: flush o anterior
-      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
-      cur = [];
-      curClosed = false;
-      cx = args[0];
-      cy = args[1];
-      addPoint(cx, cy);
-      curStart = cur[cur.length - 1];
-    } else if (fn === OPS.lineTo) {
-      cx = args[0];
-      cy = args[1];
-      addPoint(cx, cy);
-    } else if (fn === OPS.rectangle) {
-      // flush anterior, gera subpath fechado isolado
-      if (cur.length >= 2) subpaths.push({ pts: cur, closed: curClosed });
-      cur = [];
-      const [rx, ry, rw, rh] = args;
-      const corners: [number, number][] = [
-        [rx, ry],
-        [rx + rw, ry],
-        [rx + rw, ry + rh],
-        [rx, ry + rh],
-      ];
-      for (const [a, b] of corners) addPoint(a, b);
-      curStart = cur[0];
-      curClosed = true;
-      subpaths.push({ pts: cur, closed: true });
-      cur = [];
-      curStart = null;
-      curClosed = false;
-      cx = rx;
-      cy = ry;
+    } else if (fn === OPS.constructPath) {
+      // args = [ops: number[], args: number[], minMax?: number[]]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const subOps = (args as any)[0] as number[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const subArgsFlat = (args as any)[1] as number[];
+      let ai = 0;
+      for (const sub of subOps) {
+        const need = argLen[sub] ?? 0;
+        const slice = subArgsFlat.slice(ai, ai + need);
+        ai += need;
+        applyPathOp(sub, slice);
+      }
     } else if (
+      fn === OPS.moveTo ||
+      fn === OPS.lineTo ||
+      fn === OPS.rectangle ||
       fn === OPS.curveTo ||
       fn === OPS.curveTo2 ||
-      fn === OPS.curveTo3
+      fn === OPS.curveTo3 ||
+      fn === OPS.closePath
     ) {
-      // aproxima por linha até o endpoint final
-      const ex = args[args.length - 2];
-      const ey = args[args.length - 1];
-      cx = ex;
-      cy = ey;
-      addPoint(ex, ey);
-    } else if (fn === OPS.closePath) {
-      if (curStart) {
-        cur.push({ x: curStart.x, y: curStart.y });
-        curClosed = true;
-        cx = curStart.x;
-        cy = curStart.y;
-      }
+      applyPathOp(fn, args);
     } else if (
       fn === OPS.stroke ||
       fn === OPS.closeStroke ||
