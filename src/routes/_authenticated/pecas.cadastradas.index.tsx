@@ -1067,6 +1067,7 @@ function PecasCadastradasPage() {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
         }}
       />
+      <AuditarBibliotecaDialog open={auditarOpen} onOpenChange={setAuditarOpen} />
 
     </div>
   );
