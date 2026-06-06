@@ -26,6 +26,8 @@ import {
 import {
   construirModeloTecnico,
   contornoExternoDoModelo,
+  ehBaseL,
+  gerarContornoBaseLInferior,
 } from "@/lib/peca-modelo-tecnico";
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
 import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado";
