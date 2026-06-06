@@ -27,7 +27,12 @@ async function loadPdfJs() {
   return pdfjsPromise;
 }
 
-export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassName = "h-[720px]" }: Props) {
+export function PdfViewerPeca({
+  pecaId,
+  storagePath,
+  nomeArquivo,
+  heightClassName = "h-[720px]",
+}: Props) {
   const signed = useQuery({
     queryKey: ["peca-cadastrada-pdf-url", pecaId, storagePath],
     queryFn: async () => {
@@ -196,10 +201,20 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
           <FileText className="h-4 w-4" /> {nomeArquivo ?? "PDF original"}
         </span>
         <div className="flex flex-wrap items-center gap-1">
-          {pageSize && <span className="px-2 font-mono text-[11px] text-muted-foreground">{(zoom * 100).toFixed(0)}%</span>}
-          <Button size="sm" variant="ghost" onClick={() => zoomBy(1.25)} disabled={!pageSize}>+</Button>
-          <Button size="sm" variant="ghost" onClick={() => zoomBy(1 / 1.25)} disabled={!pageSize}>−</Button>
-          <Button size="sm" variant="ghost" onClick={() => fitToView()} disabled={!pageSize}>Ajustar</Button>
+          {pageSize && (
+            <span className="px-2 font-mono text-[11px] text-muted-foreground">
+              {(zoom * 100).toFixed(0)}%
+            </span>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => zoomBy(1.25)} disabled={!pageSize}>
+            +
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => zoomBy(1 / 1.25)} disabled={!pageSize}>
+            −
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => fitToView()} disabled={!pageSize}>
+            Ajustar
+          </Button>
           <Button size="sm" variant="ghost" onClick={recarregar} disabled={!url && !signed.isError}>
             <RefreshCw className="mr-1 h-3 w-3" /> Recarregar
           </Button>
@@ -215,13 +230,22 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
         ref={containerRef}
         className={`${heightClassName} relative overflow-hidden bg-surface-2`}
         onWheel={pageSize ? handleWheel : undefined}
-        onMouseDown={(e) => { panState.current = { x: e.clientX, y: e.clientY, ox: pan.x, oy: pan.y }; }}
+        onMouseDown={(e) => {
+          panState.current = { x: e.clientX, y: e.clientY, ox: pan.x, oy: pan.y };
+        }}
         onMouseMove={(e) => {
           if (!panState.current) return;
-          setPan({ x: panState.current.ox + e.clientX - panState.current.x, y: panState.current.oy + e.clientY - panState.current.y });
+          setPan({
+            x: panState.current.ox + e.clientX - panState.current.x,
+            y: panState.current.oy + e.clientY - panState.current.y,
+          });
         }}
-        onMouseUp={() => { panState.current = null; }}
-        onMouseLeave={() => { panState.current = null; }}
+        onMouseUp={() => {
+          panState.current = null;
+        }}
+        onMouseLeave={() => {
+          panState.current = null;
+        }}
         style={{ cursor: pageSize ? (panState.current ? "grabbing" : "grab") : "default" }}
       >
         {exibicao === "carregando" && (
@@ -235,7 +259,11 @@ export function PdfViewerPeca({ pecaId, storagePath, nomeArquivo, heightClassNam
           </div>
         )}
         {exibicao === "erro" && (
-          <FallbackRenderizacao abrir={abrirNovaAba} baixar={baixar} detalhe={renderError ?? undefined} />
+          <FallbackRenderizacao
+            abrir={abrirNovaAba}
+            baixar={baixar}
+            detalhe={renderError ?? undefined}
+          />
         )}
         <canvas
           ref={canvasRef}
