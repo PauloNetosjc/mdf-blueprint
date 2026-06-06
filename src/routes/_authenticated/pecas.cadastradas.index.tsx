@@ -25,6 +25,12 @@ import {
   classificarStatusParser,
   type ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+import { gerarFacesLayoutAutomatico } from "@/lib/faces-layout-gerador";
+import {
+  gerarContornoExternoDeOperacoes,
+  gerarContornoRetangular,
+  type VisualizadorOperacao,
+} from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 import {
   Tooltip,
   TooltipContent,
