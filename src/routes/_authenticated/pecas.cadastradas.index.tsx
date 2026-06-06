@@ -965,6 +965,15 @@ function PecasCadastradasPage() {
           qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
         }}
       />
+      <LimparBibliotecaDialog
+        open={limparOpen}
+        onOpenChange={setLimparOpen}
+        onLimpezaConcluida={() => {
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas"] });
+          qc.invalidateQueries({ queryKey: ["pecas-cadastradas-contadores"] });
+        }}
+      />
+
     </div>
   );
 }
