@@ -606,6 +606,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   onEditOperacao,
   onDeleteOperacao,
   onSaveContorno,
+  onSalvarCotaRapida,
 }: Props) {
   const [modoVisual, setModoVisual] = useState<"engenharia" | "pdf" | "comparar">(
     geometriaComplexa && pdfStoragePath && pecaId ? "comparar" : "engenharia",
