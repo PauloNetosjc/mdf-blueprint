@@ -622,9 +622,12 @@ export type ValidacaoGeometrica = {
 function modeloEhBaseLObrigatoria(modelo: ModeloTecnicoJson): boolean {
   const nome = modelo.nome ?? "";
   const codigo = modelo.codigo.toUpperCase();
-  const temFace7 = modelo.faces.some((f) => f.face === "7") || modelo.operacoes.some((o) => String(o.face) === "7");
-  const temRasgoLinha = modelo.operacoes.some((o) => o.tipo === "rasgo" && o.y1 != null && o.y2 != null);
-  const temFaceAcima5 = modelo.operacoes.some((o) => Number(o.face) > 5) || modelo.faces_visuais.some((f) => Number(f.face) > 5);
+  const faces = modelo.faces ?? [];
+  const operacoes = modelo.operacoes ?? [];
+  const facesVisuais = modelo.faces_visuais ?? [];
+  const temFace7 = faces.some((f) => f.face === "7") || operacoes.some((o) => String(o.face) === "7");
+  const temRasgoLinha = operacoes.some((o) => o.tipo === "rasgo" && o.y1 != null && o.y2 != null);
+  const temFaceAcima5 = operacoes.some((o) => Number(o.face) > 5) || facesVisuais.some((f) => Number(f.face) > 5);
   return ehBaseL(nome, codigo.slice(0, 3)) || (codigo.startsWith("BAS") && temFace7 && temRasgoLinha && temFaceAcima5);
 }
 
