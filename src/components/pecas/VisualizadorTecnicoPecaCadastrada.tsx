@@ -2060,6 +2060,62 @@ export function VisualizadorTecnicoPecaCadastrada({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de edição rápida de cota (clique no desenho) */}
+      <Dialog open={!!cotaEdit} onOpenChange={(o) => { if (!o) setCotaEdit(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar cota</DialogTitle>
+            <DialogDescription>
+              {cotaEdit ? ROTULOS_COTA[cotaEdit.tipo] : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {cotaEdit && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Valor atual</Label>
+                <div className="font-mono text-sm">{cotaEdit.valorAtual} mm</div>
+              </div>
+              <div>
+                <Label htmlFor="cota-novo-valor">Novo valor (mm)</Label>
+                <Input
+                  id="cota-novo-valor"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={cotaEdit.novoValor}
+                  onChange={(e) =>
+                    setCotaEdit((c) => (c ? { ...c, novoValor: e.target.value } : c))
+                  }
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCotaEdit(null)} disabled={cotaSalvando}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={cotaSalvando || !cotaEdit || !onSalvarCotaRapida}
+              onClick={async () => {
+                if (!cotaEdit || !onSalvarCotaRapida) return;
+                const v = Number(cotaEdit.novoValor);
+                if (!Number.isFinite(v) || v <= 0) return;
+                try {
+                  setCotaSalvando(true);
+                  await onSalvarCotaRapida({ tipo: cotaEdit.tipo, valor: v });
+                  setCotaEdit(null);
+                } finally {
+                  setCotaSalvando(false);
+                }
+              }}
+            >
+              {cotaSalvando ? "Salvando…" : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
