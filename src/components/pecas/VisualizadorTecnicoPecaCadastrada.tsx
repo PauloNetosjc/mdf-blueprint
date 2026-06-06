@@ -1716,7 +1716,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     {!isRasgo && opSelObj.x != null && <Linha k="X" v={String(opSelObj.x)} />}
                     {opSelObj.y != null && <Linha k="Y" v={String(opSelObj.y)} />}
                     {opSelObj.x1 != null && <Linha k="X1" v={String(opSelObj.x1)} />}
+                    {opSelObj.y1 != null && <Linha k="Y1" v={String(opSelObj.y1)} />}
                     {opSelObj.x2 != null && <Linha k="X2" v={String(opSelObj.x2)} />}
+                    {opSelObj.y2 != null && <Linha k="Y2" v={String(opSelObj.y2)} />}
                     {!isRasgo && opSelObj.diametro != null && <Linha k="Diâmetro" v={`Ø ${opSelObj.diametro}`} />}
                     {opSelObj.largura != null && <Linha k="Largura" v={String(opSelObj.largura)} />}
                     {!isRasgo && opSelObj.comprimento != null && (
