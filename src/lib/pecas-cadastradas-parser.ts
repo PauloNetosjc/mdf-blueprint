@@ -585,7 +585,7 @@ function extrairOperacoes(linhas: Linha[]): ExtracaoOperacoesResultado {
     const minNumeros = sectionAtual === "rasgo" ? 5 : sectionAtual === "furacao" ? 4 : 3;
     const numericLinha =
       isNumericCells(linha.cels) || linhaPareceNumerica(linha.texto, minNumeros);
-    const ehHeaderTabela = /\b(Y|X1|X2|Larg\.?|Prof\.?|Diam\.?)\b/i.test(texto) && valores.length < minNumeros;
+    const ehHeaderTabela = /\b(Y1?|Y2|X1?|X2|Larg\.?|Prof\.?|Diam\.?)\b/i.test(texto) && valores.length < minNumeros;
     if ((!numericLinha && valores.length < minNumeros) || ehHeaderTabela) {
       if (sectionAtual === "rasgo") logRasgo(ehHeaderTabela ? "ignorado_header" : "descartado");
       continue;
