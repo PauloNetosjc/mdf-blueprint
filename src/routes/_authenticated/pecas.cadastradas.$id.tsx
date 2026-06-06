@@ -402,7 +402,7 @@ function PecaCadastradaDetalhe() {
     }
     toast.info("Geração de G-code ainda não implementada (geometria do modelo está OK).");
   }
-  void importFileRef;
+  
 
   return (
     <div className="p-6">
