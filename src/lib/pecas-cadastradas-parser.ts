@@ -168,7 +168,14 @@ export type ResumoParser = {
   codigo_detectado: boolean;
   total_operacoes: number;
   faces_com_operacao: number[];
+  // Detecção fraca: a palavra (Furação/Rasgos/Usinagens) apareceu em algum lugar.
+  secoes_detectadas?: { furacao: boolean; rasgos: boolean; usinagens: boolean };
+  // Detecção forte: além da palavra, há linha candidata com números suficientes
+  // (≥4 para furação/usinagem, ≥5 para rasgos) nas próximas linhas.
+  // Só essa flag deve gerar erro real "tabela encontrada mas parser não extraiu".
+  secoes_com_dados?: { furacao: boolean; rasgos: boolean; usinagens: boolean };
 };
+
 
 export type ClassificacaoPdf = "peca_individual" | "modulo_explodido" | "desconhecido";
 
