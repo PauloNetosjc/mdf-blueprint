@@ -1000,6 +1000,8 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesDetectadas={facesDetectadas}
               contornoExterno={contornoExterno}
               facesLayout={facesLayout}
+              geometriaComplexa={geometriaComplexa}
+              geometriaComplexaMotivos={geometriaComplexaMotivos}
               onAddOperacao={onAddOperacao}
               onEditOperacao={onEditOperacao}
               onDeleteOperacao={onDeleteOperacao}
