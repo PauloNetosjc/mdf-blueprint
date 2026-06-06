@@ -16,6 +16,7 @@ import {
 import { FileText, Upload, AlertTriangle, Loader2, Search, FolderOpen, RefreshCw, Shapes, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeometriaDialog";
+import { ReprocessarParserErrosDialog } from "@/components/pecas/ReprocessarParserErrosDialog";
 import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
