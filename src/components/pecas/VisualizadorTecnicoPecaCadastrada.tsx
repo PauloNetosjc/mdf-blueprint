@@ -615,6 +615,20 @@ export function VisualizadorTecnicoPecaCadastrada({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faceSel, largura, altura, espessura, facesLayoutMap]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const origem = facesLayoutMap.get(faceSel) ? "faces_layout_json" : "fallback";
+    // eslint-disable-next-line no-console
+    console.info("[FACE SELECIONADA]", {
+      codigo,
+      faceSelecionada: faceSel,
+      larguraFace: partW,
+      alturaFace: partH,
+      origemDimensao: origem,
+      operacoes: (opsPorFace.get(faceSel) ?? []).length,
+    });
+  }, [codigo, faceSel, partW, partH, facesLayoutMap, opsPorFace]);
+
   // Layout global para o modo "Ver todas as faces"
   const todasFacesLayout = useMemo(() => {
     const GAP = 40;
