@@ -28,6 +28,13 @@ export type ModeloTecnicoLite = {
   faces_visuais?: number[];
   operacoes: OperacaoLite[];
   parametrizacao?: unknown;
+  face_alinhamento?: string | null;
+  medidas?: { largura?: number | null; altura?: number | null; espessura?: number | null };
+  bordas?: Array<{
+    codigo_borda?: string | null;
+    indicador_desenho?: string | null;
+    quantidade_m?: number | null;
+  }>;
 };
 
 
