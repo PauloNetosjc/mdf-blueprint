@@ -2037,8 +2037,10 @@ export type Database = {
         Row: {
           altura: number
           chapa_id: string | null
+          codigo: string | null
           codigo_peca: string | null
           created_at: string
+          dados_tecnicos_aplicados_json: Json | null
           descricao: string
           espessura: number
           fita_codigo: string | null
@@ -2049,16 +2051,21 @@ export type Database = {
           observacao: string | null
           ordem: number
           origem_importacao: string | null
+          peca_cadastrada_id: string | null
           peca_id: string | null
           projeto_id: string
           quantidade: number
+          status_tecnico: string | null
           user_id: string
+          veio: boolean
         }
         Insert: {
           altura: number
           chapa_id?: string | null
+          codigo?: string | null
           codigo_peca?: string | null
           created_at?: string
+          dados_tecnicos_aplicados_json?: Json | null
           descricao: string
           espessura?: number
           fita_codigo?: string | null
@@ -2069,16 +2076,21 @@ export type Database = {
           observacao?: string | null
           ordem?: number
           origem_importacao?: string | null
+          peca_cadastrada_id?: string | null
           peca_id?: string | null
           projeto_id: string
           quantidade?: number
+          status_tecnico?: string | null
           user_id?: string
+          veio?: boolean
         }
         Update: {
           altura?: number
           chapa_id?: string | null
+          codigo?: string | null
           codigo_peca?: string | null
           created_at?: string
+          dados_tecnicos_aplicados_json?: Json | null
           descricao?: string
           espessura?: number
           fita_codigo?: string | null
@@ -2089,10 +2101,13 @@ export type Database = {
           observacao?: string | null
           ordem?: number
           origem_importacao?: string | null
+          peca_cadastrada_id?: string | null
           peca_id?: string | null
           projeto_id?: string
           quantidade?: number
+          status_tecnico?: string | null
           user_id?: string
+          veio?: boolean
         }
         Relationships: [
           {
@@ -2100,6 +2115,13 @@ export type Database = {
             columns: ["chapa_id"]
             isOneToOne: false
             referencedRelation: "chapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projeto_pecas_peca_cadastrada_id_fkey"
+            columns: ["peca_cadastrada_id"]
+            isOneToOne: false
+            referencedRelation: "pecas_cadastradas"
             referencedColumns: ["id"]
           },
           {
