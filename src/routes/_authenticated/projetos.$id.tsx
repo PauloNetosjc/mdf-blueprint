@@ -220,6 +220,7 @@ function ProjetoEditor() {
             pecas={pecas ?? []}
             chapas={chapas ?? []}
             onAdd={() => adicionar.mutate()}
+            onAddFromBiblioteca={(p) => adicionarDaBiblioteca.mutate(p)}
             onUpdate={(p) => atualizar.mutate(p)}
             onDuplicate={(p) => duplicar.mutate(p)}
             onDelete={(pid) => excluir.mutate(pid)}
