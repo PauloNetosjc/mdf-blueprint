@@ -155,18 +155,31 @@ function PlanoPage() {
 
   const calcular = useCallback(() => {
     if (!pecas || !chapas) return;
-    const input: PecaInput[] = pecas
-      .filter((p) => p.chapa_id)
-      .map((p) => ({
-        id: p.id, descricao: p.descricao, largura: p.largura, altura: p.altura,
-        espessura: p.espessura, chapa_id: p.chapa_id!, quantidade: p.quantidade,
-      }));
-    const r = calcularPlanoCorte(input, chapas, refilo);
+    // Chapa padrão: usar a chapa indicada nos search params, ou a sintética
+    const chapaFallbackId = search.chapa ?? chapaDefault.id;
+    const chapasParaCalculo: ChapaT[] = search.chapa
+      ? chapas
+      : [...chapas, chapaDefault];
+
+    const input: PecaInput[] = pecas.map((p) => ({
+      id: p.id,
+      descricao: p.descricao,
+      largura: p.largura,
+      altura: p.altura,
+      espessura: p.espessura,
+      chapa_id: p.chapa_id ?? chapaFallbackId,
+      quantidade: p.quantidade,
+    }));
+    const r = calcularPlanoCorte(input, chapasParaCalculo, {
+      margem: refilo,
+      espacamento,
+      permitir_rotacao: permitirRotacao,
+    });
     setResultado(r);
     setChapaIndex(0);
     setSelecionada(null);
     setColisao(false);
-  }, [pecas, chapas, refilo]);
+  }, [pecas, chapas, refilo, espacamento, permitirRotacao, search.chapa, chapaDefault]);
 
   useEffect(() => {
     if (pecas && chapas && !resultado) calcular();
@@ -175,20 +188,40 @@ function PlanoPage() {
   useEffect(() => {
     if (autoRecalc) calcular();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refilo, autoRecalc]);
+  }, [refilo, espacamento, permitirRotacao, autoRecalc]);
 
   const salvar = useMutation({
     mutationFn: async () => {
       if (!resultado) throw new Error("Calcule o plano antes de salvar");
       if (colisao) throw new Error("Existem colisões — corrija antes de salvar");
-      await supabase.from("planos_corte").delete().eq("projeto_id", id);
+
+      const observacao = JSON.stringify({
+        nome: `Plano ${new Date().toLocaleDateString("pt-BR")}`,
+        configuracao: {
+          chapa_id: search.chapa ?? null,
+          largura_chapa: search.larg ?? chapaDefault.largura,
+          altura_chapa: search.alt ?? chapaDefault.altura,
+          espessura: search.esp ?? chapaDefault.espessura,
+          margem: refilo,
+          espacamento,
+          possui_veio: (search.veio ?? 0) === 1,
+          permitir_rotacao: permitirRotacao,
+          maquina_destino: search.maq ?? "nesting",
+        },
+        pecas_nao_encaixadas: resultado.pecas_nao_encaixadas,
+      });
+
       const { data: plano, error } = await supabase.from("planos_corte").insert({
         projeto_id: id, versao: 1,
         aproveitamento_medio: resultado.aproveitamento_medio,
         total_chapas: resultado.total_chapas, total_pecas: resultado.total_pecas,
+        status: "gerado",
+        observacao,
       }).select().single();
       if (error) throw error;
       for (const c of resultado.chapas) {
+        // Chapa sintética não tem id real — pular inserção em plano_corte_chapas
+        if (c.chapa.id === CHAPA_DEFAULT_ID) continue;
         const { data: pc, error: e1 } = await supabase.from("plano_corte_chapas").insert({
           plano_id: plano.id, chapa_id: c.chapa.id, indice: c.indice,
           aproveitamento: c.aproveitamento, area_usada: c.area_usada,
@@ -206,11 +239,16 @@ function PlanoPage() {
           })));
         }
       }
-      await supabase.from("projetos").update({ status: "plano_gerado" }).eq("id", id);
+      await supabase.from("projetos").update({ status: "plano_corte_gerado" }).eq("id", id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["projetos"] }); toast.success("Plano salvo"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projetos"] });
+      qc.invalidateQueries({ queryKey: ["planos-corte-list", id] });
+      toast.success("Plano salvo");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const chapaAtual = resultado?.chapas[chapaIndex];
   const pecaSelecionada = chapaAtual?.pecas.find((p) => p.id === selecionada) ?? null;
