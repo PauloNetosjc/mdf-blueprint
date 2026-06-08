@@ -539,7 +539,7 @@ export function construirModeloTecnico(
     avisos.push(`Faces acima de F5 detectadas: ${facesAcimaDe5.join(", ")}`);
   }
 
-  return ModeloTecnicoSchema.parse({
+  const modelo = ModeloTecnicoSchema.parse({
     versao: 1,
     codigo: result.codigo?.codigo_completo ?? "",
     nome: result.nome_peca,
@@ -573,7 +573,12 @@ export function construirModeloTecnico(
       gerado_em: new Date().toISOString(),
     },
   });
+
+  // Gera parametrização automática (âncoras aos topos) a partir das
+  // medidas-base. Operações sem coordenadas válidas ficam sem `parametrico`.
+  return gerarParametrizacaoModelo(modelo);
 }
+
 
 /**
  * Quando o modelo técnico tem `pontos_contorno` válidos (>=3 pts), monta um
