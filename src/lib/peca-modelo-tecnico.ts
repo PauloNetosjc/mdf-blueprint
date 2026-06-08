@@ -532,17 +532,39 @@ export function construirModeloTecnico(
       temRasgoLinha &&
       facesAcimaDe5.length > 0);
   const facesOperacionais = facesPresentes.map((f) => ({ face: f }));
-  const facesVisuais = baseLVisual
-    ? [
-        { face: "1", tipo_vista: "lateral_esquerda" },
-        { face: "2", tipo_vista: "inferior_esquerda" },
-        { face: "3", tipo_vista: "lateral_direita_inferior" },
-        { face: "4", tipo_vista: "inferior_direita" },
-        { face: "5", tipo_vista: "lateral_direita_superior" },
-        { face: "6", tipo_vista: "superior" },
-        { face: "7", tipo_vista: "principal_L" },
-      ]
-    : facesOperacionais;
+
+  // Para peças em L: tenta extrair info (W,H,RX,RY) do contorno e gerar
+  // segmentos de perfil + dimensões reais por face. Caso não seja possível,
+  // cai no fallback anterior (apenas faces 1..7 sem medidas).
+  const infoL =
+    geometria.tipo === "L" ? detectarLBR(geometria.pontos_contorno) : null;
+  const segmentosL = infoL ? gerarSegmentosLBR(infoL) : null;
+  const dimsL =
+    infoL && segmentosL
+      ? dimensoesPorFaceL(segmentosL, infoL, result.espessura_ref ?? 18)
+      : null;
+
+  const facesVisuaisBaseL = [
+    { face: "1", tipo_vista: "lateral_esquerda", segmento_de_perfil: "esquerda" as const },
+    { face: "2", tipo_vista: "inferior_esquerda", segmento_de_perfil: "inferior" as const },
+    { face: "3", tipo_vista: "lateral_direita_inferior", segmento_de_perfil: "direita" as const },
+    { face: "4", tipo_vista: "inferior_direita", segmento_de_perfil: "inferior" as const },
+    { face: "5", tipo_vista: "lateral_direita_superior", segmento_de_perfil: "direita" as const },
+    { face: "6", tipo_vista: "superior", segmento_de_perfil: "superior" as const },
+    { face: "7", tipo_vista: "principal_L" },
+  ].map((f) => {
+    const d = dimsL?.[f.face];
+    if (d) {
+      return {
+        ...f,
+        largura_visual: d.w,
+        altura_visual: d.h,
+        origem_medida: d.origem_medida,
+      };
+    }
+    return f;
+  });
+  const facesVisuais = baseLVisual ? facesVisuaisBaseL : facesOperacionais;
 
   const avisos: string[] = [];
   if (geometria.pendente) {
