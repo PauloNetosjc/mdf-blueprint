@@ -386,46 +386,35 @@ export function classificarGeometria(args: {
   pontos_contorno: { x: number; y: number }[];
   confianca: "alta" | "media" | "baixa";
   pendente: boolean;
+  relatorio: import("@/lib/classificar-geometria").ResultadoClassificacao["relatorio"];
 } {
-  const { largura, altura, nome, prefixo, facesAcimaDe5, temRasgoLinha } = args;
-  const baseL = ehBaseL(nome, prefixo);
-
-  if (baseL && largura && altura) {
-    return {
-      tipo: "L",
-      origem: "regra_base_l_inferior",
-      pontos_contorno: gerarContornoBaseLInferior(largura, altura),
-      confianca: "media",
-      pendente: false,
-    };
-  }
-
-  const complexa = facesAcimaDe5.length > 0 || temRasgoLinha || baseL;
-  if (complexa) {
-    return {
-      tipo: "poligono_complexo",
-      origem: "pdf_visual",
-      pontos_contorno: [],
-      confianca: "baixa",
-      pendente: true,
-    };
-  }
-
-  // Padrão seguro: retangular (contorno gerado pelo próprio largura×altura).
+  // Delega ao classificador central — único lugar autorizado a decidir L.
+  // Aqui não há contorno técnico nem diagnóstico visual; estes só são
+  // aplicados na camada de reprocessamento (peca-cadastrada-reprocessar.ts).
+  const r = classificarGeometriaPecaCentral({
+    largura: args.largura,
+    altura: args.altura,
+    espessura: null,
+    nome: args.nome,
+    prefixo: args.prefixo,
+    facesComOperacao: args.facesAcimaDe5,
+    temRasgoVerticalLinha: args.temRasgoLinha,
+    contornoTecnicoPdf: null,
+    diagnosticoVisualPontos: null,
+    diagnosticoVisualTipo: null,
+    diagnosticoVisualConfianca: null,
+    recorteExplicito: null,
+  });
+  // Mapeia o tipo central → schema do modelo técnico (sem "pendente").
+  const tipo: GeometriaTipo =
+    r.tipo === "pendente" ? "poligono_complexo" : (r.tipo as GeometriaTipo);
   return {
-    tipo: "retangular",
-    origem: "pdf_texto",
-    pontos_contorno:
-      largura && altura
-        ? [
-            { x: 0, y: 0 },
-            { x: largura, y: 0 },
-            { x: largura, y: altura },
-            { x: 0, y: altura },
-          ]
-        : [],
-    confianca: "alta",
-    pendente: false,
+    tipo,
+    origem: r.origem as GeometriaOrigem,
+    pontos_contorno: r.pontos_contorno,
+    confianca: r.confianca,
+    pendente: r.tipo === "pendente" ? true : r.pendente,
+    relatorio: r.relatorio,
   };
 }
 
