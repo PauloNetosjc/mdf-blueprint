@@ -107,8 +107,20 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
     }
   }
 
+  // Parametrização (âncoras aos topos) — aviso, não erro
+  const semParam = (m.operacoes ?? []).filter((o) => !o.parametrico).length;
+  if (semParam > 0) {
+    avisos.push(
+      `${semParam} operação(ões) sem parametrização — conferir antes de gerar CNC.`,
+    );
+  }
+  if (!m.parametrizacao) {
+    avisos.push("Modelo sem parametrização base — peça não acompanhará mudanças de tamanho.");
+  }
+
   return { ok: erros.length === 0, erros, avisos, detalhes };
 }
+
 
 // ---------- Fixture / teste obrigatório: BAS0485A ----------
 
