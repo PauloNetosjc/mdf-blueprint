@@ -1635,7 +1635,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     const bx = margin + box.x;
                     const by = margin + box.y;
                     const ehFacePrincipalL = modeloTecnico?.geometria.tipo === "L" &&
-                      (box.face === facePrincipalModelo || box.face === "7");
+                      (facePrincipalModelo != null
+                        ? box.face === facePrincipalModelo
+                        : box.face === "7");
                     const pathFaceL = ehFacePrincipalL && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
                       ? pathTecnicoParaSvg(contornoSalvo.pontos, box.h)
                       : null;
