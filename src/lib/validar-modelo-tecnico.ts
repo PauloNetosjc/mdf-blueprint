@@ -79,6 +79,19 @@ export function calcularDetalhesModelo(m: ModeloTecnicoLite): ResultadoValidacao
   };
 }
 
+/**
+ * Face 0 só é proibida quando NÃO há evidência de que a peça declara Face 0
+ * como face principal/operacional (ex.: BAS4622A tem FACE_PRINCIPAL:0 no
+ * CONTORNO_TECNICO e Furação/Rasgos Face 0 na tabela técnica).
+ */
+function face0EhDeclarada(m: ModeloTecnicoLite): boolean {
+  const g = m.geometria;
+  if (g && String(g.face_principal ?? "") === "0") return true;
+  if ((m.faces_operacionais ?? []).map(String).includes("0")) return true;
+  if ((m.faces_visuais ?? []).map(String).includes("0")) return true;
+  return false;
+}
+
 /** Validação genérica que vale para todas as peças. */
 export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
   const erros: string[] = [];
@@ -86,9 +99,11 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
   const detalhes = calcularDetalhesModelo(m);
 
   if (detalhes.por_face["0"]?.total) {
-    erros.push(
-      `Face 0 não pode ter operações (recebeu ${detalhes.por_face["0"].total}). Indica falha na detecção de "Face N" no parser.`,
-    );
+    if (!face0EhDeclarada(m)) {
+      erros.push(
+        `Face 0 não pode ter operações (recebeu ${detalhes.por_face["0"].total}). Indica falha na detecção de "Face N" no parser. Se a peça declarar FACE_PRINCIPAL:0 no CONTORNO_TECNICO, esta validação é dispensada.`,
+      );
+    }
   }
 
   for (const op of m.operacoes ?? []) {
@@ -100,7 +115,6 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
         m.geometria?.origem === "contorno_tecnico_pdf"
     ) {
       // permitido apenas se NÃO for o bloco CONTORNO_TECNICO indo virar operação
-      // detecta pelo nome
     }
   }
 
@@ -114,7 +128,6 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
     }
   }
 
-  // Parametrização (âncoras aos topos) — aviso, não erro
   const semParam = (m.operacoes ?? []).filter((o) => !o.parametrico).length;
   if (semParam > 0) {
     avisos.push(
