@@ -95,6 +95,31 @@ function ProjetoEditor() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const adicionarDaBiblioteca = useMutation({
+    mutationFn: async (p: PecaCadastradaResumo) => {
+      const ordem = (pecas?.length ?? 0) + 1;
+      const { error } = await supabase.from("projeto_pecas").insert({
+        projeto_id: id,
+        peca_cadastrada_id: p.id,
+        codigo: p.codigo,
+        descricao: p.nome_peca ?? p.nome ?? p.codigo ?? "Peça da biblioteca",
+        quantidade: 1,
+        largura: p.largura_ref ?? 400,
+        altura: p.altura_ref ?? 600,
+        espessura: p.espessura_ref ?? 15,
+        fita_codigo: p.fita_ref ?? null,
+        status_tecnico: "nao_aplicado",
+        ordem,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", id] });
+      toast.success("Peça adicionada da biblioteca");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const atualizar = useMutation({
     mutationFn: async (p: Partial<ProjetoPeca> & { id: string }) => {
       const { id: pid, ...rest } = p;
