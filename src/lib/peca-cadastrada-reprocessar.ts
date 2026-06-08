@@ -249,7 +249,7 @@ export async function reprocessarParserDePeca(
           origem: "parser_pdf" as const,
           largura: result.largura_ref,
           altura: result.altura_ref,
-          pontos: gerarContornoBaseLInferior(result.largura_ref, result.altura_ref),
+          pontos: pontosContornoL ?? gerarContornoBaseLInferior(result.largura_ref, result.altura_ref),
           recuos: [],
           presets_aplicados: ["regra_base_l_inferior"],
           observacao: "Contorno L técnico para Base L Inferior.",
