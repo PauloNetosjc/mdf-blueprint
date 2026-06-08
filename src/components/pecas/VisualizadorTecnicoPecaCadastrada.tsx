@@ -139,6 +139,7 @@ type Props = {
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
   facesLayout?: FacesLayoutJson | null;
+  modeloTecnico?: ModeloTecnicoJson | null;
   // Camada nova: PDF original como referência visual fiel.
   pecaId?: string;
   pdfStoragePath?: string | null;
