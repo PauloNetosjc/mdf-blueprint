@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2, Link2Off } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2 } from "lucide-react";
 import { VisualizadorPecaProjetoDialog } from "@/components/projetos/VisualizadorPecaProjetoDialog";
 import { aplicarModeloTecnicoNaPecaProjeto } from "@/lib/aplicar-modelo-projeto";
 import { gerarDadosTecnicosManuais } from "@/lib/peca-manual-tecnica";
