@@ -597,6 +597,10 @@ export function construirModeloTecnico(
       pontos_contorno: geometria.pontos_contorno,
       confianca: geometria.confianca,
       pendente: geometria.pendente,
+      face_principal:
+        ((result.dados_brutos as Record<string, unknown> | undefined)?.contorno_tecnico_pdf as
+          | { face_principal?: string | null }
+          | undefined)?.face_principal ?? null,
     },
     faces: facesOperacionais,
     faces_operacionais: facesOperacionais,
