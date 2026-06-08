@@ -186,6 +186,29 @@ export function PainelModeloTecnico({
             value={String(lite.geometria?.face_principal ?? "—")}
           />
         </div>
+        {(() => {
+          const fp = obterFacePrincipal(modelo);
+          const facesVisuaisResolvidas = (modelo?.faces_visuais ?? [])
+            .map((f) => String(f.face))
+            .sort((a, b) => Number(a) - Number(b));
+          return (
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Field
+                label="face_principal_resolvida"
+                value={fp.face != null ? `F${fp.face}` : "—"}
+              />
+              <Field label="origem" value={fp.origem} />
+              <Field
+                label="faces_visuais_resolvidas"
+                value={
+                  facesVisuaisResolvidas.length
+                    ? facesVisuaisResolvidas.map((f) => `F${f}`).join(", ")
+                    : "—"
+                }
+              />
+            </div>
+          );
+        })()}
         {pontos.length > 0 && (
           <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
             {pontos.map((p, i) => `${i + 1}. (${p.x}, ${p.y})`).join("\n")}
