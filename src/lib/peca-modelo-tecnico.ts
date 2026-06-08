@@ -170,6 +170,7 @@ export const ModeloTecnicoSchema = z.object({
   faces: z.array(z.object({ face: z.string() })).default([]),
   faces_operacionais: z.array(FaceOperacionalSchema).default([]),
   faces_visuais: z.array(FaceVisualSchema).default([]),
+  faces_visuais_segmentadas: z.array(PerfilSegmentadoSchema).optional(),
   operacoes: z.array(OperacaoModeloSchema).default([]),
   bordas: z.array(BordaModeloSchema).default([]),
   avisos: z.array(z.string()).default([]),
