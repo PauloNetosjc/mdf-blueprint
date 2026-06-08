@@ -245,11 +245,16 @@ function ProjetoEditor() {
           <Link to="/projetos/$id/fluxo" params={{ id }}>
             <Button variant="outline"><GitBranch className="mr-2 h-4 w-4" />Fluxo do Projeto</Button>
           </Link>
-          <Link to="/projetos/$id/plano" params={{ id }}>
-            <Button><Cpu className="mr-2 h-4 w-4" />Abrir Plano de Corte</Button>
-          </Link>
+          <Button onClick={() => { setTab("plano"); setGerarPlanoOpen(true); }}>
+            <Cpu className="mr-2 h-4 w-4" />Gerar plano de corte
+          </Button>
         </div>
       </header>
+
+      <ConfigurarPlanoCorteDialog
+        open={gerarPlanoOpen} onOpenChange={setGerarPlanoOpen} projetoId={id}
+      />
+
 
       <ProjetoNav projetoId={id} />
 
