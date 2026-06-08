@@ -1074,12 +1074,17 @@ export async function salvarEdicaoManualCotas(
     erros: [],
   };
 
-  const modelo = ModeloTecnicoSchema.parse(novoModeloRaw);
+  let modelo = ModeloTecnicoSchema.parse(novoModeloRaw);
+
+  // Regenera parametrização com as novas medidas-base. Operações marcadas
+  // como `editado_manualmente=true` mantêm sua âncora original.
+  modelo = gerarParametrizacaoModelo(modelo);
 
   // Validação determinística (avisos/erros) sobre o modelo recém-editado
   const validacao = validarModeloTecnico(modelo as unknown as ModeloTecnicoLite);
   modelo.erros = validacao.erros;
   modelo.avisos = Array.from(new Set([...(modelo.avisos ?? []), ...validacao.avisos]));
+
 
   const contornoExt = contornoExternoDoModelo(modelo);
   const diagnostico = {
