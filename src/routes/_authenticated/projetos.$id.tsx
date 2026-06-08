@@ -592,6 +592,50 @@ function PecasTab({
           )}
         </table>
       </div>
+
+      {visualizar && (
+        <VisualizadorPecaProjetoDialog
+          open={!!visualizar}
+          onOpenChange={(v) => { if (!v) setVisualizar(null); }}
+          peca={visualizar}
+          onPersist={async (res) => {
+            const { error } = await supabase
+              .from("projeto_pecas")
+              .update({
+                dados_tecnicos_aplicados_json: {
+                  origem: "biblioteca_parametrica",
+                  peca_cadastrada_id: visualizar.peca_cadastrada_id,
+                  codigo_modelo: res.modelo_aplicado.codigo ?? null,
+                  medidas_base: res.modelo_aplicado.parametrizacao
+                    ? {
+                        largura: res.modelo_aplicado.parametrizacao.largura_base,
+                        altura: res.modelo_aplicado.parametrizacao.altura_base,
+                        espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+                      }
+                    : null,
+                  medidas_projeto: {
+                    largura: visualizar.largura,
+                    altura: visualizar.altura,
+                    espessura: visualizar.espessura,
+                  },
+                  operacoes_recalculadas: res.operacoes_recalculadas,
+                  alertas: res.alertas,
+                  erros: res.erros,
+                  aplicado_em: new Date().toISOString(),
+                },
+                status_tecnico: res.status_tecnico,
+              })
+              .eq("id", visualizar.id);
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
+            toast.success(`Modelo reaplicado (${res.status_tecnico})`);
+            qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+            setVisualizar(null);
+          }}
+        />
+      )}
     </>
   );
 }
