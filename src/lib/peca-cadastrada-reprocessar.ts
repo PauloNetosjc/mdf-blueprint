@@ -350,15 +350,19 @@ export async function reprocessarParserDePeca(
     // como não-retangular sem pontos reais, vale tentar o raster.
     const geom = modeloTecnico.geometria;
     const nomeUpper = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
-    const facesDetectadas = result.resumo?.faces_com_operacao?.length ?? 0;
+    const facesAcimaDe5Count = (result.operacoes ?? [])
+      .map((o) => Number(o.face))
+      .filter((n) => Number.isFinite(n) && n > 5).length;
+    const temRasgoVerticalLinha = (result.operacoes ?? []).some(
+      (u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null,
+    );
+    // Indícios de geometria não-retangular: evidência EXPLÍCITA, não prefixo BAS.
     const indiciosComplexos =
       geom.pendente ||
       geom.origem === "regra_parametrica" ||
       (geom.tipo !== "retangular" && (!geom.pontos_contorno || geom.pontos_contorno.length < 3)) ||
       nomeUpper.includes("BASE L") ||
-      nomeUpper.startsWith("BAS") ||
-      facesDetectadas > 5 ||
-      (result.operacoes ?? []).some((u) => u.tipo_operacao === "rasgo" || (u.nome_operacao ?? "").toLowerCase().includes("rasgo_linha"));
+      (facesAcimaDe5Count > 0 && temRasgoVerticalLinha);
 
     if (indiciosComplexos && typeof document !== "undefined") {
       try {
@@ -417,15 +421,22 @@ export async function reprocessarParserDePeca(
     const geom = modeloTecnico.geometria;
     const nomeUpper2 = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
     const prefixo = result.codigo?.prefixo ?? null;
-    const facesDetectadas2 = result.resumo?.faces_com_operacao?.length ?? 0;
+    const facesAcimaDe5Count2 = (result.operacoes ?? [])
+      .map((o) => Number(o.face))
+      .filter((n) => Number.isFinite(n) && n > 5).length;
     const temRasgoLinha2 = (result.operacoes ?? []).some(
       (u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null,
     );
+    // Só classifica como Base L quando há EVIDÊNCIA EXPLÍCITA:
+    //  - ehBaseL() pelo nome ("Base L", "L Inferior", "L Superior"); OU
+    //  - nome contém literalmente "BASE L"; OU
+    //  - existe face de operação acima de F5 COM rasgo vertical (recorte).
+    // NÃO basta o prefixo BAS — peças BAS retangulares (ex.: BAS1101A, BAS3520A)
+    // são "Base Inferior" comum e devem permanecer retangulares.
     const ehBaseLDetectada =
       ehBaseL(result.nome_peca, prefixo) ||
-      nomeUpper2.startsWith("BAS") ||
-      facesDetectadas2 > 5 ||
-      temRasgoLinha2;
+      nomeUpper2.includes("BASE L") ||
+      (facesAcimaDe5Count2 > 0 && temRasgoLinha2);
     const precisaFallback =
       geom.pendente ||
       (ehBaseLDetectada && geom.tipo !== "L") ||
