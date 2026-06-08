@@ -847,6 +847,10 @@ function PecasCadastradasPage() {
             <ClipboardCheck className="mr-2 h-4 w-4" />
             Auditar biblioteca
           </Button>
+          <Button variant="outline" onClick={() => setFixturesOpen(true)} disabled={importando}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Validar importador (fixtures)
+          </Button>
           <Button variant="destructive" onClick={() => setLimparOpen(true)} disabled={importando}>
             <Trash2 className="mr-2 h-4 w-4" />
             Limpar biblioteca
