@@ -21,23 +21,65 @@ import {
   type ResultadoPlano,
 } from "@/lib/nesting";
 
+type PlanoSearch = {
+  chapa?: string;
+  larg?: number;
+  alt?: number;
+  esp?: number;
+  veio?: number;
+  margem?: number;
+  gap?: number;
+  rot?: number;
+  maq?: string;
+};
+
 export const Route = createFileRoute("/_authenticated/projetos/$id/plano")({
   head: () => ({ meta: [{ title: "Plano de Corte — Visualizador CNC" }] }),
+  validateSearch: (s: Record<string, unknown>): PlanoSearch => ({
+    chapa: typeof s.chapa === "string" ? s.chapa : undefined,
+    larg: s.larg != null ? Number(s.larg) : undefined,
+    alt: s.alt != null ? Number(s.alt) : undefined,
+    esp: s.esp != null ? Number(s.esp) : undefined,
+    veio: s.veio != null ? Number(s.veio) : undefined,
+    margem: s.margem != null ? Number(s.margem) : undefined,
+    gap: s.gap != null ? Number(s.gap) : undefined,
+    rot: s.rot != null ? Number(s.rot) : undefined,
+    maq: typeof s.maq === "string" ? s.maq : undefined,
+  }),
   component: PlanoPage,
 });
 
+const CHAPA_DEFAULT_ID = "__default__";
+
 function PlanoPage() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [chapaIndex, setChapaIndex] = useState(0);
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [modoMover, setModoMover] = useState(false);
   const [autoRecalc, setAutoRecalc] = useState(false);
-  const [refilo, setRefilo] = useState(10);
+  const [refilo, setRefilo] = useState(search.margem ?? 10);
+  const [espacamento, setEspacamento] = useState(search.gap ?? 6);
+  const [permitirRotacao, setPermitirRotacao] = useState((search.rot ?? 1) === 1);
   const [clipboard, setClipboard] = useState<PecaPosicionada[]>([]);
   const [resultado, setResultado] = useState<ResultadoPlano | null>(null);
   const [colisao, setColisao] = useState(false);
+
+  // Chapa padrão sintética usada quando peças não têm chapa_id atribuída
+  const chapaDefault: ChapaT = useMemo(() => ({
+    id: CHAPA_DEFAULT_ID,
+    nome: "Chapa padrão",
+    codigo: "DEFAULT",
+    cor: "#e8dcc4",
+    espessura: search.esp ?? 15,
+    largura: search.larg ?? 2785,
+    altura: search.alt ?? 1850,
+    permite_rotacao: true,
+    veio: (search.veio ?? 0) ? "horizontal" : "nenhum",
+  }), [search.esp, search.larg, search.alt, search.veio]);
+
 
   const { data: projeto } = useQuery({
     queryKey: ["projeto", id],
