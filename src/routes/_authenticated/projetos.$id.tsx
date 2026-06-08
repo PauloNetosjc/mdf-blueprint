@@ -21,6 +21,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
 import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/components/projetos/SelecionarPecaBibliotecaDialog";
 import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
+import { PlanoCorteTab } from "@/components/projetos/PlanoCorteTab";
+import { ConfigurarPlanoCorteDialog } from "@/components/projetos/ConfigurarPlanoCorteDialog";
 import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
@@ -54,6 +56,7 @@ function ProjetoEditor() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [tab, setTab] = useState("pecas");
+  const [gerarPlanoOpen, setGerarPlanoOpen] = useState(false);
 
   const { data: projeto } = useQuery({
     queryKey: ["projeto", id],
@@ -244,11 +247,16 @@ function ProjetoEditor() {
           <Link to="/projetos/$id/fluxo" params={{ id }}>
             <Button variant="outline"><GitBranch className="mr-2 h-4 w-4" />Fluxo do Projeto</Button>
           </Link>
-          <Link to="/projetos/$id/plano" params={{ id }}>
-            <Button><Cpu className="mr-2 h-4 w-4" />Abrir Plano de Corte</Button>
-          </Link>
+          <Button onClick={() => { setTab("plano"); setGerarPlanoOpen(true); }}>
+            <Cpu className="mr-2 h-4 w-4" />Gerar plano de corte
+          </Button>
         </div>
       </header>
+
+      <ConfigurarPlanoCorteDialog
+        open={gerarPlanoOpen} onOpenChange={setGerarPlanoOpen} projetoId={id}
+      />
+
 
       <ProjetoNav projetoId={id} />
 
@@ -294,12 +302,7 @@ function ProjetoEditor() {
         </TabsContent>
 
         <TabsContent value="plano" className="flex-1 overflow-auto p-6 pt-3">
-          <div className="rounded border border-border bg-surface p-8 text-center">
-            <p className="mb-4 text-muted-foreground">Abra o Plano de Corte visual em tela cheia.</p>
-            <Link to="/projetos/$id/plano" params={{ id }}>
-              <Button size="lg"><Cpu className="mr-2 h-5 w-5" />Abrir Plano de Corte</Button>
-            </Link>
-          </div>
+          <PlanoCorteTab projetoId={id} />
         </TabsContent>
       </Tabs>
     </div>

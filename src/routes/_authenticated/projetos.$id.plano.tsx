@@ -21,23 +21,65 @@ import {
   type ResultadoPlano,
 } from "@/lib/nesting";
 
+type PlanoSearch = {
+  chapa?: string;
+  larg?: number;
+  alt?: number;
+  esp?: number;
+  veio?: number;
+  margem?: number;
+  gap?: number;
+  rot?: number;
+  maq?: string;
+};
+
 export const Route = createFileRoute("/_authenticated/projetos/$id/plano")({
   head: () => ({ meta: [{ title: "Plano de Corte — Visualizador CNC" }] }),
+  validateSearch: (s: Record<string, unknown>): PlanoSearch => ({
+    chapa: typeof s.chapa === "string" ? s.chapa : undefined,
+    larg: s.larg != null ? Number(s.larg) : undefined,
+    alt: s.alt != null ? Number(s.alt) : undefined,
+    esp: s.esp != null ? Number(s.esp) : undefined,
+    veio: s.veio != null ? Number(s.veio) : undefined,
+    margem: s.margem != null ? Number(s.margem) : undefined,
+    gap: s.gap != null ? Number(s.gap) : undefined,
+    rot: s.rot != null ? Number(s.rot) : undefined,
+    maq: typeof s.maq === "string" ? s.maq : undefined,
+  }),
   component: PlanoPage,
 });
 
+const CHAPA_DEFAULT_ID = "__default__";
+
 function PlanoPage() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [chapaIndex, setChapaIndex] = useState(0);
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [modoMover, setModoMover] = useState(false);
   const [autoRecalc, setAutoRecalc] = useState(false);
-  const [refilo, setRefilo] = useState(10);
+  const [refilo, setRefilo] = useState(search.margem ?? 10);
+  const [espacamento, setEspacamento] = useState(search.gap ?? 6);
+  const [permitirRotacao, setPermitirRotacao] = useState((search.rot ?? 1) === 1);
   const [clipboard, setClipboard] = useState<PecaPosicionada[]>([]);
   const [resultado, setResultado] = useState<ResultadoPlano | null>(null);
   const [colisao, setColisao] = useState(false);
+
+  // Chapa padrão sintética usada quando peças não têm chapa_id atribuída
+  const chapaDefault: ChapaT = useMemo(() => ({
+    id: CHAPA_DEFAULT_ID,
+    nome: "Chapa padrão",
+    codigo: "DEFAULT",
+    cor: "#e8dcc4",
+    espessura: search.esp ?? 15,
+    largura: search.larg ?? 2785,
+    altura: search.alt ?? 1850,
+    permite_rotacao: true,
+    veio: (search.veio ?? 0) ? "horizontal" : "nenhum",
+  }), [search.esp, search.larg, search.alt, search.veio]);
+
 
   const { data: projeto } = useQuery({
     queryKey: ["projeto", id],
@@ -113,18 +155,31 @@ function PlanoPage() {
 
   const calcular = useCallback(() => {
     if (!pecas || !chapas) return;
-    const input: PecaInput[] = pecas
-      .filter((p) => p.chapa_id)
-      .map((p) => ({
-        id: p.id, descricao: p.descricao, largura: p.largura, altura: p.altura,
-        espessura: p.espessura, chapa_id: p.chapa_id!, quantidade: p.quantidade,
-      }));
-    const r = calcularPlanoCorte(input, chapas, refilo);
+    // Chapa padrão: usar a chapa indicada nos search params, ou a sintética
+    const chapaFallbackId = search.chapa ?? chapaDefault.id;
+    const chapasParaCalculo: ChapaT[] = search.chapa
+      ? chapas
+      : [...chapas, chapaDefault];
+
+    const input: PecaInput[] = pecas.map((p) => ({
+      id: p.id,
+      descricao: p.descricao,
+      largura: p.largura,
+      altura: p.altura,
+      espessura: p.espessura,
+      chapa_id: p.chapa_id ?? chapaFallbackId,
+      quantidade: p.quantidade,
+    }));
+    const r = calcularPlanoCorte(input, chapasParaCalculo, {
+      margem: refilo,
+      espacamento,
+      permitir_rotacao: permitirRotacao,
+    });
     setResultado(r);
     setChapaIndex(0);
     setSelecionada(null);
     setColisao(false);
-  }, [pecas, chapas, refilo]);
+  }, [pecas, chapas, refilo, espacamento, permitirRotacao, search.chapa, chapaDefault]);
 
   useEffect(() => {
     if (pecas && chapas && !resultado) calcular();
@@ -133,20 +188,40 @@ function PlanoPage() {
   useEffect(() => {
     if (autoRecalc) calcular();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refilo, autoRecalc]);
+  }, [refilo, espacamento, permitirRotacao, autoRecalc]);
 
   const salvar = useMutation({
     mutationFn: async () => {
       if (!resultado) throw new Error("Calcule o plano antes de salvar");
       if (colisao) throw new Error("Existem colisões — corrija antes de salvar");
-      await supabase.from("planos_corte").delete().eq("projeto_id", id);
+
+      const observacao = JSON.stringify({
+        nome: `Plano ${new Date().toLocaleDateString("pt-BR")}`,
+        configuracao: {
+          chapa_id: search.chapa ?? null,
+          largura_chapa: search.larg ?? chapaDefault.largura,
+          altura_chapa: search.alt ?? chapaDefault.altura,
+          espessura: search.esp ?? chapaDefault.espessura,
+          margem: refilo,
+          espacamento,
+          possui_veio: (search.veio ?? 0) === 1,
+          permitir_rotacao: permitirRotacao,
+          maquina_destino: search.maq ?? "nesting",
+        },
+        pecas_nao_encaixadas: resultado.pecas_nao_encaixadas,
+      });
+
       const { data: plano, error } = await supabase.from("planos_corte").insert({
         projeto_id: id, versao: 1,
         aproveitamento_medio: resultado.aproveitamento_medio,
         total_chapas: resultado.total_chapas, total_pecas: resultado.total_pecas,
+        status: "gerado",
+        observacao,
       }).select().single();
       if (error) throw error;
       for (const c of resultado.chapas) {
+        // Chapa sintética não tem id real — pular inserção em plano_corte_chapas
+        if (c.chapa.id === CHAPA_DEFAULT_ID) continue;
         const { data: pc, error: e1 } = await supabase.from("plano_corte_chapas").insert({
           plano_id: plano.id, chapa_id: c.chapa.id, indice: c.indice,
           aproveitamento: c.aproveitamento, area_usada: c.area_usada,
@@ -164,11 +239,16 @@ function PlanoPage() {
           })));
         }
       }
-      await supabase.from("projetos").update({ status: "plano_gerado" }).eq("id", id);
+      await supabase.from("projetos").update({ status: "plano_corte_gerado" }).eq("id", id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["projetos"] }); toast.success("Plano salvo"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projetos"] });
+      qc.invalidateQueries({ queryKey: ["planos-corte-list", id] });
+      toast.success("Plano salvo");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const chapaAtual = resultado?.chapas[chapaIndex];
   const pecaSelecionada = chapaAtual?.pecas.find((p) => p.id === selecionada) ?? null;
@@ -378,6 +458,27 @@ function PlanoPage() {
               <p className="text-xs text-muted-foreground">Nenhuma chapa. Verifique se as peças têm chapa atribuída.</p>
             )}
           </div>
+
+          {resultado && resultado.pecas_nao_encaixadas.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-warning">
+                Peças não encaixadas ({resultado.pecas_nao_encaixadas.length})
+              </h3>
+              <div className="space-y-1 rounded border border-warning/40 bg-warning/10 p-2 text-[11px]">
+                {resultado.pecas_nao_encaixadas.map((p, i) => (
+                  <div key={`ne-${i}`} className="border-b border-warning/20 pb-1 last:border-0">
+                    <div className="font-semibold">{p.descricao}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {Math.round(p.largura)}×{Math.round(p.altura)} mm
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">{p.motivo}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+
 
           {/* Legenda */}
           <h3 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Legenda</h3>

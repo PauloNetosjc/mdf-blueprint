@@ -53,9 +53,24 @@ export type ResultadoPlano = {
   aproveitamento_medio: number;
   total_pecas: number;
   total_chapas: number;
+  pecas_nao_encaixadas: Array<{
+    projeto_peca_id: string;
+    descricao: string;
+    codigo?: string | null;
+    largura: number;
+    altura: number;
+    motivo: string;
+  }>;
 };
 
-const KERF_DEFAULT = 4; // mm — folga padrão entre peças e refilo
+export type ConfigPlano = {
+  margem?: number;            // mm — refilo da chapa
+  espacamento?: number;       // mm — entre peças
+  permitir_rotacao?: boolean; // override global (apenas se chapa permitir)
+};
+
+const MARGEM_DEFAULT = 10;
+const ESPACAMENTO_DEFAULT = 6;
 
 type Item = {
   projeto_peca_id: string;
@@ -71,8 +86,16 @@ type Item = {
 export function calcularPlanoCorte(
   pecas: PecaInput[],
   chapas: Chapa[],
-  refilo: number = KERF_DEFAULT,
+  refiloOrConfig: number | ConfigPlano = MARGEM_DEFAULT,
 ): ResultadoPlano {
+  const cfg: Required<ConfigPlano> =
+    typeof refiloOrConfig === "number"
+      ? { margem: refiloOrConfig, espacamento: ESPACAMENTO_DEFAULT, permitir_rotacao: true }
+      : {
+          margem: refiloOrConfig.margem ?? MARGEM_DEFAULT,
+          espacamento: refiloOrConfig.espacamento ?? ESPACAMENTO_DEFAULT,
+          permitir_rotacao: refiloOrConfig.permitir_rotacao ?? true,
+        };
   // 1) Expandir por quantidade e filtrar peças com chapa atribuída
   const items: Item[] = [];
   for (const p of pecas) {
@@ -102,21 +125,42 @@ export function calcularPlanoCorte(
   const planoChapas: ChapaPlano[] = [];
   let indiceGlobal = 1;
 
+  const naoEncaixadas: ResultadoPlano["pecas_nao_encaixadas"] = [];
+
   for (const [chapaId, lote] of grupos.entries()) {
     const chapa = chapas.find((c) => c.id === chapaId);
-    if (!chapa) continue;
+    if (!chapa) {
+      for (const it of lote) {
+        naoEncaixadas.push({
+          projeto_peca_id: it.projeto_peca_id,
+          descricao: it.descricao,
+          codigo: it.codigo,
+          largura: it.largura,
+          altura: it.altura,
+          motivo: "Chapa não encontrada",
+        });
+      }
+      continue;
+    }
 
     // ordenar maior área desc
     lote.sort((a, b) => b.largura * b.altura - a.largura * a.altura);
 
     let restantes = [...lote];
     while (restantes.length > 0) {
-      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, refilo);
+      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, cfg);
       if (posicionadas.length === 0) {
-        // peça maior que a chapa — pula para evitar loop
+        // peça maior que a chapa — registra como não encaixada
         const skip = restantes.shift();
         if (skip) {
-          console.warn("Peça maior que a chapa, ignorada:", skip);
+          naoEncaixadas.push({
+            projeto_peca_id: skip.projeto_peca_id,
+            descricao: skip.descricao,
+            codigo: skip.codigo,
+            largura: skip.largura,
+            altura: skip.altura,
+            motivo: `Peça (${Math.round(skip.largura)}×${Math.round(skip.altura)}) maior que a chapa (${chapa.largura}×${chapa.altura})`,
+          });
         }
         continue;
       }
@@ -144,18 +188,21 @@ export function calcularPlanoCorte(
     aproveitamento_medio,
     total_pecas,
     total_chapas: planoChapas.length,
+    pecas_nao_encaixadas: naoEncaixadas,
   };
 }
 
-function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT) {
+function empacotarShelf(items: Item[], chapa: Chapa, cfg: Required<ConfigPlano>) {
+  const MARGEM = cfg.margem;
+  const GAP = cfg.espacamento;
   const W = chapa.largura;
   const H = chapa.altura;
   const posicionadas: PecaPosicionada[] = [];
   const sobras: Sobra[] = [];
 
-  let cursorY = KERF;
+  let cursorY = MARGEM;
   let alturaLinha = 0;
-  let cursorX = KERF;
+  let cursorX = MARGEM;
   let usadosUid = new Set<string>();
   let areaUsada = 0;
 
@@ -167,16 +214,18 @@ function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT
     const orientacoes: Array<{ w: number; h: number; rot: boolean }> = [
       { w: it.largura, h: it.altura, rot: false },
     ];
-    if (chapa.permite_rotacao && it.permite_rotacao_peca && chapa.veio === "nenhum") {
+    const podeRotacionar =
+      cfg.permitir_rotacao && chapa.permite_rotacao && it.permite_rotacao_peca && chapa.veio === "nenhum";
+    if (podeRotacionar) {
       orientacoes.push({ w: it.altura, h: it.largura, rot: true });
     }
 
     let colocou = false;
     for (const o of orientacoes) {
-      if (o.w > W - 2 * KERF || o.h > H - 2 * KERF) continue;
+      if (o.w > W - 2 * MARGEM || o.h > H - 2 * MARGEM) continue;
 
       // cabe na linha atual?
-      if (cursorX + o.w + KERF <= W && cursorY + o.h + KERF <= H) {
+      if (cursorX + o.w + MARGEM <= W && cursorY + o.h + MARGEM <= H) {
         posicionadas.push({
           id: it.uid,
           projeto_peca_id: it.projeto_peca_id,
@@ -190,26 +239,26 @@ function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT
         });
         areaUsada += o.w * o.h;
         usadosUid.add(it.uid);
-        cursorX += o.w + KERF;
+        cursorX += o.w + GAP;
         alturaLinha = Math.max(alturaLinha, o.h);
         colocou = true;
         break;
       }
 
       // tenta nova linha
-      const novoY = cursorY + alturaLinha + KERF;
-      if (novoY + o.h + KERF <= H && o.w + 2 * KERF <= W) {
+      const novoY = cursorY + alturaLinha + GAP;
+      if (novoY + o.h + MARGEM <= H && o.w + 2 * MARGEM <= W) {
         // registra sobra final da linha anterior (faixa horizontal à direita)
-        if (cursorX < W - KERF && alturaLinha > 0) {
+        if (cursorX < W - MARGEM && alturaLinha > 0) {
           sobras.push({
             x: cursorX,
             y: cursorY,
-            largura: W - KERF - cursorX,
+            largura: W - MARGEM - cursorX,
             altura: alturaLinha,
           });
         }
         cursorY = novoY;
-        cursorX = KERF;
+        cursorX = MARGEM;
         alturaLinha = 0;
 
         posicionadas.push({
@@ -225,7 +274,7 @@ function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT
         });
         areaUsada += o.w * o.h;
         usadosUid.add(it.uid);
-        cursorX += o.w + KERF;
+        cursorX += o.w + GAP;
         alturaLinha = o.h;
         colocou = true;
         break;
@@ -238,22 +287,22 @@ function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT
   }
 
   // sobra final da última linha
-  if (cursorX < W - KERF && alturaLinha > 0) {
+  if (cursorX < W - MARGEM && alturaLinha > 0) {
     sobras.push({
       x: cursorX,
       y: cursorY,
-      largura: W - KERF - cursorX,
+      largura: W - MARGEM - cursorX,
       altura: alturaLinha,
     });
   }
   // sobra inferior (faixa inteira abaixo da última linha)
-  const baseFinal = cursorY + alturaLinha + KERF;
-  if (baseFinal < H - KERF) {
+  const baseFinal = cursorY + alturaLinha + GAP;
+  if (baseFinal < H - MARGEM) {
     sobras.push({
-      x: KERF,
+      x: MARGEM,
       y: baseFinal,
-      largura: W - 2 * KERF,
-      altura: H - KERF - baseFinal,
+      largura: W - 2 * MARGEM,
+      altura: H - MARGEM - baseFinal,
     });
   }
 
