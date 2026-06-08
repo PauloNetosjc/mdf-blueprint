@@ -132,12 +132,23 @@ export function VisualizadorPecaProjetoDialog({ open, onOpenChange, peca, onPers
         {/* Comparação medidas */}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="rounded border border-border bg-surface-2 p-2">
-            <div className="mb-1 font-semibold text-muted-foreground">Medidas base (biblioteca)</div>
+            <div className="mb-1 font-semibold text-muted-foreground">
+              {dados?.origem === "peca_manual" ? "Origem" : "Medidas base (biblioteca)"}
+            </div>
             <div className="font-mono">
-              {dados?.medidas_base
+              {dados?.origem === "peca_manual"
+                ? "Peça manual (sem biblioteca)"
+                : dados?.medidas_base
                 ? `${dados.medidas_base.largura} × ${dados.medidas_base.altura} × ${dados.medidas_base.espessura}`
                 : "—"}
             </div>
+            {dados?.origem === "peca_manual" && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {(dados as any)?.fita_codigo ? `Fita: ${(dados as any).fita_codigo}` : null}
+                {(dados as any)?.fita_codigo && (dados as any)?.modulo ? " · " : ""}
+                {(dados as any)?.modulo ? `Módulo: ${(dados as any).modulo}` : null}
+              </div>
+            )}
           </div>
           <div className="rounded border border-primary/30 bg-primary/5 p-2">
             <div className="mb-1 font-semibold text-primary">Medidas reais (projeto)</div>
@@ -146,6 +157,13 @@ export function VisualizadorPecaProjetoDialog({ open, onOpenChange, peca, onPers
             </div>
           </div>
         </div>
+
+        {dados?.origem === "peca_manual" && operacoes.length === 0 && (
+          <div className="flex items-start gap-2 rounded border border-muted bg-muted/30 p-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-3.5 w-3.5" />
+            <span>Peça criada manualmente. Sem operações técnicas vinculadas.</span>
+          </div>
+        )}
 
         {requerManual && (
           <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning/5 p-2 text-xs text-warning">
