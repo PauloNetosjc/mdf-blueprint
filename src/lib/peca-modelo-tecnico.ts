@@ -9,11 +9,13 @@
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
+import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
 import type {
   BordaExtraida,
   OperacaoExtraida,
   ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+
 
 // ---------- Schema (Zod) ----------
 
@@ -52,6 +54,26 @@ export const GeometriaSchema = z.object({
   face_principal: z.union([z.string(), z.number()]).nullable().optional(),
 });
 
+const AncoraXSchema = z.enum(["esquerda", "direita", "centro", "percentual", "absoluto"]);
+const AncoraYSchema = z.enum(["inferior", "superior", "centro", "percentual", "absoluto"]);
+const RegraSchema = z.enum(["ancora", "absoluto"]);
+
+export const ParametricoSchema = z.object({
+  ancora_x: AncoraXSchema,
+  distancia_x: z.number(),
+  ancora_y: AncoraYSchema,
+  distancia_y: z.number(),
+  regra_x: RegraSchema.default("ancora"),
+  regra_y: RegraSchema.default("ancora"),
+  largura_base: z.number(),
+  altura_base: z.number(),
+  ancora_x2: AncoraXSchema.optional(),
+  distancia_x2: z.number().optional(),
+  ancora_y2: AncoraYSchema.optional(),
+  distancia_y2: z.number().optional(),
+  editado_manualmente: z.boolean().optional(),
+});
+
 export const OperacaoModeloSchema = z.object({
   face: z.union([z.string(), z.number()]).transform((v) => String(v)),
   tipo: z.string(),
@@ -76,8 +98,11 @@ export const OperacaoModeloSchema = z.object({
   })).optional().default([]),
   ordem: z.number().optional().default(0),
   confianca: z.enum(["alta", "media", "baixa"]).optional().default("media"),
+  parametrico: ParametricoSchema.optional(),
 });
 export type OperacaoModelo = z.infer<typeof OperacaoModeloSchema>;
+export type Parametrico = z.infer<typeof ParametricoSchema>;
+
 
 export const BordaModeloSchema = z.object({
   lado: z.string(),
@@ -98,6 +123,13 @@ const FaceVisualSchema = z.object({
   largura_visual: z.number().nullable().optional(),
   altura_visual: z.number().nullable().optional(),
   geometria: z.string().nullable().optional(),
+});
+
+export const ParametrizacaoSchema = z.object({
+  largura_base: z.number(),
+  altura_base: z.number(),
+  espessura_base: z.number().default(0),
+  regra: z.literal("ancoras_topos").default("ancoras_topos"),
 });
 
 export const ModeloTecnicoSchema = z.object({
@@ -122,9 +154,11 @@ export const ModeloTecnicoSchema = z.object({
   avisos: z.array(z.string()).default([]),
   erros: z.array(z.string()).default([]),
   metadados: z.record(z.unknown()).optional().default({}),
+  parametrizacao: ParametrizacaoSchema.optional(),
 });
 
 export type ModeloTecnicoJson = z.infer<typeof ModeloTecnicoSchema>;
+
 
 // ---------- Regras paramétricas de geometria ----------
 
@@ -507,7 +541,7 @@ export function construirModeloTecnico(
     avisos.push(`Faces acima de F5 detectadas: ${facesAcimaDe5.join(", ")}`);
   }
 
-  return ModeloTecnicoSchema.parse({
+  const modelo = ModeloTecnicoSchema.parse({
     versao: 1,
     codigo: result.codigo?.codigo_completo ?? "",
     nome: result.nome_peca,
@@ -541,7 +575,12 @@ export function construirModeloTecnico(
       gerado_em: new Date().toISOString(),
     },
   });
+
+  // Gera parametrização automática (âncoras aos topos) a partir das
+  // medidas-base. Operações sem coordenadas válidas ficam sem `parametrico`.
+  return gerarParametrizacaoModelo(modelo);
 }
+
 
 /**
  * Quando o modelo técnico tem `pontos_contorno` válidos (>=3 pts), monta um
@@ -1035,12 +1074,17 @@ export async function salvarEdicaoManualCotas(
     erros: [],
   };
 
-  const modelo = ModeloTecnicoSchema.parse(novoModeloRaw);
+  let modelo = ModeloTecnicoSchema.parse(novoModeloRaw);
+
+  // Regenera parametrização com as novas medidas-base. Operações marcadas
+  // como `editado_manualmente=true` mantêm sua âncora original.
+  modelo = gerarParametrizacaoModelo(modelo);
 
   // Validação determinística (avisos/erros) sobre o modelo recém-editado
   const validacao = validarModeloTecnico(modelo as unknown as ModeloTecnicoLite);
   modelo.erros = validacao.erros;
   modelo.avisos = Array.from(new Set([...(modelo.avisos ?? []), ...validacao.avisos]));
+
 
   const contornoExt = contornoExternoDoModelo(modelo);
   const diagnostico = {

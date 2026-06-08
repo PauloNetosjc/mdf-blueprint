@@ -42,8 +42,10 @@ import {
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
 import { VisualizadorTecnicoPecaCadastrada, type ContornoExterno, type FacesLayoutJson } from "@/components/pecas/VisualizadorTecnicoPecaCadastrada";
 import { PainelModeloTecnico } from "@/components/pecas/PainelModeloTecnico";
+import { PainelParametrizacao } from "@/components/pecas/PainelParametrizacao";
 import { EditorCotasPecaDialog } from "@/components/pecas/EditorCotasPecaDialog";
 import { Pencil } from "lucide-react";
+
 
 
 
@@ -664,11 +666,18 @@ function PecaCadastradaDetalhe() {
       <Tabs value={aba} onValueChange={setAba} className="w-full">
         <TabsList>
           <TabsTrigger value="modelo">Modelo técnico</TabsTrigger>
+          <TabsTrigger value="parametrizacao">Parametrização</TabsTrigger>
           <TabsTrigger value="visualizador">Visualizador ({ops.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="bordas">Bordas ({bordas.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="pdf">PDF Original</TabsTrigger>
           <TabsTrigger value="debug">Debug / Logs</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="parametrizacao" className="space-y-4">
+          <PainelParametrizacao pecaId={id} modelo={modeloTecnico} />
+        </TabsContent>
+
+
 
         {/* ───── MODELO TÉCNICO (validador) ───── */}
         <TabsContent value="modelo" className="space-y-4">

@@ -11,6 +11,7 @@ export type OperacaoLite = {
   y?: number | null;
   diametro?: number | null;
   profundidade?: number | null;
+  parametrico?: unknown;
 };
 
 export type GeometriaLite = {
@@ -26,7 +27,9 @@ export type ModeloTecnicoLite = {
   faces_operacionais?: number[];
   faces_visuais?: number[];
   operacoes: OperacaoLite[];
+  parametrizacao?: unknown;
 };
+
 
 export type ResultadoValidacao = {
   ok: boolean;
@@ -104,8 +107,20 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
     }
   }
 
+  // Parametrização (âncoras aos topos) — aviso, não erro
+  const semParam = (m.operacoes ?? []).filter((o) => !o.parametrico).length;
+  if (semParam > 0) {
+    avisos.push(
+      `${semParam} operação(ões) sem parametrização — conferir antes de gerar CNC.`,
+    );
+  }
+  if (!m.parametrizacao) {
+    avisos.push("Modelo sem parametrização base — peça não acompanhará mudanças de tamanho.");
+  }
+
   return { ok: erros.length === 0, erros, avisos, detalhes };
 }
+
 
 // ---------- Fixture / teste obrigatório: BAS0485A ----------
 
