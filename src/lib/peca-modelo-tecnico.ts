@@ -354,7 +354,7 @@ export function gerarContornoBaseLInferiorPorValidacao(
       const pts = pontosDeOperacao(op);
       if (!pts.length) continue;
       for (const p of pts) {
-        if (!pontoDentroDoPoligono(p, poly, 0.75)) {
+        if (!pontoDentroOuNaBordaDoPoligono(p, poly, 0.75)) {
           fora++;
           break;
         }
@@ -686,6 +686,15 @@ export type ValidacaoGeometrica = {
     x?: number;
     y?: number;
     motivo: string;
+    pontos_testados?: Array<{
+      label: string;
+      x: number;
+      y: number;
+      dentro: boolean;
+      na_borda: boolean;
+      valido: boolean;
+      distancia_borda: number;
+    }>;
   }>;
 };
 
