@@ -277,6 +277,7 @@ function PecasTab({
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [expandida, setExpandida] = useState<string | null>(null);
+  const [visualizar, setVisualizar] = useState<ProjetoPeca | null>(null);
 
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
