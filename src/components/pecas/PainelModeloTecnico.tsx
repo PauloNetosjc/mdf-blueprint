@@ -4,6 +4,7 @@ import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
 import {
   validarModeloTecnico,
   validarParserBAS0485A,
+  validarParserBAS1101A,
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
