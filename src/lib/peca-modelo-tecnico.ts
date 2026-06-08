@@ -10,6 +10,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
 import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
+import { classificarGeometriaPeca as classificarGeometriaPecaCentral } from "@/lib/classificar-geometria";
 import type {
   BordaExtraida,
   OperacaoExtraida,
