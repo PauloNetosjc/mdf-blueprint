@@ -57,6 +57,10 @@ export function PainelModeloTecnico({
           face: o.face,
           x: o.x,
           y: o.y,
+            x1: o.x1,
+            x2: o.x2,
+            y1: o.y1,
+            y2: o.y2,
           diametro: o.diametro,
           profundidade: o.profundidade,
         })),
@@ -231,7 +235,10 @@ export function PainelModeloTecnico({
             )}
             {facesOrdenadas.map((f) => {
               const r = det.por_face[f];
-              const danger = f === "0" && r.total > 0;
+              const face0Declarada = String(lite.geometria?.face_principal ?? "") === "0" ||
+                (lite.faces_operacionais ?? []).map(String).includes("0") ||
+                (lite.faces_visuais ?? []).map(String).includes("0");
+              const danger = f === "0" && r.total > 0 && !face0Declarada;
               return (
                 <tr key={f} className={danger ? "text-destructive" : ""}>
                   <td>Face {f}{danger ? " (não permitido)" : ""}</td>
