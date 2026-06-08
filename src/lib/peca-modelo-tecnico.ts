@@ -601,6 +601,7 @@ export function construirModeloTecnico(
     faces: facesOperacionais,
     faces_operacionais: facesOperacionais,
     faces_visuais: facesVisuais,
+    faces_visuais_segmentadas: segmentosL ?? undefined,
     operacoes: result.operacoes.map(mapOperacao),
     bordas: result.bordas.map(mapBorda),
     avisos,
@@ -609,6 +610,7 @@ export function construirModeloTecnico(
       classificacao_pdf: result.classificacao.classificacao,
       gerado_em: new Date().toISOString(),
       classificacao_geometria: geometria.relatorio,
+      info_l: infoL ?? null,
     },
   });
 
