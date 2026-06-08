@@ -1332,7 +1332,22 @@ export function VisualizadorTecnicoPecaCadastrada({
                         },
                       }
                     : {};
-                const lShape = detectarLDoContorno(contornoExterno?.pontos ?? []);
+                // Cotas internas do recorte L só fazem sentido na face PRINCIPAL (em L).
+                // Para faces segmentadas (F1..F6) NÃO desenhar lShape para evitar cotas soltas
+                // sobrepostas dentro do retângulo do segmento selecionado.
+                const principalFaceModelo =
+                  modeloTecnico?.geometria?.face_principal != null
+                    ? String(modeloTecnico.geometria.face_principal)
+                    : null;
+                const ehFacePrincipalL =
+                  !!contornoSalvo &&
+                  (faceSel === principalFaceModelo ||
+                    faceSel === "7" ||
+                    faceSel === "0" ||
+                    faceSel === "5");
+                const lShape = ehFacePrincipalL
+                  ? detectarLDoContorno(contornoExterno?.pontos ?? [])
+                  : null;
                 return (
                   <g
                     stroke="var(--color-foreground)"
