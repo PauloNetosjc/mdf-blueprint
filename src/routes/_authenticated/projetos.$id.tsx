@@ -646,10 +646,10 @@ function PecasTab({
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled
-                        title="Vincule uma peça da biblioteca para aplicar técnica."
+                        title="Gerar técnica manual e visualizar (Peça manual · Aplicado: não)"
+                        onClick={() => gerarManual(p)}
                       >
-                        <Link2Off className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
