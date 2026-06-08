@@ -56,6 +56,7 @@ function ProjetoEditor() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [tab, setTab] = useState("pecas");
+  const [gerarPlanoOpen, setGerarPlanoOpen] = useState(false);
 
   const { data: projeto } = useQuery({
     queryKey: ["projeto", id],
