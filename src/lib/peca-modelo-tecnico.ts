@@ -473,6 +473,7 @@ function mapBorda(b: BordaExtraida): BordaModelo {
     largura: b.largura,
     cor: b.cor,
     indicador_desenho: b.indicador_desenho,
+    quantidade_m: b.quantidade_m ?? null,
     confianca: b.confianca_parser,
   };
 }
