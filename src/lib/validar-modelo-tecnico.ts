@@ -11,6 +11,7 @@ export type OperacaoLite = {
   y?: number | null;
   diametro?: number | null;
   profundidade?: number | null;
+  parametrico?: unknown;
 };
 
 export type GeometriaLite = {
@@ -26,7 +27,9 @@ export type ModeloTecnicoLite = {
   faces_operacionais?: number[];
   faces_visuais?: number[];
   operacoes: OperacaoLite[];
+  parametrizacao?: unknown;
 };
+
 
 export type ResultadoValidacao = {
   ok: boolean;
