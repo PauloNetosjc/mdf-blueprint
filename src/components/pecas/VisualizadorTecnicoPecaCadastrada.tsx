@@ -599,6 +599,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   facesDetectadas = [],
   contornoExterno,
   facesLayout,
+  modeloTecnico,
   pecaId,
   pdfStoragePath,
   pdfNomeArquivo,
