@@ -32,6 +32,7 @@ import {
 } from "@/lib/peca-modelo-tecnico";
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
 import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado";
+import { classificarGeometriaPeca } from "@/lib/classificar-geometria";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -413,74 +414,136 @@ export async function reprocessarParserDePeca(
     }
   }
 
-  // ---------- Fallback técnico: Base L Inferior ----------
-  // Se nenhuma extração visual gerou contorno e a peça é claramente Base L,
-  // aplica a regra paramétrica específica (não a regra 50/50 genérica) para
-  // não deixar pontos_contorno vazio.
+  // ---------- Classificação final de geometria (evidência-baseada) ----------
+  // Roda o classificador central com TODAS as evidências disponíveis para
+  // decidir o tipo final da peça. Só transforma em L quando o classificador
+  // confirmar evidência explícita (CONTORNO_TECNICO, diagnóstico visual,
+  // recorte cotado, ou nome "Base L" + estrutura). Caso contrário, mantém
+  // retangular — sem fallback genérico "BAS = L".
+  const tipoAnteriorReprocesso = modeloTecnico.geometria.tipo;
   {
     const geom = modeloTecnico.geometria;
-    const nomeUpper2 = (result.codigo?.codigo_completo ?? result.nome_peca ?? "").toUpperCase();
-    const prefixo = result.codigo?.prefixo ?? null;
-    const facesAcimaDe5Count2 = (result.operacoes ?? [])
+    const facesComOperacao = (result.operacoes ?? [])
       .map((o) => Number(o.face))
-      .filter((n) => Number.isFinite(n) && n > 5).length;
-    const temRasgoLinha2 = (result.operacoes ?? []).some(
+      .filter((n) => Number.isFinite(n));
+    const temRasgoVerticalLinha = (result.operacoes ?? []).some(
       (u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null,
     );
-    // Só classifica como Base L quando há EVIDÊNCIA EXPLÍCITA:
-    //  - ehBaseL() pelo nome ("Base L", "L Inferior", "L Superior"); OU
-    //  - nome contém literalmente "BASE L"; OU
-    //  - existe face de operação acima de F5 COM rasgo vertical (recorte).
-    // NÃO basta o prefixo BAS — peças BAS retangulares (ex.: BAS1101A, BAS3520A)
-    // são "Base Inferior" comum e devem permanecer retangulares.
-    const ehBaseLDetectada =
-      ehBaseL(result.nome_peca, prefixo) ||
-      nomeUpper2.includes("BASE L") ||
-      (facesAcimaDe5Count2 > 0 && temRasgoLinha2);
-    const precisaFallback =
-      geom.pendente ||
-      (ehBaseLDetectada && geom.tipo !== "L") ||
-      geom.tipo === "retangular" ||
-      !geom.pontos_contorno ||
-      geom.pontos_contorno.length < (ehBaseLDetectada ? 6 : 3);
+    const diagVisual = dadosBrutosFinal.contorno_visual_diagnostico as
+      | { tipo?: string; confianca?: "alta" | "media" | "baixa"; pendente?: boolean; pontos?: number }
+      | undefined;
+    const diagRaster = dadosBrutosFinal.contorno_raster_diagnostico as
+      | { tipo?: string; confianca?: "alta" | "media" | "baixa"; pendente?: boolean; pontos?: number }
+      | undefined;
+    const diagPontos = geom.pontos_contorno ?? [];
+
+    const decisao = classificarGeometriaPeca({
+      largura: result.largura_ref,
+      altura: result.altura_ref,
+      espessura: result.espessura_ref,
+      nome: result.nome_peca,
+      prefixo: result.codigo?.prefixo ?? null,
+      facesComOperacao,
+      temRasgoVerticalLinha,
+      contornoTecnicoPdf: contornoTecnicoPdf
+        ? { tipo: contornoTecnicoPdf.tipo, pontos: contornoTecnicoPdf.pontos }
+        : null,
+      diagnosticoVisualPontos:
+        geom.origem === "pdf_visual_calibrado" || geom.origem === "pdf_raster_calibrado"
+          ? diagPontos
+          : null,
+      diagnosticoVisualTipo:
+        (diagVisual?.tipo as string | undefined) ??
+        (diagRaster?.tipo as string | undefined) ??
+        null,
+      diagnosticoVisualConfianca:
+        diagVisual?.confianca ?? diagRaster?.confianca ?? null,
+      recorteExplicito: null,
+    });
+
+    // Salva relatório no importador (sempre).
+    const relatorioAtual = (dadosBrutosFinal.relatorio_importacao ?? {}) as Record<
+      string,
+      unknown
+    >;
+    dadosBrutosFinal.relatorio_importacao = {
+      ...relatorioAtual,
+      classificacao_geometria: decisao.relatorio,
+    };
+
     const L = result.largura_ref;
     const H = result.altura_ref;
-    if (!geometriaResolvidaPorContornoTecnico && precisaFallback && ehBaseLDetectada && L && H) {
-      const opsModelo = modeloTecnico.operacoes;
-      const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
-      const contornoL = gerarContornoBaseLInferior(L, H);
-      const candidatoVisual = resultado.candidatos.find(
-        (c) => JSON.stringify(c.pontos) === JSON.stringify(contornoL),
-      );
-      modeloTecnico.geometria = {
-        ...geom,
-        tipo: "L",
-        origem: "regra_base_l_inferior",
-        largura: L,
-        altura: H,
-        pontos_contorno: contornoL,
-        confianca: "media",
-        pendente: false,
-      };
-      modeloTecnico.avisos = [
-        ...modeloTecnico.avisos.filter(
+
+    // Aplica a decisão SOMENTE quando o pipeline anterior não trouxe
+    // contorno técnico próprio ou diagnóstico visual confiável.
+    const jaResolvidoComFonteForte =
+      geometriaResolvidaPorContornoTecnico ||
+      geom.origem === "pdf_visual_calibrado" ||
+      geom.origem === "pdf_raster_calibrado" ||
+      geom.origem === "manual";
+
+    if (!jaResolvidoComFonteForte && L && H) {
+      if (decisao.tipo === "L") {
+        // L confirmado por evidência — usa pontos do classificador.
+        const opsModelo = modeloTecnico.operacoes;
+        const resultado = gerarContornoBaseLInferiorPorValidacao(L, H, opsModelo);
+        const candidato = resultado.candidatos.find(
+          (c) => JSON.stringify(c.pontos) === JSON.stringify(decisao.pontos_contorno),
+        );
+        modeloTecnico.geometria = {
+          ...geom,
+          tipo: "L",
+          origem: decisao.origem as typeof geom.origem,
+          largura: L,
+          altura: H,
+          pontos_contorno: decisao.pontos_contorno,
+          confianca: decisao.confianca,
+          pendente: false,
+        };
+        modeloTecnico.avisos = [
+          ...modeloTecnico.avisos.filter(
+            (a) => !a.includes("Importe um modelo técnico JSON"),
+          ),
+          `Geometria L: ${decisao.relatorio.motivo}${candidato ? ` (${candidato.nome})` : ""}`,
+        ];
+        dadosBrutosFinal.contorno_base_l_diagnostico = {
+          em: new Date().toISOString(),
+          largura: L,
+          altura: H,
+          escolhido: candidato?.nome ?? "classificador_central",
+          escolhido_por: "classificador_geometria",
+          motivo: decisao.relatorio.motivo,
+          evidencias_usadas: decisao.relatorio.evidencias_usadas,
+        };
+      } else if (decisao.tipo === "retangular") {
+        // Sem evidência de L → garante retangular. Se antes estava L sem
+        // evidência, registra a correção como aviso/log.
+        const corrigidoDeL = tipoAnteriorReprocesso === "L";
+        modeloTecnico.geometria = {
+          ...geom,
+          tipo: "retangular",
+          origem: "pdf_medidas",
+          largura: L,
+          altura: H,
+          pontos_contorno: decisao.pontos_contorno,
+          confianca: "alta",
+          pendente: false,
+        };
+        modeloTecnico.avisos = modeloTecnico.avisos.filter(
           (a) => !a.includes("Importe um modelo técnico JSON"),
-        ),
-        `Geometria em L gerada por regra técnica Base L Inferior (${candidatoVisual?.nome ?? "BR_visual_pdf"}). Conferir antes de enviar à máquina.`,
-      ];
-      dadosBrutosFinal.contorno_base_l_diagnostico = {
-        em: new Date().toISOString(),
-        largura: L,
-        altura: H,
-        escolhido: candidatoVisual?.nome ?? "BR_visual_pdf",
-        escolhido_por: "forma_visual_do_pdf",
-        motivo: resultado.motivo,
-        candidatos: resultado.candidatos.map((c) => ({
-          nome: c.nome,
-          fora: c.fora,
-          pontos: c.pontos.length,
-        })),
-      };
+        );
+        if (corrigidoDeL) {
+          modeloTecnico.avisos.push(
+            "Geometria corrigida de L para retangular por ausência de evidência explícita.",
+          );
+        }
+      } else if (decisao.tipo === "pendente") {
+        modeloTecnico.geometria = {
+          ...geom,
+          pendente: true,
+          confianca: "baixa",
+        };
+      }
     }
   }
 

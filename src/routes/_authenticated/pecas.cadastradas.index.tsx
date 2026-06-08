@@ -19,6 +19,7 @@ import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeomet
 import { ReprocessarParserErrosDialog } from "@/components/pecas/ReprocessarParserErrosDialog";
 import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
 import { AuditarBibliotecaDialog } from "@/components/pecas/AuditarBibliotecaDialog";
+import { ValidarFixturesDialog } from "@/components/pecas/ValidarFixturesDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
   parseTechnicalDrawingPdf,
@@ -172,6 +173,7 @@ function PecasCadastradasPage() {
   const [reprocessParserOpen, setReprocessParserOpen] = useState(false);
   const [limparOpen, setLimparOpen] = useState(false);
   const [auditarOpen, setAuditarOpen] = useState(false);
+  const [fixturesOpen, setFixturesOpen] = useState(false);
 
   const lista = useQuery({
     queryKey: ["pecas-cadastradas"],
@@ -845,6 +847,10 @@ function PecasCadastradasPage() {
             <ClipboardCheck className="mr-2 h-4 w-4" />
             Auditar biblioteca
           </Button>
+          <Button variant="outline" onClick={() => setFixturesOpen(true)} disabled={importando}>
+            <ClipboardCheck className="mr-2 h-4 w-4" />
+            Validar importador (fixtures)
+          </Button>
           <Button variant="destructive" onClick={() => setLimparOpen(true)} disabled={importando}>
             <Trash2 className="mr-2 h-4 w-4" />
             Limpar biblioteca
@@ -1068,6 +1074,7 @@ function PecasCadastradasPage() {
         }}
       />
       <AuditarBibliotecaDialog open={auditarOpen} onOpenChange={setAuditarOpen} />
+      <ValidarFixturesDialog open={fixturesOpen} onOpenChange={setFixturesOpen} />
 
     </div>
   );
