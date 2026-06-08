@@ -349,10 +349,26 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
         // Lê o modelo técnico canônico, se existir, para diferenciar geometria
         // resolvida (ex.: Base L paramétrica) de geometria realmente pendente.
         const modelo = (dados.modelo_tecnico_json ?? null) as
-          | { geometria?: { tipo?: string; pendente?: boolean; origem?: string } }
+          | {
+              geometria?: {
+                tipo?: string;
+                pendente?: boolean;
+                origem?: string;
+                pontos_contorno?: Array<{ x: number; y: number }>;
+              };
+              metadados?: {
+                classificacao_geometria?: {
+                  tipo_decidido?: string;
+                  evidencias_usadas?: string[];
+                  motivo?: string;
+                };
+              };
+            }
           | null;
         const geomPendente = Boolean(modelo?.geometria?.pendente);
         const geomTipo = modelo?.geometria?.tipo ?? null;
+        const geomOrigem = modelo?.geometria?.origem ?? null;
+        const classifGeo = modelo?.metadados?.classificacao_geometria ?? null;
 
         if (geometriaComplexa) {
           achados.push({
@@ -365,6 +381,29 @@ export function AuditarBibliotecaDialog({ open, onOpenChange }: Props) {
               ? "Importar modelo técnico JSON calibrado para esta peça."
               : "Modelo técnico canônico desenha o polígono real — peça não precisa virar retângulo.",
           });
+        }
+
+        // ─── 7b. L sem evidência explícita ──────────────────────────────────
+        // Detecta peças classificadas como L cuja origem é apenas a regra
+        // paramétrica (regra_base_l_inferior) sem CONTORNO_TECNICO,
+        // diagnóstico visual ou recorte cotado, e cujo classificador central
+        // NÃO indicou "L" como tipo decidido — ou seja, L herdado de regra
+        // antiga "BAS = L". Recomendamos reprocessar para corrigir.
+        if (geomTipo === "L") {
+          const origemForte =
+            geomOrigem === "contorno_tecnico_pdf" ||
+            geomOrigem === "pdf_visual_calibrado" ||
+            geomOrigem === "pdf_raster_calibrado" ||
+            geomOrigem === "manual";
+          const classifConfirmaL = (classifGeo?.tipo_decidido ?? "").toLowerCase() === "l";
+          if (!origemForte && !classifConfirmaL) {
+            achados.push({
+              tipo: "geometria_l_sem_evidencia",
+              severidade: "erro",
+              detalhe: `Peça classificada como L sem evidência explícita (origem=${geomOrigem ?? "?"}). Pode ter caído na regra antiga "BAS = L".`,
+              sugestao: "Reprocessar parser — classificador central decidirá retangular se não houver CONTORNO_TECNICO/recorte/nome 'Base L'.",
+            });
+          }
         }
         if (ehPecaIndividual && !temContorno && !geometriaComplexa) {
           achados.push({
