@@ -12,6 +12,7 @@ import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-mode
 import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
 import { classificarGeometriaPeca as classificarGeometriaPecaCentral } from "@/lib/classificar-geometria";
 import { detectarLBR, gerarSegmentosLBR, dimensoesPorFaceL } from "@/lib/segmentos-faces-l";
+import { classificarPontoNoPoligono, pontoDentroOuNaBordaDoPoligono } from "@/lib/geometria-poligono";
 import type {
   BordaExtraida,
   OperacaoExtraida,
@@ -653,40 +654,22 @@ export function contornoExternoDoModelo(modelo: ModeloTecnicoJson) {
 
 type Pt = { x: number; y: number };
 
-function pontoDentroDoPoligono(p: Pt, poly: Pt[], tol = 0.5): boolean {
-  // Ray casting + tolerância para a borda.
-  let dentro = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].x, yi = poly[i].y;
-    const xj = poly[j].x, yj = poly[j].y;
-    const intersect =
-      yi > p.y !== yj > p.y &&
-      p.x < ((xj - xi) * (p.y - yi)) / (yj - yi + 1e-12) + xi;
-    if (intersect) dentro = !dentro;
-    // Borda: distância do ponto ao segmento <= tol → considera dentro.
-    const dx = xj - xi, dy = yj - yi;
-    const len2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((p.x - xi) * dx + (p.y - yi) * dy) / len2));
-    const px = xi + t * dx, py = yi + t * dy;
-    const d2 = (p.x - px) ** 2 + (p.y - py) ** 2;
-    if (d2 <= tol * tol) return true;
-  }
-  return dentro;
-}
-
 function pontosDeOperacao(op: OperacaoModelo): Pt[] {
   const pts: Pt[] = [];
-  if (op.x != null && op.y != null) pts.push({ x: op.x, y: op.y });
-  if (op.x1 != null && op.y1 != null) pts.push({ x: op.x1, y: op.y1 });
-  if (op.x2 != null && op.y2 != null) pts.push({ x: op.x2, y: op.y2 });
-  // Midpoint de rasgo, se houver dois extremos
-  if (op.x1 != null && op.x2 != null && op.y1 != null && op.y2 != null) {
-    pts.push({ x: (op.x1 + op.x2) / 2, y: (op.y1 + op.y2) / 2 });
-  } else if (op.x1 != null && op.x2 != null && op.y != null) {
-    pts.push({ x: (op.x1 + op.x2) / 2, y: op.y });
-  } else if (op.y1 != null && op.y2 != null && op.x != null) {
-    pts.push({ x: op.x, y: (op.y1 + op.y2) / 2 });
+  if (op.tipo === "rasgo") {
+    if (op.x1 != null && op.x2 != null && op.y != null) {
+      pts.push({ x: op.x1, y: op.y }, { x: op.x2, y: op.y }, { x: (op.x1 + op.x2) / 2, y: op.y });
+    } else if (op.x1 != null && op.x2 != null && op.y1 != null && op.y2 != null) {
+      pts.push(
+        { x: op.x1, y: op.y1 },
+        { x: op.x2, y: op.y2 },
+        { x: (op.x1 + op.x2) / 2, y: (op.y1 + op.y2) / 2 },
+      );
+    } else if (op.y1 != null && op.y2 != null && op.x != null) {
+      pts.push({ x: op.x, y: op.y1 }, { x: op.x, y: op.y2 }, { x: op.x, y: (op.y1 + op.y2) / 2 });
+    }
   }
+  if (pts.length === 0 && op.x != null && op.y != null) pts.push({ x: op.x, y: op.y });
   for (const pp of op.pontos ?? []) {
     if (pp.x != null && pp.y != null) pts.push({ x: pp.x, y: pp.y });
   }
