@@ -40,82 +40,157 @@ export type PerfilSegmentado = {
   faces: SegmentoFace[];
 };
 
+export type NotchL = "BR" | "TR" | "BL" | "TL";
+
 export type InfoL = {
   W: number;
   H: number;
   RX: number;
   RY: number;
-  /** Quadrante do canto recortado. Hoje só suportamos BR (bottom-right). */
-  notch: "BR";
+  /** Quadrante do canto recortado. */
+  notch: NotchL;
 };
 
 /**
- * Detecta uma peça em L com canto recortado no inferior-direito (notch=BR)
- * a partir de um polígono de 6 pontos em coordenadas técnicas (Y para cima).
- * Retorna null se o polígono não casar com o padrão BR.
+ * Detecta uma peça em L a partir de um polígono de 6 pontos. O canto recortado
+ * pode ser qualquer quadrante (BR, TR, BL, TL).
  */
-export function detectarLBR(pontos: Ponto[] | null | undefined): InfoL | null {
+export function detectarOrientacaoL(pontos: Ponto[] | null | undefined): InfoL | null {
   if (!pontos || pontos.length !== 6) return null;
   const W = Math.max(...pontos.map((p) => p.x));
   const H = Math.max(...pontos.map((p) => p.y));
-  if (!(W > 0) || !(H > 0)) return null;
+  const minX = Math.min(...pontos.map((p) => p.x));
+  const minY = Math.min(...pontos.map((p) => p.y));
+  if (!(W > 0) || !(H > 0) || minX !== 0 || minY !== 0) return null;
+  // Ponto interno (recorte): único com x ∈ (0,W) e y ∈ (0,H).
   const inner = pontos.find(
     (p) => p.x > 0.5 && p.x < W - 0.5 && p.y > 0.5 && p.y < H - 0.5,
   );
   if (!inner) return null;
-  // Canto inferior-direito (W,0) deve estar AUSENTE.
-  const temBR = pontos.some(
-    (p) => Math.abs(p.x - W) < 0.5 && Math.abs(p.y) < 0.5,
-  );
-  if (temBR) return null;
-  return { W, H, RX: inner.x, RY: inner.y, notch: "BR" };
+  // Cantos: detecta qual canto da bounding box está AUSENTE.
+  const has = (x: number, y: number) =>
+    pontos.some((p) => Math.abs(p.x - x) < 0.5 && Math.abs(p.y - y) < 0.5);
+  const corners: Array<{ name: NotchL; x: number; y: number }> = [
+    { name: "BL", x: 0, y: 0 },
+    { name: "BR", x: W, y: 0 },
+    { name: "TR", x: W, y: H },
+    { name: "TL", x: 0, y: H },
+  ];
+  const missing = corners.filter((c) => !has(c.x, c.y));
+  if (missing.length !== 1) return null;
+  const notch = missing[0].name;
+  // RX/RY = distância do ponto interno ao canto do recorte.
+  let RX: number, RY: number;
+  switch (notch) {
+    case "BR": RX = inner.x; RY = inner.y; break;
+    case "TR": RX = inner.x; RY = inner.y; break;
+    case "BL": RX = W - inner.x; RY = inner.y; break;
+    case "TL": RX = W - inner.x; RY = H - inner.y; break;
+  }
+  return { W, H, RX, RY, notch };
 }
+
+/** Compatibilidade com a API anterior (apenas BR). */
+export function detectarLBR(pontos: Ponto[] | null | undefined): InfoL | null {
+  const info = detectarOrientacaoL(pontos);
+  if (!info || info.notch !== "BR") return null;
+  return info;
+}
+
 
 /**
  * Gera os perfis segmentados para um L com notch=BR.
+ * Mantido para retrocompatibilidade; usa `gerarSegmentosOrientacao` por baixo.
  */
 export function gerarSegmentosLBR(info: InfoL): PerfilSegmentado[] {
-  const { W, H, RX, RY } = info;
+  return gerarSegmentosOrientacao(info);
+}
+
+/**
+ * Geração genérica de perfis segmentados para qualquer orientação de L. Usa
+ * SEMPRE os recortes reais (RX/RY) — nunca proporção 50/50.
+ *
+ * Para a orientação BR mantemos o mapeamento histórico das faces
+ * (F2/F4 no inferior, F3/F5 na direita). Para as demais orientações o
+ * mapeamento face→segmento ainda não é determinístico (depende do PDF),
+ * então não emitimos faces nomeadas no segmento — apenas o perfil com
+ * comprimentos reais, para o visualizador não inventar divisões 50/50.
+ */
+export function gerarSegmentosOrientacao(info: InfoL): PerfilSegmentado[] {
+  const { W, H, RX, RY, notch } = info;
   const fonte: OrigemMedida = "calculada_por_contorno";
+
+  if (notch === "BR") {
+    return [
+      {
+        perfil: "inferior",
+        orientacao: "horizontal",
+        comprimento_total: W,
+        divisao_em: RX,
+        faces: [
+          { face: "2", inicio_mm: 0, fim_mm: RX, comprimento_mm: RX, origem_medida: fonte },
+          { face: "4", inicio_mm: RX, fim_mm: W, comprimento_mm: W - RX, origem_medida: fonte },
+        ],
+      },
+      {
+        perfil: "direita",
+        orientacao: "vertical",
+        comprimento_total: H,
+        divisao_em: RY,
+        faces: [
+          { face: "3", inicio_mm: 0, fim_mm: RY, comprimento_mm: RY, origem_medida: fonte },
+          { face: "5", inicio_mm: RY, fim_mm: H, comprimento_mm: H - RY, origem_medida: fonte },
+        ],
+      },
+      { perfil: "superior", orientacao: "horizontal", comprimento_total: W, divisao_em: null,
+        faces: [{ face: "6", inicio_mm: 0, fim_mm: W, comprimento_mm: W, origem_medida: fonte }] },
+      { perfil: "esquerda", orientacao: "vertical", comprimento_total: H, divisao_em: null,
+        faces: [{ face: "1", inicio_mm: 0, fim_mm: H, comprimento_mm: H, origem_medida: fonte }] },
+    ];
+  }
+
+  // Orientações TR / BL / TL: usa comprimentos reais derivados de RX/RY
+  // sem assumir numeração de face. Perfis ficam disponíveis para o
+  // visualizador (medidas reais), mas sem mapeamento face→segmento.
+  if (notch === "TR") {
+    // Notch no topo-direito: borda inferior é cheia (W), borda direita só vai
+    // até RY (parte de baixo), depois recorte; borda superior só de 0..RX
+    // (parte esquerda); borda esquerda cheia (H).
+    return [
+      { perfil: "inferior", orientacao: "horizontal", comprimento_total: W, divisao_em: null,
+        faces: [{ face: "—inferior", inicio_mm: 0, fim_mm: W, comprimento_mm: W, origem_medida: fonte }] },
+      { perfil: "direita", orientacao: "vertical", comprimento_total: RY, divisao_em: null,
+        faces: [{ face: "—direita", inicio_mm: 0, fim_mm: RY, comprimento_mm: RY, origem_medida: fonte }] },
+      { perfil: "superior", orientacao: "horizontal", comprimento_total: RX, divisao_em: null,
+        faces: [{ face: "—superior", inicio_mm: 0, fim_mm: RX, comprimento_mm: RX, origem_medida: fonte }] },
+      { perfil: "esquerda", orientacao: "vertical", comprimento_total: H, divisao_em: null,
+        faces: [{ face: "—esquerda", inicio_mm: 0, fim_mm: H, comprimento_mm: H, origem_medida: fonte }] },
+    ];
+  }
+
+  if (notch === "BL") {
+    return [
+      { perfil: "inferior", orientacao: "horizontal", comprimento_total: W - RX, divisao_em: null,
+        faces: [{ face: "—inferior", inicio_mm: 0, fim_mm: W - RX, comprimento_mm: W - RX, origem_medida: fonte }] },
+      { perfil: "direita", orientacao: "vertical", comprimento_total: H, divisao_em: null,
+        faces: [{ face: "—direita", inicio_mm: 0, fim_mm: H, comprimento_mm: H, origem_medida: fonte }] },
+      { perfil: "superior", orientacao: "horizontal", comprimento_total: W, divisao_em: null,
+        faces: [{ face: "—superior", inicio_mm: 0, fim_mm: W, comprimento_mm: W, origem_medida: fonte }] },
+      { perfil: "esquerda", orientacao: "vertical", comprimento_total: H - RY, divisao_em: null,
+        faces: [{ face: "—esquerda", inicio_mm: 0, fim_mm: H - RY, comprimento_mm: H - RY, origem_medida: fonte }] },
+    ];
+  }
+
+  // TL
   return [
-    {
-      perfil: "inferior",
-      orientacao: "horizontal",
-      comprimento_total: W,
-      divisao_em: RX,
-      faces: [
-        { face: "2", inicio_mm: 0, fim_mm: RX, comprimento_mm: RX, origem_medida: fonte },
-        { face: "4", inicio_mm: RX, fim_mm: W, comprimento_mm: W - RX, origem_medida: fonte },
-      ],
-    },
-    {
-      perfil: "direita",
-      orientacao: "vertical",
-      comprimento_total: H,
-      divisao_em: RY,
-      faces: [
-        { face: "3", inicio_mm: 0, fim_mm: RY, comprimento_mm: RY, origem_medida: fonte },
-        { face: "5", inicio_mm: RY, fim_mm: H, comprimento_mm: H - RY, origem_medida: fonte },
-      ],
-    },
-    {
-      perfil: "superior",
-      orientacao: "horizontal",
-      comprimento_total: W,
-      divisao_em: null,
-      faces: [
-        { face: "6", inicio_mm: 0, fim_mm: W, comprimento_mm: W, origem_medida: fonte },
-      ],
-    },
-    {
-      perfil: "esquerda",
-      orientacao: "vertical",
-      comprimento_total: H,
-      divisao_em: null,
-      faces: [
-        { face: "1", inicio_mm: 0, fim_mm: H, comprimento_mm: H, origem_medida: fonte },
-      ],
-    },
+    { perfil: "inferior", orientacao: "horizontal", comprimento_total: W, divisao_em: null,
+      faces: [{ face: "—inferior", inicio_mm: 0, fim_mm: W, comprimento_mm: W, origem_medida: fonte }] },
+    { perfil: "direita", orientacao: "vertical", comprimento_total: H, divisao_em: null,
+      faces: [{ face: "—direita", inicio_mm: 0, fim_mm: H, comprimento_mm: H, origem_medida: fonte }] },
+    { perfil: "superior", orientacao: "horizontal", comprimento_total: W - RX, divisao_em: null,
+      faces: [{ face: "—superior", inicio_mm: 0, fim_mm: W - RX, comprimento_mm: W - RX, origem_medida: fonte }] },
+    { perfil: "esquerda", orientacao: "vertical", comprimento_total: RY, divisao_em: null,
+      faces: [{ face: "—esquerda", inicio_mm: 0, fim_mm: RY, comprimento_mm: RY, origem_medida: fonte }] },
   ];
 }
 

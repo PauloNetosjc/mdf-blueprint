@@ -35,7 +35,9 @@ import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado"
 import { classificarGeometriaPeca } from "@/lib/classificar-geometria";
 import {
   detectarLBR,
+  detectarOrientacaoL,
   gerarSegmentosLBR,
+  gerarSegmentosOrientacao,
   gerarFacesLayoutL,
 } from "@/lib/segmentos-faces-l";
 
@@ -323,11 +325,35 @@ export async function reprocessarParserDePeca(
       pontos_contorno: contornoTecnicoPdf.pontos,
       confianca: "alta",
       pendente: false,
+      face_principal:
+        contornoTecnicoPdf.face_principal != null
+          ? String(contornoTecnicoPdf.face_principal)
+          : modeloTecnico.geometria.face_principal ?? null,
     };
     modeloTecnico.avisos = modeloTecnico.avisos.filter(
       (a) => !a.includes("Importe um modelo técnico JSON"),
     );
     geometriaResolvidaPorContornoTecnico = true;
+
+    // Regenera segmentos / layout visual a partir do contorno técnico REAL,
+    // descartando qualquer divisão aproximada anterior (50/50). Para L em
+    // orientação BR mantemos o mapeamento histórico de faces F1..F7.
+    if (tipoGeometria === "L") {
+      const infoOri = detectarOrientacaoL(contornoTecnicoPdf.pontos);
+      if (infoOri) {
+        const segs = gerarSegmentosOrientacao(infoOri);
+        modeloTecnico.faces_visuais_segmentadas = segs;
+        if (infoOri.notch === "BR" && result.espessura_ref) {
+          dadosBrutosFinal.faces_layout_json = {
+            origem: "automatico",
+            atualizado_em: new Date().toISOString(),
+            observacao:
+              "Layout visual automático para Base L (BR) derivado do CONTORNO_TECNICO.",
+            faces: gerarFacesLayoutL(infoOri, result.espessura_ref, segs),
+          };
+        }
+      }
+    }
   }
 
   // ---------- Extração de contorno visual calibrado ----------

@@ -79,6 +79,19 @@ export function calcularDetalhesModelo(m: ModeloTecnicoLite): ResultadoValidacao
   };
 }
 
+/**
+ * Face 0 só é proibida quando NÃO há evidência de que a peça declara Face 0
+ * como face principal/operacional (ex.: BAS4622A tem FACE_PRINCIPAL:0 no
+ * CONTORNO_TECNICO e Furação/Rasgos Face 0 na tabela técnica).
+ */
+function face0EhDeclarada(m: ModeloTecnicoLite): boolean {
+  const g = m.geometria;
+  if (g && String(g.face_principal ?? "") === "0") return true;
+  if ((m.faces_operacionais ?? []).map(String).includes("0")) return true;
+  if ((m.faces_visuais ?? []).map(String).includes("0")) return true;
+  return false;
+}
+
 /** Validação genérica que vale para todas as peças. */
 export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
   const erros: string[] = [];
@@ -86,9 +99,11 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
   const detalhes = calcularDetalhesModelo(m);
 
   if (detalhes.por_face["0"]?.total) {
-    erros.push(
-      `Face 0 não pode ter operações (recebeu ${detalhes.por_face["0"].total}). Indica falha na detecção de "Face N" no parser.`,
-    );
+    if (!face0EhDeclarada(m)) {
+      erros.push(
+        `Face 0 não pode ter operações (recebeu ${detalhes.por_face["0"].total}). Indica falha na detecção de "Face N" no parser. Se a peça declarar FACE_PRINCIPAL:0 no CONTORNO_TECNICO, esta validação é dispensada.`,
+      );
+    }
   }
 
   for (const op of m.operacoes ?? []) {
@@ -100,7 +115,6 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
         m.geometria?.origem === "contorno_tecnico_pdf"
     ) {
       // permitido apenas se NÃO for o bloco CONTORNO_TECNICO indo virar operação
-      // detecta pelo nome
     }
   }
 
@@ -114,7 +128,6 @@ export function validarModeloTecnico(m: ModeloTecnicoLite): ResultadoValidacao {
     }
   }
 
-  // Parametrização (âncoras aos topos) — aviso, não erro
   const semParam = (m.operacoes ?? []).filter((o) => !o.parametrico).length;
   if (semParam > 0) {
     avisos.push(
@@ -387,6 +400,111 @@ export function validarParserBAS3520A(m: ModeloTecnicoLite): ResultadoValidacao 
   ) {
     avisos.push(
       `Quantidade de fita esperada ≈ ${EXPECTED_BAS3520A.fita.quantidade_m} m, recebeu ${
+        fitaEncontrada.quantidade_m ?? "—"
+      } m.`,
+    );
+  }
+
+  return { ok: erros.length === 0, erros, avisos, detalhes: d };
+}
+
+
+// ---------- Fixture / teste obrigatório: BAS4622A ----------
+//
+// Peça em L (Base L Superior) 934.5 × 934.5 × 15 com FACE_PRINCIPAL = 0.
+// Diferente de BAS4591A (FACE_PRINCIPAL = 7), aqui Face 0 é a face principal
+// da peça e contém 8 furos + 2 rasgos. O validador NÃO pode reprovar Face 0.
+// Demais faces operacionais: F2 (4 furos), F5 (4 furos).
+
+export const EXPECTED_BAS4622A = {
+  codigo: "BAS4622A",
+  medidas: { largura: 934.5, altura: 934.5, espessura: 15 },
+  face_alinhamento: "A",
+  face_principal: "0",
+  geometria_tipo: "L",
+  pontos_contorno: [
+    { x: 0, y: 0 },
+    { x: 934.5, y: 0 },
+    { x: 934.5, y: 313 },
+    { x: 313, y: 313 },
+    { x: 313, y: 934.5 },
+    { x: 0, y: 934.5 },
+  ],
+  fita: { codigo: "FTABS.0.45.19.100", quantidade_m: 3.198 },
+  por_face: {
+    "0": { furos: 8, rasgos: 2 },
+    "2": { furos: 4, rasgos: 0 },
+    "5": { furos: 4, rasgos: 0 },
+  },
+  furos_total: 16,
+  rasgos_total: 2,
+} as const;
+
+export function validarParserBAS4622A(m: ModeloTecnicoLite): ResultadoValidacao {
+  const base = validarModeloTecnico(m);
+  const erros = [...base.erros];
+  const avisos = [...base.avisos];
+  const d = base.detalhes;
+
+  const g = m.geometria;
+  if ((g?.tipo ?? "").toUpperCase() !== "L") {
+    erros.push(`Geometria esperada tipo=L, recebeu ${g?.tipo ?? "—"}.`);
+  }
+  if (String(g?.face_principal ?? "") !== "0") {
+    erros.push(`FACE_PRINCIPAL esperada "0", recebeu ${g?.face_principal ?? "—"}.`);
+  }
+  if (d.pontos_contorno !== 6) {
+    erros.push(`PONTOS_CONTORNO esperava 6, recebeu ${d.pontos_contorno}.`);
+  }
+
+  // Face 0 NÃO pode aparecer como erro — é a face principal.
+  if (erros.some((e) => e.startsWith("Face 0 não pode ter operações"))) {
+    // já vem rejeitado por base; remove (não é erro nesta peça).
+    const idx = erros.findIndex((e) => e.startsWith("Face 0 não pode ter operações"));
+    if (idx >= 0) erros.splice(idx, 1);
+  }
+
+  const med = m.medidas ?? {};
+  if (med.largura != null && Math.abs((med.largura ?? 0) - EXPECTED_BAS4622A.medidas.largura) > 0.5) {
+    erros.push(`Largura esperada ${EXPECTED_BAS4622A.medidas.largura}, recebeu ${med.largura}.`);
+  }
+  if (med.altura != null && Math.abs((med.altura ?? 0) - EXPECTED_BAS4622A.medidas.altura) > 0.5) {
+    erros.push(`Altura esperada ${EXPECTED_BAS4622A.medidas.altura}, recebeu ${med.altura}.`);
+  }
+  if ((m.face_alinhamento ?? "") !== EXPECTED_BAS4622A.face_alinhamento) {
+    erros.push(`Face de alinhamento esperada "${EXPECTED_BAS4622A.face_alinhamento}", recebeu "${m.face_alinhamento ?? "—"}".`);
+  }
+
+  for (const f of ["0", "2", "5"] as const) {
+    const esp = EXPECTED_BAS4622A.por_face[f];
+    const got = d.por_face[f] ?? { furos: 0, rasgos: 0, total: 0 };
+    if (got.furos !== esp.furos) {
+      erros.push(`Face ${f}: esperava ${esp.furos} furos, recebeu ${got.furos}.`);
+    }
+    if (got.rasgos !== esp.rasgos) {
+      erros.push(`Face ${f}: esperava ${esp.rasgos} rasgos, recebeu ${got.rasgos}.`);
+    }
+  }
+  if (d.furos_total !== EXPECTED_BAS4622A.furos_total) {
+    erros.push(`Total de furos esperado ${EXPECTED_BAS4622A.furos_total}, recebeu ${d.furos_total}.`);
+  }
+  if (d.rasgos_total !== EXPECTED_BAS4622A.rasgos_total) {
+    erros.push(`Total de rasgos esperado ${EXPECTED_BAS4622A.rasgos_total}, recebeu ${d.rasgos_total}.`);
+  }
+
+  const bordas = m.bordas ?? [];
+  const fitaEsperada = EXPECTED_BAS4622A.fita.codigo.toUpperCase();
+  const fitaEncontrada = bordas.find(
+    (b) => (b.codigo_borda ?? "").toUpperCase() === fitaEsperada,
+  );
+  if (!fitaEncontrada) {
+    erros.push(`Fita ${fitaEsperada} não detectada nas bordas extraídas.`);
+  } else if (
+    fitaEncontrada.quantidade_m == null ||
+    Math.abs(fitaEncontrada.quantidade_m - EXPECTED_BAS4622A.fita.quantidade_m) > 0.1
+  ) {
+    avisos.push(
+      `Quantidade de fita esperada ≈ ${EXPECTED_BAS4622A.fita.quantidade_m} m, recebeu ${
         fitaEncontrada.quantidade_m ?? "—"
       } m.`,
     );

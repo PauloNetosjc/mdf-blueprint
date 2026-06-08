@@ -14,6 +14,7 @@ import {
   validarParserBAS0485A,
   validarParserBAS1101A,
   validarParserBAS3520A,
+  validarParserBAS4622A,
   type ResultadoValidacao,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
@@ -26,7 +27,8 @@ type Props = { open: boolean; onOpenChange: (v: boolean) => void };
 const FIXTURES = [
   { codigo: "BAS1101A", esperado: "retangular", validar: validarParserBAS1101A },
   { codigo: "BAS3520A", esperado: "retangular", validar: validarParserBAS3520A },
-  { codigo: "BAS0485A", esperado: "L", validar: validarParserBAS0485A },
+  { codigo: "BAS0485A", esperado: "L (FP=7)", validar: validarParserBAS0485A },
+  { codigo: "BAS4622A", esperado: "L (FP=0)", validar: validarParserBAS4622A },
 ] as const;
 
 type Linha = {
