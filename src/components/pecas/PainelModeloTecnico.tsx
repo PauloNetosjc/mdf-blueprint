@@ -5,6 +5,7 @@ import {
   validarModeloTecnico,
   validarParserBAS0485A,
   validarParserBAS1101A,
+  validarParserBAS3520A,
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
