@@ -487,6 +487,26 @@ function PecasTab({
                   <td className="p-1"><Inp value={p.modulo ?? ""} onSave={(v) => onUpdate({ id: p.id, modulo: v || null })} /></td>
                   <td className="p-1"><Inp value={p.observacao ?? ""} onSave={(v) => onUpdate({ id: p.id, observacao: v || null })} /></td>
                   <td className="p-1 text-right">
+                    {p.status_tecnico && p.status_tecnico !== "nao_aplicado" && (
+                      <span
+                        className={`mr-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] ${
+                          p.status_tecnico === "aplicado_ok"
+                            ? "bg-success/10 text-success"
+                            : p.status_tecnico === "aplicado_com_alerta"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                        title={p.status_tecnico}
+                      >
+                        {p.status_tecnico === "aplicado_ok" ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : p.status_tecnico === "aplicado_com_alerta" ? (
+                          <AlertTriangle className="h-3 w-3" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
+                      </span>
+                    )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
                       <Cpu className="h-3.5 w-3.5" />
                     </Button>
@@ -498,10 +518,53 @@ function PecasTab({
                     </Button>
                   </td>
                 </tr>
+                {aberto && temBib && (
+                  <tr className="border-t border-border bg-surface-2/30">
+                    <td colSpan={12} className="p-3">
+                      <PainelAplicacaoTecnica
+                        pecaCadastradaId={p.peca_cadastrada_id!}
+                        medidasProjeto={{ largura: p.largura, altura: p.altura, espessura: p.espessura }}
+                        statusAtual={p.status_tecnico}
+                        onPersist={async (res) => {
+                          const { error } = await supabase
+                            .from("projeto_pecas")
+                            .update({
+                              dados_tecnicos_aplicados_json: {
+                                origem: "biblioteca_parametrica",
+                                peca_cadastrada_id: p.peca_cadastrada_id,
+                                codigo_modelo: res.modelo_aplicado.codigo ?? null,
+                                medidas_base: res.modelo_aplicado.parametrizacao
+                                  ? {
+                                      largura: res.modelo_aplicado.parametrizacao.largura_base,
+                                      altura: res.modelo_aplicado.parametrizacao.altura_base,
+                                      espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+                                    }
+                                  : null,
+                                medidas_projeto: { largura: p.largura, altura: p.altura, espessura: p.espessura },
+                                operacoes_recalculadas: res.operacoes_recalculadas,
+                                alertas: res.alertas,
+                                erros: res.erros,
+                                aplicado_em: new Date().toISOString(),
+                              },
+                              status_tecnico: res.status_tecnico,
+                            })
+                            .eq("id", p.id);
+                          if (error) {
+                            toast.error(error.message);
+                            return;
+                          }
+                          toast.success(`Modelo aplicado (${res.status_tecnico})`);
+                          qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+                        }}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
               );
             })}
             {pecas.length === 0 && (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">Nenhuma peça. Clique em "Adicionar peça" ou cole linhas do Excel.</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">Nenhuma peça. Clique em "Adicionar peça" ou cole linhas do Excel.</td></tr>
             )}
           </tbody>
           {pecas.length > 0 && (
