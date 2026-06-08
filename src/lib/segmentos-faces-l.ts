@@ -196,12 +196,14 @@ export function gerarSegmentosOrientacao(info: InfoL): PerfilSegmentado[] {
 
 /**
  * A partir dos segmentos, devolve as dimensões visuais (w × h em mm) de cada
- * face para uso pelo visualizador. F7 (principal L) recebe W × H.
+ * face para uso pelo visualizador. A face principal (parametrizável) recebe
+ * W × H — NUNCA hardcoda "7".
  */
 export function dimensoesPorFaceL(
   segmentos: PerfilSegmentado[],
   info: InfoL,
   espessura: number,
+  facePrincipal: string = "7",
 ): Record<string, { w: number; h: number; origem_medida: OrigemMedida }> {
   const E = Math.max(1, espessura || 18);
   const out: Record<string, { w: number; h: number; origem_medida: OrigemMedida }> = {};
@@ -214,7 +216,7 @@ export function dimensoesPorFaceL(
       }
     }
   }
-  out["7"] = { w: info.W, h: info.H, origem_medida: "calculada_por_contorno" };
+  out[String(facePrincipal)] = { w: info.W, h: info.H, origem_medida: "calculada_por_contorno" };
   return out;
 }
 
@@ -231,6 +233,7 @@ export function gerarFacesLayoutL(
   info: InfoL,
   espessura: number,
   segmentos: PerfilSegmentado[],
+  facePrincipal: string = "7",
 ): Array<{
   face: string;
   label: string;
@@ -243,45 +246,47 @@ export function gerarFacesLayoutL(
   origem_medida: OrigemMedida;
   segmento_de_perfil?: PerfilSegmentado["perfil"];
 }> {
-  const dims = dimensoesPorFaceL(segmentos, info, espessura);
+  const fp = String(facePrincipal);
+  const dims = dimensoesPorFaceL(segmentos, info, espessura, fp);
   const E = Math.max(1, espessura || 18);
   const GAP = 40;
 
-  // Linha de baixo: F2 (RX) + GAP + F4 (W-RX)
-  // Linha de cima:  F6 = W
-  // Coluna esquerda: F1 = E×H
-  // Coluna direita: F3 (E×RY) em cima do F5 (E×(H-RY)) com gap
   const f1 = dims["1"];
-  const f7 = dims["7"];
+  const fP = dims[fp];
   const f3 = dims["3"];
   const f5 = dims["5"];
   const f6 = dims["6"];
   const f2 = dims["2"];
   const f4 = dims["4"];
 
-  const x6 = f1.w + GAP;
+  const x6 = (f1?.w ?? E) + GAP;
   const y6 = 0;
-  const yMid = f6.h + GAP;
+  const yMid = (f6?.h ?? E) + GAP;
   const x1 = 0;
   const y1 = yMid;
   const x7 = x6;
   const y7 = yMid;
-  const xRight = x7 + f7.w + GAP;
+  const xRight = x7 + (fP?.w ?? info.W) + GAP;
   const y3 = yMid;
-  const y5 = yMid + f3.h + GAP;
-  const yBot = yMid + f7.h + GAP;
+  const y5 = yMid + (f3?.h ?? 0) + GAP;
+  const yBot = yMid + (fP?.h ?? info.H) + GAP;
   const x2 = x7;
-  const x4 = x7 + f2.w + GAP;
+  const x4 = x7 + (f2?.w ?? 0) + GAP;
 
-  return [
-    { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x6, y_layout: y6, visivel: true, origem_medida: f6.origem_medida, segmento_de_perfil: "superior" },
-    { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: x1, y_layout: y1, visivel: true, origem_medida: f1.origem_medida, segmento_de_perfil: "esquerda" },
-    { face: "7", label: "F7 — Principal L", tipo_vista: "principal_L", largura_visual: f7.w, altura_visual: f7.h, x_layout: x7, y_layout: y7, visivel: true, origem_medida: f7.origem_medida },
-    { face: "3", label: "F3 — Direita inferior (segmento)", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: xRight, y_layout: y3, visivel: true, origem_medida: f3.origem_medida, segmento_de_perfil: "direita" },
-    { face: "5", label: "F5 — Direita superior (segmento)", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: xRight, y_layout: y5, visivel: true, origem_medida: f5.origem_medida, segmento_de_perfil: "direita" },
-    { face: "2", label: "F2 — Inferior esquerda (segmento)", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x2, y_layout: yBot, visivel: true, origem_medida: f2.origem_medida, segmento_de_perfil: "inferior" },
-    { face: "4", label: "F4 — Inferior direita (segmento)", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x4, y_layout: yBot, visivel: true, origem_medida: f4.origem_medida, segmento_de_perfil: "inferior" },
-  ];
+  const out = [
+    f6 && { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x6, y_layout: y6, visivel: true, origem_medida: f6.origem_medida, segmento_de_perfil: "superior" as const },
+    f1 && { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: x1, y_layout: y1, visivel: true, origem_medida: f1.origem_medida, segmento_de_perfil: "esquerda" as const },
+    fP && { face: fp, label: `F${fp} — Principal L`, tipo_vista: "principal_L", largura_visual: fP.w, altura_visual: fP.h, x_layout: x7, y_layout: y7, visivel: true, origem_medida: fP.origem_medida },
+    f3 && { face: "3", label: "F3 — Direita inferior (segmento)", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: xRight, y_layout: y3, visivel: true, origem_medida: f3.origem_medida, segmento_de_perfil: "direita" as const },
+    f5 && { face: "5", label: "F5 — Direita superior (segmento)", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: xRight, y_layout: y5, visivel: true, origem_medida: f5.origem_medida, segmento_de_perfil: "direita" as const },
+    f2 && { face: "2", label: "F2 — Inferior esquerda (segmento)", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x2, y_layout: yBot, visivel: true, origem_medida: f2.origem_medida, segmento_de_perfil: "inferior" as const },
+    f4 && { face: "4", label: "F4 — Inferior direita (segmento)", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x4, y_layout: yBot, visivel: true, origem_medida: f4.origem_medida, segmento_de_perfil: "inferior" as const },
+  ].filter(Boolean) as Array<{
+    face: string; label: string; tipo_vista: string; largura_visual: number; altura_visual: number;
+    x_layout: number; y_layout: number; visivel: boolean; origem_medida: OrigemMedida;
+    segmento_de_perfil?: PerfilSegmentado["perfil"];
+  }>;
+  return out;
 }
 
 /**
@@ -330,20 +335,22 @@ export function obterGeometriaVisualDaFace(
   const espessura = Math.max(1, modelo.medidas?.espessura ?? fallback?.espessura ?? 18);
   const principalFace = geometria?.face_principal != null ? String(geometria.face_principal) : null;
 
-  // Face principal em L → retorna L completo
-  if (
+  // Face principal em L → retorna L completo.
+  // Se há `face_principal` explícito, ele é a ÚNICA face principal.
+  // Só caímos no fallback "7" quando NÃO há face_principal explícito.
+  const ehPrincipal =
     geometria?.tipo === "L" &&
-    (faceStr === principalFace || faceStr === "7")
-  ) {
-    const W = geometria.largura ?? modelo.medidas?.largura ?? fallback?.largura ?? 0;
-    const H = geometria.altura ?? modelo.medidas?.altura ?? fallback?.altura ?? 0;
+    (principalFace != null ? faceStr === principalFace : faceStr === "7");
+  if (ehPrincipal) {
+    const W = geometria?.largura ?? modelo.medidas?.largura ?? fallback?.largura ?? 0;
+    const H = geometria?.altura ?? modelo.medidas?.altura ?? fallback?.altura ?? 0;
     return {
       face: faceStr,
       tipo: "principal_l",
       largura_visual: W,
       altura_visual: H,
       origem_medida: "calculada_por_contorno",
-      pontos_contorno: geometria.pontos_contorno ?? undefined,
+      pontos_contorno: geometria?.pontos_contorno ?? undefined,
     };
   }
 

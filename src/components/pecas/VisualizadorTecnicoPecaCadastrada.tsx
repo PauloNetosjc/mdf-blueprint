@@ -642,10 +642,14 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
   const faceInicial = useMemo(() => {
-    if (faces.includes("7")) return "7";
+    // Prioridade: face_principal declarada no modelo técnico.
+    const fp = modeloTecnico?.geometria?.face_principal != null
+      ? String(modeloTecnico.geometria.face_principal)
+      : null;
+    if (fp && faces.includes(fp)) return fp;
     if (!geometriaComplexa) return faces[0] ?? "0";
     return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
-  }, [faces, geometriaComplexa, opsPorFace]);
+  }, [faces, geometriaComplexa, opsPorFace, modeloTecnico]);
 
   const [faceSel, setFaceSel] = useState<string>(faceInicial);
   const [opSel, setOpSel] = useState<string | null>(null);
@@ -1380,10 +1384,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     : null;
                 const ehFacePrincipalL =
                   !!contornoSalvo &&
-                  (faceSel === principalFaceModelo ||
-                    faceSel === "7" ||
-                    faceSel === "0" ||
-                    faceSel === "5");
+                  (principalFaceModelo != null
+                    ? faceSel === principalFaceModelo
+                    : faceSel === "7");
                 const lShape = ehFacePrincipalL
                   ? detectarLDoContorno(contornoExterno?.pontos ?? [])
                   : null;
@@ -1632,7 +1635,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     const bx = margin + box.x;
                     const by = margin + box.y;
                     const ehFacePrincipalL = modeloTecnico?.geometria.tipo === "L" &&
-                      (box.face === facePrincipalModelo || box.face === "7");
+                      (facePrincipalModelo != null
+                        ? box.face === facePrincipalModelo
+                        : box.face === "7");
                     const pathFaceL = ehFacePrincipalL && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
                       ? pathTecnicoParaSvg(contornoSalvo.pontos, box.h)
                       : null;

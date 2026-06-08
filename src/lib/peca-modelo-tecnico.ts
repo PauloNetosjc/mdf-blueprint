@@ -535,15 +535,24 @@ export function construirModeloTecnico(
       facesAcimaDe5.length > 0);
   const facesOperacionais = facesPresentes.map((f) => ({ face: f }));
 
+  // Face principal vinda do CONTORNO_TECNICO do PDF (se houver) — sem hardcoded F7.
+  const contornoTecnicoPdf = (result.dados_brutos as Record<string, unknown> | undefined)
+    ?.contorno_tecnico_pdf as { face_principal?: string | null } | undefined;
+  const facePrincipalPdf =
+    contornoTecnicoPdf?.face_principal != null && String(contornoTecnicoPdf.face_principal) !== ""
+      ? String(contornoTecnicoPdf.face_principal)
+      : null;
   // Para peças em L: tenta extrair info (W,H,RX,RY) do contorno e gerar
   // segmentos de perfil + dimensões reais por face. Caso não seja possível,
   // cai no fallback anterior (apenas faces 1..7 sem medidas).
   const infoL =
     geometria.tipo === "L" ? detectarLBR(geometria.pontos_contorno) : null;
   const segmentosL = infoL ? gerarSegmentosLBR(infoL) : null;
+  // Se o PDF declarou face_principal, ele manda; caso contrário, fallback histórico F7.
+  const facePrincipalL = facePrincipalPdf ?? "7";
   const dimsL =
     infoL && segmentosL
-      ? dimensoesPorFaceL(segmentosL, infoL, result.espessura_ref ?? 18)
+      ? dimensoesPorFaceL(segmentosL, infoL, result.espessura_ref ?? 18, facePrincipalL)
       : null;
 
   const facesVisuaisBaseL = [
@@ -553,7 +562,7 @@ export function construirModeloTecnico(
     { face: "4", tipo_vista: "inferior_direita", segmento_de_perfil: "inferior" as const },
     { face: "5", tipo_vista: "lateral_direita_superior", segmento_de_perfil: "direita" as const },
     { face: "6", tipo_vista: "superior", segmento_de_perfil: "superior" as const },
-    { face: "7", tipo_vista: "principal_L" },
+    { face: facePrincipalL, tipo_vista: "principal_L" },
   ].map((f) => {
     const d = dimsL?.[f.face];
     if (d) {

@@ -343,13 +343,15 @@ export async function reprocessarParserDePeca(
       if (infoOri) {
         const segs = gerarSegmentosOrientacao(infoOri);
         modeloTecnico.faces_visuais_segmentadas = segs;
-        if (infoOri.notch === "BR" && result.espessura_ref) {
+        if (result.espessura_ref) {
+          const facePrincipalLayout = modeloTecnico.geometria.face_principal != null
+            ? String(modeloTecnico.geometria.face_principal)
+            : "7";
           dadosBrutosFinal.faces_layout_json = {
             origem: "automatico",
             atualizado_em: new Date().toISOString(),
-            observacao:
-              "Layout visual automático para Base L (BR) derivado do CONTORNO_TECNICO.",
-            faces: gerarFacesLayoutL(infoOri, result.espessura_ref, segs),
+            observacao: `Layout visual automático para Base L (${infoOri.notch}) derivado do CONTORNO_TECNICO. Face principal: F${facePrincipalLayout}.`,
+            faces: gerarFacesLayoutL(infoOri, result.espessura_ref, segs, facePrincipalLayout),
           };
         }
       }
