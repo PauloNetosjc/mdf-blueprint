@@ -926,7 +926,43 @@ export function VisualizadorTecnicoPecaCadastrada({
     return c;
   }, [contornoExterno, partW, partH]);
   const podeUsarContornoSalvo = !!contornoSalvo;
+  // Quando a face selecionada é a face principal de uma peça em L, usamos
+  // SEMPRE o contorno técnico do modelo (mesma fonte que o validador) —
+  // assim visualizador e validação não divergem.
+  const facePrincipalModeloLocal =
+    modeloTecnico?.geometria?.face_principal != null
+      ? String(modeloTecnico.geometria.face_principal)
+      : null;
+  const ehFacePrincipalDoModelo =
+    facePrincipalModeloLocal != null && faceSel === facePrincipalModeloLocal;
+  const contornoTecnicoModelo = useMemo(() => {
+    if (!modeloTecnico) return null;
+    const pts = modeloTecnico.geometria?.pontos_contorno ?? [];
+    if (pts.length < 3) return null;
+    const W = modeloTecnico.geometria?.largura ?? modeloTecnico.medidas?.largura ?? 0;
+    const H = modeloTecnico.geometria?.altura ?? modeloTecnico.medidas?.altura ?? 0;
+    if (!(W > 0) || !(H > 0)) return null;
+    return { pontos: pts as Pt[], largura: W, altura: H };
+  }, [modeloTecnico]);
   const outline = useMemo(() => {
+    // 1) Preferir contorno técnico do modelo na face principal.
+    if (ehFacePrincipalDoModelo && contornoTecnicoModelo &&
+        Math.abs(contornoTecnicoModelo.largura - partW) <= 0.5 &&
+        Math.abs(contornoTecnicoModelo.altura - partH) <= 0.5) {
+      const pathSvg = pathTecnicoParaSvg(contornoTecnicoModelo.pontos, partH);
+      return {
+        pathSvg,
+        pontosTecnicos: contornoTecnicoModelo.pontos,
+        temContornoExterno: true,
+        contornosAplicados: outlineOperacoes.contornosAplicados,
+        contornoAplicadoIds: outlineOperacoes.contornoAplicadoIds,
+        contornoFalhouIds: outlineOperacoes.contornoFalhouIds,
+        recuos: outlineOperacoes.recuos,
+        path: pathSvg,
+        polygon: contornoTecnicoModelo.pontos,
+        temContornoAplicado: true,
+      };
+    }
     if (contornoSalvo) {
       const pontosTecnicos = contornoSalvo.pontos;
       const pathSvg = pathTecnicoParaSvg(pontosTecnicos, partH);
@@ -944,7 +980,7 @@ export function VisualizadorTecnicoPecaCadastrada({
       };
     }
     return { ...outlineOperacoes, temContornoExterno: false, temContornoAplicado: false };
-  }, [contornoSalvo, outlineOperacoes, partH]);
+  }, [ehFacePrincipalDoModelo, contornoTecnicoModelo, contornoSalvo, outlineOperacoes, partH, partW]);
   const contornosAplicadosIds = new Set(outline.contornoAplicadoIds);
   const opForaContorno = (op: VisualizadorOperacao) =>
     operacoesForaContorno.some(

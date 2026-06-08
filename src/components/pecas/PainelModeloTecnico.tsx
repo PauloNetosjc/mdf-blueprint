@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
+import { validarGeometriaModelo } from "@/lib/peca-modelo-tecnico";
 import {
   validarModeloTecnico,
   validarParserBAS0485A,
@@ -10,6 +11,11 @@ import {
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
+import {
+  obterGeometriaRenderizavelDaFace,
+  amostrarPontosDeOperacao,
+} from "@/lib/geometria-renderizavel";
+import { classificarPontoNoPoligono } from "@/lib/geometria-poligono";
 
 type OperacaoRow = {
   tipo_operacao?: string | null;
@@ -95,27 +101,77 @@ export function PainelModeloTecnico({
   const facesOrdenadas = Object.keys(det.por_face).sort((a, b) => Number(a) - Number(b));
   const pontos = lite.geometria?.pontos_contorno ?? [];
 
+  // Diagnóstico de renderização: usa a função ÚNICA também usada pelo
+  // visualizador e pela validação geométrica.
+  const validacaoGeom = useMemo(
+    () => (modelo ? validarGeometriaModelo(modelo) : null),
+    [modelo],
+  );
+  const renderizacaoOk = validacaoGeom?.ok ?? null;
+
+  const [faceDiag, setFaceDiag] = useState<string>(
+    String(modelo?.geometria?.face_principal ?? facesOrdenadas[0] ?? "0"),
+  );
+  const diagFaceLista = useMemo(() => {
+    const todas = new Set<string>(facesOrdenadas);
+    if (modelo?.geometria?.face_principal != null) todas.add(String(modelo.geometria.face_principal));
+    return Array.from(todas).sort((a, b) => Number(a) - Number(b));
+  }, [facesOrdenadas, modelo]);
+
+  const diag = useMemo(() => {
+    if (!modelo) return null;
+    const geom = obterGeometriaRenderizavelDaFace(modelo, faceDiag);
+    if (!geom) return null;
+    const opsFace = (modelo.operacoes ?? []).filter((o) => String(o.face) === faceDiag);
+    const TOL = 1.5;
+    const opsTestadas = opsFace.map((op) => {
+      const amostras = amostrarPontosDeOperacao(op);
+      const resultados = amostras.map((p) => {
+        const r = classificarPontoNoPoligono(p, geom.pontos_contorno, TOL);
+        return { label: p.label, x: p.x, y: p.y, valido: r.valido, na_borda: r.na_borda, dentro: r.dentro, dist: r.distancia_borda };
+      });
+      return { op, resultados, ok: resultados.every((r) => r.valido) };
+    });
+    return { geom, opsTestadas };
+  }, [modelo, faceDiag]);
+
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Modelo Técnico — Validador (Importador V2)</h3>
           <p className="text-xs text-muted-foreground">
-            O visualizador só deve desenhar se este painel mostrar ✓ OK.
-            {(codigo ?? "").toUpperCase() === "BAS0485A" && " Teste-fixture: BAS0485A."}
-            {(codigo ?? "").toUpperCase() === "BAS1101A" && " Teste-fixture: BAS1101A."}
+            "Modelo OK" cobre parser/contagens. "Renderização OK" cobre se as operações ficam dentro do contorno técnico usado pelo visualizador.
           </p>
         </div>
-        {resultado.ok ? (
-          <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="h-4 w-4" /> Modelo OK
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-2 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-sm font-medium text-destructive">
-            <AlertTriangle className="h-4 w-4" /> Modelo inválido
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {resultado.ok ? (
+            <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> Modelo Técnico OK
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Modelo inválido
+            </span>
+          )}
+          {renderizacaoOk === true && (
+            <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> Renderização OK
+            </span>
+          )}
+          {renderizacaoOk === false && (
+            <span className="inline-flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" /> Renderização divergente ({validacaoGeom?.forasDoContorno.length ?? 0})
+            </span>
+          )}
+        </div>
       </header>
+
+      {resultado.ok && renderizacaoOk === false && (
+        <div className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-800 dark:text-amber-300">
+          Modelo técnico válido, mas renderização divergente — alguma operação está caindo fora do contorno usado pelo visualizador.
+        </div>
+      )}
 
       {/* Geometria */}
       <section className="rounded border border-border bg-surface p-3 text-sm">
@@ -278,6 +334,74 @@ export function PainelModeloTecnico({
           <ul className="ml-5 list-disc text-xs">
             {resultado.avisos.map((e, i) => <li key={i}>{e}</li>)}
           </ul>
+        </section>
+      )}
+
+      {/* Diagnóstico de renderização */}
+      {modelo && diag && (
+        <section className="rounded border border-border bg-surface p-3 text-sm">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="font-medium">Diagnóstico de renderização da face</div>
+            <div className="flex items-center gap-1">
+              {diagFaceLista.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFaceDiag(f)}
+                  className={`rounded border px-2 py-0.5 font-mono text-xs ${
+                    faceDiag === f
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-surface-2"
+                  }`}
+                >
+                  F{f}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            A função única <span className="font-mono">obterGeometriaRenderizavelDaFace</span> é usada
+            tanto pelo validador quanto pelo visualizador.
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Field label="Face" value={diag.geom.face} />
+            <Field label="É face principal?" value={diag.geom.ehFacePrincipal ? "sim" : "não"} />
+            <Field label="Tipo" value={diag.geom.tipo} />
+            <Field label="Origem" value={diag.geom.origem} />
+            <Field label="Largura visual" value={`${diag.geom.largura_visual} mm`} />
+            <Field label="Altura visual" value={`${diag.geom.altura_visual} mm`} />
+            <Field label="Pontos do contorno" value={String(diag.geom.pontos_contorno.length)} />
+            <Field label="Operações na face" value={String(diag.opsTestadas.length)} />
+          </div>
+          {diag.geom.pontos_contorno.length > 0 && (
+            <pre className="mt-2 max-h-32 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+              {diag.geom.pontos_contorno.map((p, i) => `${i + 1}. (${p.x}, ${p.y})`).join("\n")}
+            </pre>
+          )}
+          {diag.opsTestadas.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {diag.opsTestadas.map((it, i) => (
+                <div
+                  key={i}
+                  className={`rounded border p-2 text-xs ${
+                    it.ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="font-mono">
+                    {it.ok ? "✓" : "⚠"} {it.op.tipo} #{it.op.ordem ?? "?"} {it.op.nome ? `(${it.op.nome})` : ""}
+                  </div>
+                  <ul className="ml-4 mt-1 list-disc">
+                    {it.resultados.map((r, j) => (
+                      <li key={j}>
+                        <span className="font-mono">{r.label}</span> = ({r.x.toFixed(2)}, {r.y.toFixed(2)}) →{" "}
+                        {r.valido ? (r.na_borda ? "na borda" : "dentro") : "FORA"}{" "}
+                        <span className="text-muted-foreground">(d={r.dist.toFixed(2)} mm)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </div>
