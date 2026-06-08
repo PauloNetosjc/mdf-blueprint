@@ -756,22 +756,34 @@ export function validarGeometriaModelo(
   for (const op of modelo.operacoes) {
     const pts = pontosDeOperacao(op);
     if (pts.length === 0) continue;
-    // Tolerância maior para operações em faces de borda (laterais), pois
-    // tipicamente apoiam-se sobre o contorno externo.
-    const tol = String(op.face) === facePlano ? 0.75 : 1.5;
-    for (const p of pts) {
-      if (!pontoDentroDoPoligono(p, poly, tol)) {
-        foras.push({
-          face: String(op.face),
-          tipo: op.tipo,
-          nome: op.nome,
-          ordem: op.ordem ?? 0,
-          x: p.x,
-          y: p.y,
-          motivo: `Ponto (${p.x.toFixed(1)}, ${p.y.toFixed(1)}) fora do contorno`,
-        });
-        break;
-      }
+    const facePrincipal = modelo.geometria.face_principal != null ? String(modelo.geometria.face_principal) : null;
+    // Face principal em L (inclusive Face 0) usa SEMPRE o polígono técnico real.
+    // Tolerância de 1 mm aceita rasgos colados na borda externa/interna.
+    const tol = modelo.geometria.tipo === "L" && String(op.face) === facePrincipal ? 1 : String(op.face) === facePlano ? 1 : 1.5;
+    const resultados = pts.map((p, idx) => {
+      const r = classificarPontoNoPoligono(p, poly, tol);
+      return {
+        label: idx === 0 ? "p1" : idx === 1 ? "p2" : idx === 2 ? "pm" : `p${idx + 1}`,
+        x: p.x,
+        y: p.y,
+        dentro: r.dentro,
+        na_borda: r.na_borda,
+        valido: r.valido,
+        distancia_borda: r.distancia_borda,
+      };
+    });
+    const falha = resultados.find((r) => !r.valido);
+    if (falha) {
+      foras.push({
+        face: String(op.face),
+        tipo: op.tipo,
+        nome: op.nome,
+        ordem: op.ordem ?? 0,
+        x: falha.x,
+        y: falha.y,
+        motivo: `${falha.label} (${falha.x.toFixed(1)}, ${falha.y.toFixed(1)}) fora do contorno técnico`,
+        pontos_testados: resultados,
+      });
     }
   }
   return { ok: foras.length === 0, forasDoContorno: foras };
