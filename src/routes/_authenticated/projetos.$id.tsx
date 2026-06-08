@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2, Link2Off } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2 } from "lucide-react";
 import { VisualizadorPecaProjetoDialog } from "@/components/projetos/VisualizadorPecaProjetoDialog";
 import { aplicarModeloTecnicoNaPecaProjeto } from "@/lib/aplicar-modelo-projeto";
+import { gerarDadosTecnicosManuais } from "@/lib/peca-manual-tecnica";
 import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
@@ -83,14 +84,26 @@ function ProjetoEditor() {
   const adicionar = useMutation({
     mutationFn: async () => {
       const ordem = (pecas?.length ?? 0) + 1;
+      const largura = 400;
+      const altura = 600;
+      const espessura = 15;
+      const { json, status_tecnico } = gerarDadosTecnicosManuais({
+        largura,
+        altura,
+        espessura,
+        descricao: "Nova peça",
+        quantidade: 1,
+      });
       const { error } = await supabase.from("projeto_pecas").insert({
         projeto_id: id,
         descricao: "Nova peça",
         quantidade: 1,
-        altura: 600,
-        largura: 400,
-        espessura: 15,
+        altura,
+        largura,
+        espessura,
         ordem,
+        dados_tecnicos_aplicados_json: json as any,
+        status_tecnico,
       });
       if (error) throw error;
     },
@@ -126,7 +139,39 @@ function ProjetoEditor() {
   const atualizar = useMutation({
     mutationFn: async (p: Partial<ProjetoPeca> & { id: string }) => {
       const { id: pid, ...rest } = p;
-      const { error } = await supabase.from("projeto_pecas").update(rest).eq("id", pid);
+      const atual = (pecas ?? []).find((x) => x.id === pid);
+      const ehManual = atual && !atual.peca_cadastrada_id;
+      const dimsMudaram =
+        atual &&
+        (("largura" in rest && rest.largura !== atual.largura) ||
+          ("altura" in rest && rest.altura !== atual.altura) ||
+          ("espessura" in rest && rest.espessura !== atual.espessura));
+      let extra: Partial<ProjetoPeca> = {};
+      if (ehManual && dimsMudaram) {
+        const largura = (rest.largura as number | undefined) ?? atual!.largura;
+        const altura = (rest.altura as number | undefined) ?? atual!.altura;
+        const espessura = (rest.espessura as number | undefined) ?? atual!.espessura;
+        const opsExistentes =
+          (atual!.dados_tecnicos_aplicados_json as any)?.operacoes_recalculadas ?? [];
+        const { json, status_tecnico } = gerarDadosTecnicosManuais({
+          largura,
+          altura,
+          espessura,
+          codigo: atual!.codigo,
+          descricao: (rest.descricao as string | undefined) ?? atual!.descricao,
+          material_chapa: (atual as any)?.material_chapa ?? null,
+          fita_codigo: (rest.fita_codigo as string | undefined) ?? atual!.fita_codigo,
+          modulo: (rest.modulo as string | undefined) ?? atual!.modulo,
+          quantidade: (rest.quantidade as number | undefined) ?? atual!.quantidade,
+          veio: (rest.veio as boolean | undefined) ?? atual!.veio,
+          operacoesExistentes: opsExistentes,
+        });
+        extra = { dados_tecnicos_aplicados_json: json as any, status_tecnico };
+      }
+      const { error } = await supabase
+        .from("projeto_pecas")
+        .update({ ...rest, ...extra })
+        .eq("id", pid);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projeto-pecas", id] }),
@@ -337,6 +382,34 @@ function PecasTab({
       });
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao aplicar técnica");
+    }
+  }
+
+  async function gerarManual(p: ProjetoPeca) {
+    try {
+      const { json, status_tecnico } = gerarDadosTecnicosManuais({
+        largura: p.largura,
+        altura: p.altura,
+        espessura: p.espessura,
+        codigo: p.codigo,
+        descricao: p.descricao,
+        fita_codigo: p.fita_codigo,
+        modulo: p.modulo,
+        quantidade: p.quantidade,
+        veio: p.veio,
+        operacoesExistentes:
+          (p.dados_tecnicos_aplicados_json as any)?.operacoes_recalculadas ?? [],
+      });
+      const { error } = await supabase
+        .from("projeto_pecas")
+        .update({ dados_tecnicos_aplicados_json: json as any, status_tecnico })
+        .eq("id", p.id);
+      if (error) throw error;
+      toast.success("Técnica manual gerada");
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+      setVisualizar({ ...p, dados_tecnicos_aplicados_json: json as any, status_tecnico });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao gerar técnica manual");
     }
   }
 
@@ -573,10 +646,10 @@ function PecasTab({
                       <Button
                         size="sm"
                         variant="ghost"
-                        disabled
-                        title="Vincule uma peça da biblioteca para aplicar técnica."
+                        title="Gerar técnica manual e visualizar (Peça manual · Aplicado: não)"
+                        onClick={() => gerarManual(p)}
                       >
-                        <Link2Off className="h-3.5 w-3.5 text-muted-foreground" />
+                        <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
