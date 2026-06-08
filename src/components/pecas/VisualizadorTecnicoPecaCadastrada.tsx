@@ -681,8 +681,19 @@ export function VisualizadorTecnicoPecaCadastrada({
     const L = largura ?? 600;
     const A = altura ?? 400;
     const E = espessura ?? 18;
+    // 1) Preferir geometria visual derivada do modelo técnico (segmentos L / principal L).
+    const gv = obterGeometriaVisualDaFace(modeloTecnico ?? null, f, {
+      largura: L,
+      altura: A,
+      espessura: E,
+    });
+    if (gv && gv.largura_visual > 0 && gv.altura_visual > 0) {
+      return { w: gv.largura_visual, h: gv.altura_visual };
+    }
+    // 2) faces_layout_json salvo
     const o = facesLayoutMap.get(f);
     if (o && o.largura_visual > 0 && o.altura_visual > 0) return { w: o.largura_visual, h: o.altura_visual };
+    // 3) fallback retangular antigo
     if (f === "0" || f === "5") return { w: L, h: A };
     if (f === "1" || f === "3") return { w: E, h: A };
     if (f === "2" || f === "4") return { w: L, h: E };
