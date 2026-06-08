@@ -102,7 +102,7 @@ function ProjetoEditor() {
         largura,
         espessura,
         ordem,
-        dados_tecnicos_aplicados_json: json,
+        dados_tecnicos_aplicados_json: json as any,
         status_tecnico,
       });
       if (error) throw error;
