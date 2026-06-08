@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
+import { validarGeometriaModelo } from "@/lib/peca-modelo-tecnico";
 import {
   validarModeloTecnico,
   validarParserBAS0485A,
@@ -10,6 +11,11 @@ import {
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
+import {
+  obterGeometriaRenderizavelDaFace,
+  amostrarPontosDeOperacao,
+} from "@/lib/geometria-renderizavel";
+import { classificarPontoNoPoligono } from "@/lib/geometria-poligono";
 
 type OperacaoRow = {
   tipo_operacao?: string | null;
