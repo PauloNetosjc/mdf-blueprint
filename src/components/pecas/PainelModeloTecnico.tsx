@@ -101,27 +101,77 @@ export function PainelModeloTecnico({
   const facesOrdenadas = Object.keys(det.por_face).sort((a, b) => Number(a) - Number(b));
   const pontos = lite.geometria?.pontos_contorno ?? [];
 
+  // Diagnóstico de renderização: usa a função ÚNICA também usada pelo
+  // visualizador e pela validação geométrica.
+  const validacaoGeom = useMemo(
+    () => (modelo ? validarGeometriaModelo(modelo) : null),
+    [modelo],
+  );
+  const renderizacaoOk = validacaoGeom?.ok ?? null;
+
+  const [faceDiag, setFaceDiag] = useState<string>(
+    String(modelo?.geometria?.face_principal ?? facesOrdenadas[0] ?? "0"),
+  );
+  const diagFaceLista = useMemo(() => {
+    const todas = new Set<string>(facesOrdenadas);
+    if (modelo?.geometria?.face_principal != null) todas.add(String(modelo.geometria.face_principal));
+    return Array.from(todas).sort((a, b) => Number(a) - Number(b));
+  }, [facesOrdenadas, modelo]);
+
+  const diag = useMemo(() => {
+    if (!modelo) return null;
+    const geom = obterGeometriaRenderizavelDaFace(modelo, faceDiag);
+    if (!geom) return null;
+    const opsFace = (modelo.operacoes ?? []).filter((o) => String(o.face) === faceDiag);
+    const TOL = 1.5;
+    const opsTestadas = opsFace.map((op) => {
+      const amostras = amostrarPontosDeOperacao(op);
+      const resultados = amostras.map((p) => {
+        const r = classificarPontoNoPoligono(p, geom.pontos_contorno, TOL);
+        return { label: p.label, x: p.x, y: p.y, valido: r.valido, na_borda: r.na_borda, dentro: r.dentro, dist: r.distancia_borda };
+      });
+      return { op, resultados, ok: resultados.every((r) => r.valido) };
+    });
+    return { geom, opsTestadas };
+  }, [modelo, faceDiag]);
+
   return (
     <div className="space-y-4">
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Modelo Técnico — Validador (Importador V2)</h3>
           <p className="text-xs text-muted-foreground">
-            O visualizador só deve desenhar se este painel mostrar ✓ OK.
-            {(codigo ?? "").toUpperCase() === "BAS0485A" && " Teste-fixture: BAS0485A."}
-            {(codigo ?? "").toUpperCase() === "BAS1101A" && " Teste-fixture: BAS1101A."}
+            "Modelo OK" cobre parser/contagens. "Renderização OK" cobre se as operações ficam dentro do contorno técnico usado pelo visualizador.
           </p>
         </div>
-        {resultado.ok ? (
-          <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="h-4 w-4" /> Modelo OK
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-2 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-sm font-medium text-destructive">
-            <AlertTriangle className="h-4 w-4" /> Modelo inválido
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {resultado.ok ? (
+            <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> Modelo Técnico OK
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" /> Modelo inválido
+            </span>
+          )}
+          {renderizacaoOk === true && (
+            <span className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> Renderização OK
+            </span>
+          )}
+          {renderizacaoOk === false && (
+            <span className="inline-flex items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-sm font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" /> Renderização divergente ({validacaoGeom?.forasDoContorno.length ?? 0})
+            </span>
+          )}
+        </div>
       </header>
+
+      {resultado.ok && renderizacaoOk === false && (
+        <div className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-800 dark:text-amber-300">
+          Modelo técnico válido, mas renderização divergente — alguma operação está caindo fora do contorno usado pelo visualizador.
+        </div>
+      )}
 
       {/* Geometria */}
       <section className="rounded border border-border bg-surface p-3 text-sm">
