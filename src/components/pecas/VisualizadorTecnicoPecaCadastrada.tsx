@@ -1384,10 +1384,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     : null;
                 const ehFacePrincipalL =
                   !!contornoSalvo &&
-                  (faceSel === principalFaceModelo ||
-                    faceSel === "7" ||
-                    faceSel === "0" ||
-                    faceSel === "5");
+                  (principalFaceModelo != null
+                    ? faceSel === principalFaceModelo
+                    : faceSel === "7");
                 const lShape = ehFacePrincipalL
                   ? detectarLDoContorno(contornoExterno?.pontos ?? [])
                   : null;
