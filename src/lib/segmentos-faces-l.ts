@@ -196,12 +196,14 @@ export function gerarSegmentosOrientacao(info: InfoL): PerfilSegmentado[] {
 
 /**
  * A partir dos segmentos, devolve as dimensões visuais (w × h em mm) de cada
- * face para uso pelo visualizador. F7 (principal L) recebe W × H.
+ * face para uso pelo visualizador. A face principal (parametrizável) recebe
+ * W × H — NUNCA hardcoda "7".
  */
 export function dimensoesPorFaceL(
   segmentos: PerfilSegmentado[],
   info: InfoL,
   espessura: number,
+  facePrincipal: string = "7",
 ): Record<string, { w: number; h: number; origem_medida: OrigemMedida }> {
   const E = Math.max(1, espessura || 18);
   const out: Record<string, { w: number; h: number; origem_medida: OrigemMedida }> = {};
@@ -214,7 +216,7 @@ export function dimensoesPorFaceL(
       }
     }
   }
-  out["7"] = { w: info.W, h: info.H, origem_medida: "calculada_por_contorno" };
+  out[String(facePrincipal)] = { w: info.W, h: info.H, origem_medida: "calculada_por_contorno" };
   return out;
 }
 
