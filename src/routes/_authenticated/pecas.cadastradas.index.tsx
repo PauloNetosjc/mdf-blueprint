@@ -19,6 +19,7 @@ import { ReprocessarGeometriaDialog } from "@/components/pecas/ReprocessarGeomet
 import { ReprocessarParserErrosDialog } from "@/components/pecas/ReprocessarParserErrosDialog";
 import { LimparBibliotecaDialog } from "@/components/pecas/LimparBibliotecaDialog";
 import { AuditarBibliotecaDialog } from "@/components/pecas/AuditarBibliotecaDialog";
+import { ValidarFixturesDialog } from "@/components/pecas/ValidarFixturesDialog";
 import { statusGeometria, type GeometriaStatus } from "@/lib/geometria-reprocess";
 import {
   parseTechnicalDrawingPdf,
