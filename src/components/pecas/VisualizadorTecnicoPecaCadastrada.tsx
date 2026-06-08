@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Copy, FileWarning, Pencil, Plus, Trash2 } from "lucide-react";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
+import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
+import { obterGeometriaVisualDaFace } from "@/lib/segmentos-faces-l";
 
 const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
 
