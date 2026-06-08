@@ -558,6 +558,15 @@ function PecaCadastradaDetalhe() {
               {gcodeStatus.validacao.forasDoContorno.slice(0, 6).map((f, i) => (
                 <li key={i}>
                   Face {f.face} · #{f.ordem} {f.tipo}{f.nome ? ` (${f.nome})` : ""} — {f.motivo}
+                  {f.pontos_testados?.length ? (
+                    <ul className="ml-4 mt-1 list-disc font-mono text-[10px]">
+                      {f.pontos_testados.map((p) => (
+                        <li key={`${p.label}-${p.x}-${p.y}`}>
+                          {p.label}=({p.x.toFixed(2)}, {p.y.toFixed(2)}) dentro={String(p.dentro)} na_borda={String(p.na_borda)} valido={String(p.valido)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               ))}
               {gcodeStatus.validacao.forasDoContorno.length > 6 && (
@@ -1017,6 +1026,10 @@ function PecaCadastradaDetalhe() {
               {JSON.stringify({
                 pontos_do_contorno: contornoExterno?.pontos ?? [],
                 path_svg_gerado: pathContorno(contornoExterno),
+                validacao_operacoes: gcodeStatus.validacao ? {
+                  ok: gcodeStatus.validacao.ok,
+                  operacoes_invalidas: gcodeStatus.validacao.forasDoContorno,
+                } : null,
                 operacoes_que_afetam_contorno: operacoesContorno.map((o) => ({ id: o.id, nome: o.nome_operacao, pontos: o.pontos_json })),
                 presets_aplicados: contornoExterno?.presets_aplicados ?? [],
               }, null, 2)}

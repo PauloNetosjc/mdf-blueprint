@@ -6,6 +6,7 @@ import {
   validarParserBAS0485A,
   validarParserBAS1101A,
   validarParserBAS3520A,
+  validarParserBAS4622A,
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
@@ -37,6 +38,7 @@ export function PainelModeloTecnico({
         geometria: {
           tipo: modelo.geometria.tipo,
           origem: modelo.geometria.origem,
+          face_principal: modelo.geometria.face_principal,
           pontos_contorno: modelo.geometria.pontos_contorno,
         },
         faces_operacionais: (modelo.faces_operacionais ?? []).map((f) => Number(f.face)),
@@ -57,6 +59,10 @@ export function PainelModeloTecnico({
           face: o.face,
           x: o.x,
           y: o.y,
+            x1: o.x1,
+            x2: o.x2,
+            y1: o.y1,
+            y2: o.y2,
           diametro: o.diametro,
           profundidade: o.profundidade,
         })),
@@ -81,6 +87,7 @@ export function PainelModeloTecnico({
     if (cod === "BAS0485A") return validarParserBAS0485A(lite);
     if (cod === "BAS1101A") return validarParserBAS1101A(lite);
     if (cod === "BAS3520A") return validarParserBAS3520A(lite);
+    if (cod === "BAS4622A") return validarParserBAS4622A(lite);
     return validarModeloTecnico(lite);
   }, [lite, codigo]);
 
@@ -231,7 +238,10 @@ export function PainelModeloTecnico({
             )}
             {facesOrdenadas.map((f) => {
               const r = det.por_face[f];
-              const danger = f === "0" && r.total > 0;
+              const face0Declarada = String(lite.geometria?.face_principal ?? "") === "0" ||
+                (lite.faces_operacionais ?? []).map(String).includes("0") ||
+                (lite.faces_visuais ?? []).map(String).includes("0");
+              const danger = f === "0" && r.total > 0 && !face0Declarada;
               return (
                 <tr key={f} className={danger ? "text-destructive" : ""}>
                   <td>Face {f}{danger ? " (não permitido)" : ""}</td>

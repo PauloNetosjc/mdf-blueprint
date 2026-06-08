@@ -663,6 +663,9 @@ export function VisualizadorTecnicoPecaCadastrada({
 
   const opsFace = opsPorFace.get(faceSel) ?? [];
   const opSelObj = opsFace.find((o) => o.id === opSel) ?? null;
+  const facePrincipalModelo = modeloTecnico?.geometria.face_principal != null
+    ? String(modeloTecnico.geometria.face_principal)
+    : null;
 
   useEffect(() => {
     if (!faces.includes(faceSel)) {
@@ -1592,7 +1595,9 @@ export function VisualizadorTecnicoPecaCadastrada({
                     const ativa = box.face === faceSel;
                     const bx = margin + box.x;
                     const by = margin + box.y;
-                    const pathFaceL = box.face === "7" && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
+                    const ehFacePrincipalL = modeloTecnico?.geometria.tipo === "L" &&
+                      (box.face === facePrincipalModelo || box.face === "7");
+                    const pathFaceL = ehFacePrincipalL && contornoSalvo && Math.abs(contornoSalvo.largura - box.w) <= 0.5 && Math.abs(contornoSalvo.altura - box.h) <= 0.5
                       ? pathTecnicoParaSvg(contornoSalvo.pontos, box.h)
                       : null;
                     return (

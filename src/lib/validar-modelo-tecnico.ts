@@ -4,11 +4,17 @@
 // Enquanto o JSON não passar nas regras determinísticas (especialmente o
 // fixture BAS0485A), o visualizador deve mostrar o erro e NÃO desenhar.
 
+import { pontoDentroOuNaBordaDoPoligono } from "@/lib/geometria-poligono";
+
 export type OperacaoLite = {
   tipo: string | null | undefined;
   face: number | string | null | undefined;
   x?: number | null;
   y?: number | null;
+  x1?: number | null;
+  x2?: number | null;
+  y1?: number | null;
+  y2?: number | null;
   diametro?: number | null;
   profundidade?: number | null;
   parametrico?: unknown;
@@ -90,6 +96,20 @@ function face0EhDeclarada(m: ModeloTecnicoLite): boolean {
   if ((m.faces_operacionais ?? []).map(String).includes("0")) return true;
   if ((m.faces_visuais ?? []).map(String).includes("0")) return true;
   return false;
+}
+
+function pontosDeRasgo(op: OperacaoLite) {
+  if (op.x1 != null && op.x2 != null && op.y != null) {
+    return [{ x: op.x1, y: op.y }, { x: op.x2, y: op.y }, { x: (op.x1 + op.x2) / 2, y: op.y }];
+  }
+  if (op.x1 != null && op.x2 != null && op.y1 != null && op.y2 != null) {
+    return [
+      { x: op.x1, y: op.y1 },
+      { x: op.x2, y: op.y2 },
+      { x: (op.x1 + op.x2) / 2, y: (op.y1 + op.y2) / 2 },
+    ];
+  }
+  return [];
 }
 
 /** Validação genérica que vale para todas as peças. */
@@ -490,6 +510,26 @@ export function validarParserBAS4622A(m: ModeloTecnicoLite): ResultadoValidacao 
   }
   if (d.rasgos_total !== EXPECTED_BAS4622A.rasgos_total) {
     erros.push(`Total de rasgos esperado ${EXPECTED_BAS4622A.rasgos_total}, recebeu ${d.rasgos_total}.`);
+  }
+
+  const poly = g?.pontos_contorno ?? [];
+  const rasgosFace0 = (m.operacoes ?? []).filter((o) => o.tipo === "rasgo" && String(o.face) === "0");
+  if (poly.length === 6) {
+    for (const [idx, rasgo] of rasgosFace0.entries()) {
+      const pts = pontosDeRasgo(rasgo);
+      if (pts.length !== 3) {
+        erros.push(`Rasgo Face 0 #${idx + 1}: esperava 3 pontos de validação (início, fim, meio), recebeu ${pts.length}.`);
+        continue;
+      }
+      const fora = pts.find((p) => !pontoDentroOuNaBordaDoPoligono(p, poly, 1));
+      if (fora) {
+        erros.push(`Rasgo Face 0 #${idx + 1}: ponto (${fora.x}, ${fora.y}) fora do contorno L principal.`);
+      }
+    }
+  }
+  const rasgoLinhaInvertido = rasgosFace0.some((o) => o.y1 != null && o.y2 != null && o.y1 > o.y2);
+  if (!rasgoLinhaInvertido) {
+    erros.push("Esperava rasgo_linha da Face 0 com Y1 > Y2 aceito/preservado.");
   }
 
   const bordas = m.bordas ?? [];
