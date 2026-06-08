@@ -28,7 +28,9 @@ type ProjetoPeca = {
   id: string;
   projeto_id: string;
   peca_id: string | null;
+  peca_cadastrada_id: string | null;
   descricao: string;
+  codigo: string | null;
   quantidade: number;
   altura: number;
   largura: number;
@@ -38,6 +40,9 @@ type ProjetoPeca = {
   modulo: string | null;
   observacao: string | null;
   ordem: number;
+  veio: boolean;
+  status_tecnico: StatusTecnico | null;
+  dados_tecnicos_aplicados_json: any | null;
 };
 
 function ProjetoEditor() {
