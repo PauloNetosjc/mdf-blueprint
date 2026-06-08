@@ -4,6 +4,7 @@ import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
 import {
   validarModeloTecnico,
   validarParserBAS0485A,
+  validarParserBAS1101A,
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
@@ -39,6 +40,17 @@ export function PainelModeloTecnico({
         },
         faces_operacionais: (modelo.faces_operacionais ?? []).map((f) => Number(f.face)),
         faces_visuais: (modelo.faces_visuais ?? []).map((f) => Number(f.face)),
+        face_alinhamento: modelo.face_alinhamento ?? null,
+        medidas: {
+          largura: modelo.medidas?.largura ?? null,
+          altura: modelo.medidas?.altura ?? null,
+          espessura: modelo.medidas?.espessura ?? null,
+        },
+        bordas: (modelo.bordas ?? []).map((b) => ({
+          codigo_borda: b.codigo_borda ?? null,
+          indicador_desenho: b.indicador_desenho ?? null,
+          quantidade_m: b.quantidade_m ?? null,
+        })),
         operacoes: (modelo.operacoes ?? []).map((o) => ({
           tipo: o.tipo,
           face: o.face,
@@ -64,7 +76,9 @@ export function PainelModeloTecnico({
   }, [modelo, operacoes, codigo]);
 
   const resultado = useMemo(() => {
-    if ((codigo ?? "").toUpperCase() === "BAS0485A") return validarParserBAS0485A(lite);
+    const cod = (codigo ?? "").toUpperCase();
+    if (cod === "BAS0485A") return validarParserBAS0485A(lite);
+    if (cod === "BAS1101A") return validarParserBAS1101A(lite);
     return validarModeloTecnico(lite);
   }, [lite, codigo]);
 
@@ -76,10 +90,11 @@ export function PainelModeloTecnico({
     <div className="space-y-4">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">Modelo Técnico — Validador</h3>
+          <h3 className="text-lg font-semibold">Modelo Técnico — Validador (Importador V2)</h3>
           <p className="text-xs text-muted-foreground">
             O visualizador só deve desenhar se este painel mostrar ✓ OK.
             {(codigo ?? "").toUpperCase() === "BAS0485A" && " Teste-fixture: BAS0485A."}
+            {(codigo ?? "").toUpperCase() === "BAS1101A" && " Teste-fixture: BAS1101A."}
           </p>
         </div>
         {resultado.ok ? (
@@ -109,6 +124,37 @@ export function PainelModeloTecnico({
           <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
             {pontos.map((p, i) => `${i + 1}. (${p.x}, ${p.y})`).join("\n")}
           </pre>
+        )}
+      </section>
+
+      {/* Importação técnica: medidas, face A, bordas/fita */}
+      <section className="rounded border border-border bg-surface p-3 text-sm">
+        <div className="mb-2 font-medium">Importação técnica</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Field label="Largura" value={lite.medidas?.largura != null ? `${lite.medidas.largura} mm` : "—"} />
+          <Field label="Altura" value={lite.medidas?.altura != null ? `${lite.medidas.altura} mm` : "—"} />
+          <Field label="Espessura" value={lite.medidas?.espessura != null ? `${lite.medidas.espessura} mm` : "—"} />
+          <Field label="Face de alinhamento" value={lite.face_alinhamento ?? "—"} />
+        </div>
+        {(lite.bordas ?? []).length > 0 && (
+          <table className="mt-2 w-full text-xs">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="text-left">Marcador</th>
+                <th className="text-left">Código da fita</th>
+                <th className="text-right">Quantidade (m)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(lite.bordas ?? []).map((b, i) => (
+                <tr key={i}>
+                  <td>{b.indicador_desenho ?? "—"}</td>
+                  <td className="font-mono">{b.codigo_borda ?? "—"}</td>
+                  <td className="text-right">{b.quantidade_m != null ? b.quantidade_m.toFixed(3) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </section>
 

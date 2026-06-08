@@ -112,6 +112,7 @@ export const BordaModeloSchema = z.object({
   largura: z.number().nullable().optional(),
   cor: z.string().nullable().optional(),
   indicador_desenho: z.string().nullable().optional(),
+  quantidade_m: z.number().nullable().optional(),
   confianca: z.enum(["alta", "media", "baixa"]).optional().default("media"),
 });
 export type BordaModelo = z.infer<typeof BordaModeloSchema>;
@@ -472,6 +473,7 @@ function mapBorda(b: BordaExtraida): BordaModelo {
     largura: b.largura,
     cor: b.cor,
     indicador_desenho: b.indicador_desenho,
+    quantidade_m: b.quantidade_m ?? null,
     confianca: b.confianca_parser,
   };
 }

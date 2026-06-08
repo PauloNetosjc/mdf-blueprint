@@ -156,6 +156,8 @@ export type BordaExtraida = {
   largura: number | null;
   cor: string | null;
   indicador_desenho: string | null;
+  /** Quantidade total de fita (em metros) extraída da tabela técnica do PDF. */
+  quantidade_m: number | null;
   confianca_parser: "alta" | "media" | "baixa";
 };
 
@@ -1054,6 +1056,15 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
       if (cor) partesDesc.push(cor);
       descricao = partesDesc.join(" ");
     }
+    // Quantidade total de fita (ex.: "0.458 M" ou "1,2 M"). Procura na mesma
+    // linha que contém o código da fita. Aceita "M", "MT" ou "Metros".
+    let quantidade_m: number | null = null;
+    const qtdMatch = l.texto.match(/(\d+(?:[.,]\d+)?)\s*(?:M(?:T|ETROS?)?)\b/i);
+    if (qtdMatch) {
+      const v = toNum(qtdMatch[1]);
+      // Ignora valores claramente irreais (>100m em uma única peça).
+      if (v != null && v > 0 && v <= 100) quantidade_m = v;
+    }
     bordas.push({
       lado: "desconhecido",
       codigo_borda: codigo,
@@ -1062,6 +1073,7 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
       largura,
       cor: cor ?? corCodigo,
       indicador_desenho: null,
+      quantidade_m,
       confianca_parser: espessura != null && largura != null ? "alta" : "media",
     });
   }
@@ -1213,24 +1225,54 @@ function extrairMedidas(linhas: Linha[]): {
   espessura: number | null;
   material: string | null;
 } {
-  // Padrão "Chapa X Espessura 15mm (900 x 15 x 460)"
+  // Padrão "Chapa X Espessura 15mm (189 x 15 x 580)" — leitura POSICIONAL.
+  // Convenção dos PDFs técnicos do sistema: (LARGURA x ESPESSURA x ALTURA).
+  // NÃO usar sort por tamanho — peças retangulares (ex.: BAS1101A 189x15x580)
+  // são interpretadas invertidas se largura/altura forem trocados.
+  // Aceita também linhas que tragam "Espessura Nmm" para gating contextual.
   for (const l of linhas) {
-    const m = l.texto.match(/\((\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\)/);
-    if (m) {
-      const a = toNum(m[1])!;
-      const b = toNum(m[2])!;
-      const c = toNum(m[3])!;
-      // menor valor costuma ser espessura
-      const vals = [a, b, c].sort((x, y) => x - y);
-      const espessura = vals[0];
-      const outros = [a, b, c].filter((v) => v !== espessura);
-      const largura = Math.max(...outros);
-      const altura = Math.min(...outros);
-      const matMatch = l.texto.match(/Chapa\s+([^()]+?)\s+Espessura/i);
-      return { largura, altura, espessura, material: matMatch ? matMatch[1].trim() : null };
+    const t = l.texto;
+    const m = t.match(/\((\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\)/);
+    if (!m) continue;
+    // Só aceita medidas vindas de uma linha de chapa/material — evita pegar
+    // por engano dimensões da fita de borda (ex.: "(458 x 19 x 0,45)").
+    const ehLinhaChapa = /Chapa|Espessura\s*\d/i.test(t) && !/FTABS/i.test(t);
+    if (!ehLinhaChapa) continue;
+    const a = toNum(m[1])!;
+    const b = toNum(m[2])!;
+    const c = toNum(m[3])!;
+    // Espessura: prioriza o valor que aparece junto a "Espessura Nmm".
+    let espessura: number | null = null;
+    const eMatch = t.match(/Espessura\s+(\d+(?:[.,]\d+)?)\s*mm/i);
+    if (eMatch) {
+      const ev = toNum(eMatch[1]);
+      if (ev != null && [a, b, c].some((v) => Math.abs(v - ev) < 0.01)) espessura = ev;
     }
+    let largura: number;
+    let altura: number;
+    if (espessura != null) {
+      // Ordem natural do PDF: largura × espessura × altura.
+      // Se "b" for a espessura, a leitura posicional bate. Caso contrário,
+      // assume os dois valores restantes na ordem em que aparecem.
+      if (Math.abs(b - espessura) < 0.01) {
+        largura = a;
+        altura = c;
+      } else if (Math.abs(a - espessura) < 0.01) {
+        largura = b;
+        altura = c;
+      } else {
+        largura = a;
+        altura = b;
+      }
+    } else {
+      // Sem "Espessura Nmm" claro: assume convenção (W x E x H).
+      largura = a;
+      espessura = b;
+      altura = c;
+    }
+    const matMatch = t.match(/Chapa\s+([^()]+?)\s+Espessura/i);
+    return { largura, altura, espessura, material: matMatch ? matMatch[1].trim() : null };
   }
-  // Fallback: três números isolados próximos (largura altura espessura)
   return { largura: null, altura: null, espessura: null, material: null };
 }
 
