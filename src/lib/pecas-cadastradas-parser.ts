@@ -156,6 +156,8 @@ export type BordaExtraida = {
   largura: number | null;
   cor: string | null;
   indicador_desenho: string | null;
+  /** Quantidade total de fita (em metros) extraída da tabela técnica do PDF. */
+  quantidade_m: number | null;
   confianca_parser: "alta" | "media" | "baixa";
 };
 
