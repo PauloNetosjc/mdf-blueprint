@@ -52,7 +52,7 @@ export function classificarPontoNoPoligono(
 export function pontoDentroOuNaBordaDoPoligono(
   ponto: PontoPoligono,
   poligono: PontoPoligono[],
-  tolerancia = 1,
+  tolerancia = 1.5,
 ): boolean {
   return classificarPontoNoPoligono(ponto, poligono, tolerancia).valido;
 }
