@@ -40,6 +40,17 @@ export function PainelModeloTecnico({
         },
         faces_operacionais: (modelo.faces_operacionais ?? []).map((f) => Number(f.face)),
         faces_visuais: (modelo.faces_visuais ?? []).map((f) => Number(f.face)),
+        face_alinhamento: modelo.face_alinhamento ?? null,
+        medidas: {
+          largura: modelo.medidas?.largura ?? null,
+          altura: modelo.medidas?.altura ?? null,
+          espessura: modelo.medidas?.espessura ?? null,
+        },
+        bordas: (modelo.bordas ?? []).map((b) => ({
+          codigo_borda: b.codigo_borda ?? null,
+          indicador_desenho: b.indicador_desenho ?? null,
+          quantidade_m: b.quantidade_m ?? null,
+        })),
         operacoes: (modelo.operacoes ?? []).map((o) => ({
           tipo: o.tipo,
           face: o.face,
@@ -65,7 +76,9 @@ export function PainelModeloTecnico({
   }, [modelo, operacoes, codigo]);
 
   const resultado = useMemo(() => {
-    if ((codigo ?? "").toUpperCase() === "BAS0485A") return validarParserBAS0485A(lite);
+    const cod = (codigo ?? "").toUpperCase();
+    if (cod === "BAS0485A") return validarParserBAS0485A(lite);
+    if (cod === "BAS1101A") return validarParserBAS1101A(lite);
     return validarModeloTecnico(lite);
   }, [lite, codigo]);
 
