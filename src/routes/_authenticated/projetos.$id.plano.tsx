@@ -459,6 +459,27 @@ function PlanoPage() {
             )}
           </div>
 
+          {resultado && resultado.pecas_nao_encaixadas.length > 0 && (
+            <>
+              <h3 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-warning">
+                Peças não encaixadas ({resultado.pecas_nao_encaixadas.length})
+              </h3>
+              <div className="space-y-1 rounded border border-warning/40 bg-warning/10 p-2 text-[11px]">
+                {resultado.pecas_nao_encaixadas.map((p, i) => (
+                  <div key={`ne-${i}`} className="border-b border-warning/20 pb-1 last:border-0">
+                    <div className="font-semibold">{p.descricao}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {Math.round(p.largura)}×{Math.round(p.altura)} mm
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">{p.motivo}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+
+
           {/* Legenda */}
           <h3 className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Legenda</h3>
           <div className="space-y-1 rounded bg-surface p-2 text-[11px]">
