@@ -84,14 +84,26 @@ function ProjetoEditor() {
   const adicionar = useMutation({
     mutationFn: async () => {
       const ordem = (pecas?.length ?? 0) + 1;
+      const largura = 400;
+      const altura = 600;
+      const espessura = 15;
+      const { json, status_tecnico } = gerarDadosTecnicosManuais({
+        largura,
+        altura,
+        espessura,
+        descricao: "Nova peça",
+        quantidade: 1,
+      });
       const { error } = await supabase.from("projeto_pecas").insert({
         projeto_id: id,
         descricao: "Nova peça",
         quantidade: 1,
-        altura: 600,
-        largura: 400,
-        espessura: 15,
+        altura,
+        largura,
+        espessura,
         ordem,
+        dados_tecnicos_aplicados_json: json,
+        status_tecnico,
       });
       if (error) throw error;
     },
@@ -127,7 +139,39 @@ function ProjetoEditor() {
   const atualizar = useMutation({
     mutationFn: async (p: Partial<ProjetoPeca> & { id: string }) => {
       const { id: pid, ...rest } = p;
-      const { error } = await supabase.from("projeto_pecas").update(rest).eq("id", pid);
+      const atual = (pecas ?? []).find((x) => x.id === pid);
+      const ehManual = atual && !atual.peca_cadastrada_id;
+      const dimsMudaram =
+        atual &&
+        (("largura" in rest && rest.largura !== atual.largura) ||
+          ("altura" in rest && rest.altura !== atual.altura) ||
+          ("espessura" in rest && rest.espessura !== atual.espessura));
+      let extra: Partial<ProjetoPeca> = {};
+      if (ehManual && dimsMudaram) {
+        const largura = (rest.largura as number | undefined) ?? atual!.largura;
+        const altura = (rest.altura as number | undefined) ?? atual!.altura;
+        const espessura = (rest.espessura as number | undefined) ?? atual!.espessura;
+        const opsExistentes =
+          (atual!.dados_tecnicos_aplicados_json as any)?.operacoes_recalculadas ?? [];
+        const { json, status_tecnico } = gerarDadosTecnicosManuais({
+          largura,
+          altura,
+          espessura,
+          codigo: atual!.codigo,
+          descricao: (rest.descricao as string | undefined) ?? atual!.descricao,
+          material_chapa: (atual as any)?.material_chapa ?? null,
+          fita_codigo: (rest.fita_codigo as string | undefined) ?? atual!.fita_codigo,
+          modulo: (rest.modulo as string | undefined) ?? atual!.modulo,
+          quantidade: (rest.quantidade as number | undefined) ?? atual!.quantidade,
+          veio: (rest.veio as boolean | undefined) ?? atual!.veio,
+          operacoesExistentes: opsExistentes,
+        });
+        extra = { dados_tecnicos_aplicados_json: json as any, status_tecnico };
+      }
+      const { error } = await supabase
+        .from("projeto_pecas")
+        .update({ ...rest, ...extra })
+        .eq("id", pid);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projeto-pecas", id] }),
