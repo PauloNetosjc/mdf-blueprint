@@ -295,12 +295,7 @@ function ProjetoEditor() {
         </TabsContent>
 
         <TabsContent value="plano" className="flex-1 overflow-auto p-6 pt-3">
-          <div className="rounded border border-border bg-surface p-8 text-center">
-            <p className="mb-4 text-muted-foreground">Abra o Plano de Corte visual em tela cheia.</p>
-            <Link to="/projetos/$id/plano" params={{ id }}>
-              <Button size="lg"><Cpu className="mr-2 h-5 w-5" />Abrir Plano de Corte</Button>
-            </Link>
-          </div>
+          <PlanoCorteTab projetoId={id} />
         </TabsContent>
       </Tabs>
     </div>
