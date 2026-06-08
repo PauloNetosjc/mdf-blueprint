@@ -1074,6 +1074,7 @@ function PecasCadastradasPage() {
         }}
       />
       <AuditarBibliotecaDialog open={auditarOpen} onOpenChange={setAuditarOpen} />
+      <ValidarFixturesDialog open={fixturesOpen} onOpenChange={setFixturesOpen} />
 
     </div>
   );
