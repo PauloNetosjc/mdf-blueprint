@@ -66,10 +66,29 @@ type PecaMin = {
   logs_parser: string[] | null;
 };
 
-function gerarFacesLayoutBaseL(largura: number, altura: number, espessura: number | null) {
+function gerarFacesLayoutBaseL(
+  largura: number,
+  altura: number,
+  espessura: number | null,
+  pontosContorno?: { x: number; y: number }[] | null,
+) {
+  const E = espessura ?? 18;
+  // Caminho preferencial: temos um contorno em L com 6 pontos. Usa as
+  // medidas reais dos segmentos (F2/F4 no perfil inferior, F3/F5 no direito).
+  const infoL = detectarLBR(pontosContorno ?? null);
+  if (infoL) {
+    const segs = gerarSegmentosLBR(infoL);
+    return {
+      origem: "automatico",
+      atualizado_em: new Date().toISOString(),
+      observacao:
+        "Layout visual automático para Base L com segmentos por perfil derivados do contorno técnico.",
+      faces: gerarFacesLayoutL(infoL, E, segs),
+    };
+  }
+  // Fallback antigo (proporções aproximadas) quando não há contorno técnico.
   const L = largura;
   const A = altura;
-  const E = espessura ?? 18;
   const GAP = 40;
   const f7 = { w: L, h: A };
   const f1 = { w: E, h: A };
@@ -83,15 +102,16 @@ function gerarFacesLayoutBaseL(largura: number, altura: number, espessura: numbe
   return {
     origem: "automatico",
     atualizado_em: new Date().toISOString(),
-    observacao: "Layout visual automático para Base L com faces 1 a 7.",
+    observacao:
+      "Layout visual aproximado para Base L (sem contorno técnico explícito). Medidas marcadas como aproximadas.",
     faces: [
-      { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x7, y_layout: 0, visivel: true },
-      { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: 0, y_layout: y7, visivel: true },
-      { face: "7", label: "F7 — Principal L", tipo_vista: "principal_L", largura_visual: f7.w, altura_visual: f7.h, x_layout: x7, y_layout: y7, visivel: true },
-      { face: "5", label: "F5 — Lateral direita superior", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: x7 + f7.w + GAP, y_layout: y7, visivel: true },
-      { face: "3", label: "F3 — Lateral direita inferior", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: x7 + f7.w + GAP, y_layout: y7 + f5.h + GAP, visivel: true },
-      { face: "2", label: "F2 — Inferior esquerda", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x7, y_layout: y7 + f7.h + GAP, visivel: true },
-      { face: "4", label: "F4 — Inferior direita", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x7 + f2.w + GAP, y_layout: y7 + f7.h + GAP, visivel: true },
+      { face: "6", label: "F6 — Superior", tipo_vista: "superior", largura_visual: f6.w, altura_visual: f6.h, x_layout: x7, y_layout: 0, visivel: true, origem_medida: "aproximada" },
+      { face: "1", label: "F1 — Lateral esquerda", tipo_vista: "lateral_esquerda", largura_visual: f1.w, altura_visual: f1.h, x_layout: 0, y_layout: y7, visivel: true, origem_medida: "aproximada" },
+      { face: "7", label: "F7 — Principal L", tipo_vista: "principal_L", largura_visual: f7.w, altura_visual: f7.h, x_layout: x7, y_layout: y7, visivel: true, origem_medida: "aproximada" },
+      { face: "5", label: "F5 — Lateral direita superior", tipo_vista: "lateral_direita_superior", largura_visual: f5.w, altura_visual: f5.h, x_layout: x7 + f7.w + GAP, y_layout: y7, visivel: true, origem_medida: "aproximada" },
+      { face: "3", label: "F3 — Lateral direita inferior", tipo_vista: "lateral_direita_inferior", largura_visual: f3.w, altura_visual: f3.h, x_layout: x7 + f7.w + GAP, y_layout: y7 + f5.h + GAP, visivel: true, origem_medida: "aproximada" },
+      { face: "2", label: "F2 — Inferior esquerda", tipo_vista: "inferior_esquerda", largura_visual: f2.w, altura_visual: f2.h, x_layout: x7, y_layout: y7 + f7.h + GAP, visivel: true, origem_medida: "aproximada" },
+      { face: "4", label: "F4 — Inferior direita", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x7 + f2.w + GAP, y_layout: y7 + f7.h + GAP, visivel: true, origem_medida: "aproximada" },
     ],
   };
 }
