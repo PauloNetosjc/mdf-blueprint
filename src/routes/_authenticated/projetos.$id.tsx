@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
 import { ProjetoNav } from "@/components/projeto-nav";
 import { StatusBadge } from "@/components/status-badge";
 import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
+import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/components/projetos/SelecionarPecaBibliotecaDialog";
+import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
+import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
   head: () => ({ meta: [{ title: "Editor de Projeto — Visualizador CNC" }] }),
@@ -25,7 +28,9 @@ type ProjetoPeca = {
   id: string;
   projeto_id: string;
   peca_id: string | null;
+  peca_cadastrada_id: string | null;
   descricao: string;
+  codigo: string | null;
   quantidade: number;
   altura: number;
   largura: number;
@@ -35,6 +40,9 @@ type ProjetoPeca = {
   modulo: string | null;
   observacao: string | null;
   ordem: number;
+  veio: boolean;
+  status_tecnico: StatusTecnico | null;
+  dados_tecnicos_aplicados_json: any | null;
 };
 
 function ProjetoEditor() {
@@ -84,6 +92,31 @@ function ProjetoEditor() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projeto-pecas", id] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const adicionarDaBiblioteca = useMutation({
+    mutationFn: async (p: PecaCadastradaResumo) => {
+      const ordem = (pecas?.length ?? 0) + 1;
+      const { error } = await supabase.from("projeto_pecas").insert({
+        projeto_id: id,
+        peca_cadastrada_id: p.id,
+        codigo: p.codigo,
+        descricao: p.nome_peca ?? p.nome ?? p.codigo ?? "Peça da biblioteca",
+        quantidade: 1,
+        largura: p.largura_ref ?? 400,
+        altura: p.altura_ref ?? 600,
+        espessura: p.espessura_ref ?? 15,
+        fita_codigo: p.fita_ref ?? null,
+        status_tecnico: "nao_aplicado",
+        ordem,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", id] });
+      toast.success("Peça adicionada da biblioteca");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -187,6 +220,7 @@ function ProjetoEditor() {
             pecas={pecas ?? []}
             chapas={chapas ?? []}
             onAdd={() => adicionar.mutate()}
+            onAddFromBiblioteca={(p) => adicionarDaBiblioteca.mutate(p)}
             onUpdate={(p) => atualizar.mutate(p)}
             onDuplicate={(p) => duplicar.mutate(p)}
             onDelete={(pid) => excluir.mutate(pid)}
@@ -227,11 +261,12 @@ function ProjetoEditor() {
 type ChapaInfo = { id: string; nome: string; cor: string; espessura: number };
 
 function PecasTab({
-  pecas, chapas, onAdd, onUpdate, onDuplicate, onDelete, onAbrirEngenharia, projetoId,
+  pecas, chapas, onAdd, onAddFromBiblioteca, onUpdate, onDuplicate, onDelete, onAbrirEngenharia, projetoId,
 }: {
   pecas: ProjetoPeca[];
   chapas: ChapaInfo[];
   onAdd: () => void;
+  onAddFromBiblioteca: (p: PecaCadastradaResumo) => void;
   onUpdate: (p: Partial<ProjetoPeca> & { id: string }) => void;
   onDuplicate: (p: ProjetoPeca) => void;
   onDelete: (pid: string) => void;
@@ -240,6 +275,7 @@ function PecasTab({
 }) {
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [expandida, setExpandida] = useState<string | null>(null);
 
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
@@ -326,6 +362,14 @@ function PecasTab({
           <Button size="sm" variant="outline" onClick={colarLinhas}>
             <ClipboardPaste className="mr-1 h-4 w-4" />Colar
           </Button>
+          <SelecionarPecaBibliotecaDialog
+            onSelect={onAddFromBiblioteca}
+            trigger={
+              <Button size="sm" variant="outline">
+                <BookOpen className="mr-1 h-4 w-4" />Da biblioteca
+              </Button>
+            }
+          />
           <Button size="sm" onClick={onAdd}><Plus className="mr-1 h-4 w-4" />Adicionar peça</Button>
         </div>
       </div>
@@ -335,6 +379,7 @@ function PecasTab({
           <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="w-8 px-2 py-2"></th>
+              <th className="w-8 px-1 py-2"></th>
               <th className="px-2 py-2 text-left">Descrição</th>
               <th className="w-16 px-2 py-2 text-right">Qtd</th>
               <th className="w-20 px-2 py-2 text-right">Altura</th>
@@ -353,10 +398,25 @@ function PecasTab({
               const semChapa = !p.chapa_id;
               const qtdInval = !p.quantidade || p.quantidade < 1;
               const espessuraMostrar = chapaSel ? chapaSel.espessura : null;
+              const temBib = !!p.peca_cadastrada_id;
+              const aberto = expandida === p.id;
               return (
-                <tr key={p.id} className={`border-t border-border hover:bg-surface-2 ${selectedRows.has(p.id) ? "bg-primary/5" : ""}`}>
+              <React.Fragment key={p.id}>
+                <tr className={`border-t border-border hover:bg-surface-2 ${selectedRows.has(p.id) ? "bg-primary/5" : ""}`}>
                   <td className="px-2 py-1 text-center">
                     <input type="checkbox" checked={selectedRows.has(p.id)} onChange={() => toggleRow(p.id)} />
+                  </td>
+                  <td className="px-1 py-1 text-center">
+                    {temBib ? (
+                      <button
+                        type="button"
+                        onClick={() => setExpandida(aberto ? null : p.id)}
+                        title="Ver aplicação técnica"
+                        className="inline-flex items-center justify-center rounded hover:bg-surface-2"
+                      >
+                        {aberto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      </button>
+                    ) : null}
                   </td>
                   <td className="p-1"><Inp value={p.descricao} onSave={(v) => onUpdate({ id: p.id, descricao: v })} /></td>
                   <td className="p-1">
@@ -427,6 +487,26 @@ function PecasTab({
                   <td className="p-1"><Inp value={p.modulo ?? ""} onSave={(v) => onUpdate({ id: p.id, modulo: v || null })} /></td>
                   <td className="p-1"><Inp value={p.observacao ?? ""} onSave={(v) => onUpdate({ id: p.id, observacao: v || null })} /></td>
                   <td className="p-1 text-right">
+                    {p.status_tecnico && p.status_tecnico !== "nao_aplicado" && (
+                      <span
+                        className={`mr-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] ${
+                          p.status_tecnico === "aplicado_ok"
+                            ? "bg-success/10 text-success"
+                            : p.status_tecnico === "aplicado_com_alerta"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                        title={p.status_tecnico}
+                      >
+                        {p.status_tecnico === "aplicado_ok" ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : p.status_tecnico === "aplicado_com_alerta" ? (
+                          <AlertTriangle className="h-3 w-3" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
+                      </span>
+                    )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
                       <Cpu className="h-3.5 w-3.5" />
                     </Button>
@@ -438,16 +518,59 @@ function PecasTab({
                     </Button>
                   </td>
                 </tr>
+                {aberto && temBib && (
+                  <tr className="border-t border-border bg-surface-2/30">
+                    <td colSpan={12} className="p-3">
+                      <PainelAplicacaoTecnica
+                        pecaCadastradaId={p.peca_cadastrada_id!}
+                        medidasProjeto={{ largura: p.largura, altura: p.altura, espessura: p.espessura }}
+                        statusAtual={p.status_tecnico}
+                        onPersist={async (res) => {
+                          const { error } = await supabase
+                            .from("projeto_pecas")
+                            .update({
+                              dados_tecnicos_aplicados_json: {
+                                origem: "biblioteca_parametrica",
+                                peca_cadastrada_id: p.peca_cadastrada_id,
+                                codigo_modelo: res.modelo_aplicado.codigo ?? null,
+                                medidas_base: res.modelo_aplicado.parametrizacao
+                                  ? {
+                                      largura: res.modelo_aplicado.parametrizacao.largura_base,
+                                      altura: res.modelo_aplicado.parametrizacao.altura_base,
+                                      espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+                                    }
+                                  : null,
+                                medidas_projeto: { largura: p.largura, altura: p.altura, espessura: p.espessura },
+                                operacoes_recalculadas: res.operacoes_recalculadas,
+                                alertas: res.alertas,
+                                erros: res.erros,
+                                aplicado_em: new Date().toISOString(),
+                              },
+                              status_tecnico: res.status_tecnico,
+                            })
+                            .eq("id", p.id);
+                          if (error) {
+                            toast.error(error.message);
+                            return;
+                          }
+                          toast.success(`Modelo aplicado (${res.status_tecnico})`);
+                          qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+                        }}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
               );
             })}
             {pecas.length === 0 && (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">Nenhuma peça. Clique em "Adicionar peça" ou cole linhas do Excel.</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">Nenhuma peça. Clique em "Adicionar peça" ou cole linhas do Excel.</td></tr>
             )}
           </tbody>
           {pecas.length > 0 && (
             <tfoot className="bg-surface-2 text-xs font-semibold">
               <tr className="border-t-2 border-border">
-                <td colSpan={2} className="px-2 py-2 text-right">Totais</td>
+                <td colSpan={3} className="px-2 py-2 text-right">Totais</td>
                 <td className="px-2 py-2 text-right font-mono">{totalPecas}</td>
                 <td colSpan={2} className="px-2 py-2 text-right text-muted-foreground">Área total</td>
                 <td colSpan={2} className="px-2 py-2 text-right font-mono">{areaTotalM2.toFixed(2)} m²</td>
