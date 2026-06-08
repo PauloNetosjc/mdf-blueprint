@@ -208,8 +208,11 @@ export async function reprocessarParserDePeca(
         facesPresentes.includes("7") &&
         facesPresentes.some((f) => Number(f) > 5) &&
         result.operacoes.some((u) => u.tipo_operacao === "rasgo" && u.y1 != null && u.y2 != null));
+    const pontosContornoL = baseLDetectadaLayout
+      ? gerarContornoBaseLInferior(result.largura_ref, result.altura_ref)
+      : null;
     const facesLayout = baseLDetectadaLayout
-      ? gerarFacesLayoutBaseL(result.largura_ref, result.altura_ref, result.espessura_ref)
+      ? gerarFacesLayoutBaseL(result.largura_ref, result.altura_ref, result.espessura_ref, pontosContornoL)
       : gerarFacesLayoutAutomatico({
           largura: result.largura_ref,
           altura: result.altura_ref,
