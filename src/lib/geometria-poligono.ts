@@ -21,7 +21,7 @@ function distanciaPontoSegmento(p: PontoPoligono, a: PontoPoligono, b: PontoPoli
 export function classificarPontoNoPoligono(
   ponto: PontoPoligono,
   poligono: PontoPoligono[],
-  tolerancia = 1,
+  tolerancia = 1.5,
 ): ResultadoPontoPoligono {
   if (poligono.length < 3) {
     return { dentro: false, na_borda: false, distancia_borda: Number.POSITIVE_INFINITY, valido: false };
