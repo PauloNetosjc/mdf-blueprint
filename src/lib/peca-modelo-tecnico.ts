@@ -720,48 +720,25 @@ function modeloEhBaseLObrigatoria(modelo: ModeloTecnicoJson): boolean {
 export function validarGeometriaModelo(
   modelo: ModeloTecnicoJson,
 ): ValidacaoGeometrica {
-  const L = modelo.geometria.largura ?? modelo.medidas.largura ?? 0;
-  const H = modelo.geometria.altura ?? modelo.medidas.altura ?? 0;
-  let poly = modelo.geometria.pontos_contorno ?? [];
-  if (modelo.geometria.tipo !== "L" && poly.length < 3 && L > 0 && H > 0) {
-    poly = [
-      { x: 0, y: 0 },
-      { x: L, y: 0 },
-      { x: L, y: H },
-      { x: 0, y: H },
-    ];
-  }
-  if (poly.length < 3) {
-    return { ok: false, forasDoContorno: [] };
-  }
-  // Determina face alvo numérica. `face_alinhamento` pode vir como letra
-  // ("A") herdada do parser — nesse caso usamos a face com mais operações
-  // (plano da peça, ex.: Face 7 em Base L). Operações em outras faces
-  // (laterais/topo) também são validadas porque suas coordenadas X/Y vivem
-  // no mesmo plano da peça e devem cair sobre a borda do polígono.
-  const contagemPorFace = new Map<string, number>();
-  for (const op of modelo.operacoes) {
-    const k = String(op.face);
-    contagemPorFace.set(k, (contagemPorFace.get(k) ?? 0) + 1);
-  }
-  const faceAlinhRaw = modelo.face_alinhamento ?? "";
-  const faceAlinhNum = /^\d+$/.test(faceAlinhRaw) ? faceAlinhRaw : null;
-  const facePlano =
-    faceAlinhNum ??
-    Array.from(contagemPorFace.entries())
-      .sort((a, b) => b[1] - a[1])[0]?.[0] ??
-    null;
+  // Usa a função única `obterGeometriaRenderizavelDaFace` para que validador,
+  // visualizador e diagnóstico compartilhem EXATAMENTE o mesmo polígono.
+  // Import dinâmico evita ciclo de tipos.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { obterGeometriaRenderizavelDaFace } = require("@/lib/geometria-renderizavel") as typeof import("@/lib/geometria-renderizavel");
 
+  const TOL = 1.5;
   const foras: ValidacaoGeometrica["forasDoContorno"] = [];
+
   for (const op of modelo.operacoes) {
     const pts = pontosDeOperacao(op);
     if (pts.length === 0) continue;
-    const facePrincipal = modelo.geometria.face_principal != null ? String(modelo.geometria.face_principal) : null;
-    // Face principal em L (inclusive Face 0) usa SEMPRE o polígono técnico real.
-    // Tolerância de 1 mm aceita rasgos colados na borda externa/interna.
-    const tol = modelo.geometria.tipo === "L" && String(op.face) === facePrincipal ? 1 : String(op.face) === facePlano ? 1 : 1.5;
+
+    const geom = obterGeometriaRenderizavelDaFace(modelo, op.face);
+    const poly = geom?.pontos_contorno ?? [];
+    if (poly.length < 3) continue; // sem geometria, não conseguimos validar
+
     const resultados = pts.map((p, idx) => {
-      const r = classificarPontoNoPoligono(p, poly, tol);
+      const r = classificarPontoNoPoligono(p, poly, TOL);
       return {
         label: idx === 0 ? "p1" : idx === 1 ? "p2" : idx === 2 ? "pm" : `p${idx + 1}`,
         x: p.x,
@@ -781,7 +758,7 @@ export function validarGeometriaModelo(
         ordem: op.ordem ?? 0,
         x: falha.x,
         y: falha.y,
-        motivo: `${falha.label} (${falha.x.toFixed(1)}, ${falha.y.toFixed(1)}) fora do contorno técnico`,
+        motivo: `${falha.label} (${falha.x.toFixed(1)}, ${falha.y.toFixed(1)}) fora do contorno técnico da face ${op.face} (origem: ${geom?.origem})`,
         pontos_testados: resultados,
       });
     }
