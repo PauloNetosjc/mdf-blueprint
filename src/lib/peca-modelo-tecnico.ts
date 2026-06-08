@@ -566,6 +566,7 @@ export function construirModeloTecnico(
     metadados: {
       classificacao_pdf: result.classificacao.classificacao,
       gerado_em: new Date().toISOString(),
+      classificacao_geometria: geometria.relatorio,
     },
   });
 
