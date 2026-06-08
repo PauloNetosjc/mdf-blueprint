@@ -127,6 +127,37 @@ export function PainelModeloTecnico({
         )}
       </section>
 
+      {/* Importação técnica: medidas, face A, bordas/fita */}
+      <section className="rounded border border-border bg-surface p-3 text-sm">
+        <div className="mb-2 font-medium">Importação técnica</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Field label="Largura" value={lite.medidas?.largura != null ? `${lite.medidas.largura} mm` : "—"} />
+          <Field label="Altura" value={lite.medidas?.altura != null ? `${lite.medidas.altura} mm` : "—"} />
+          <Field label="Espessura" value={lite.medidas?.espessura != null ? `${lite.medidas.espessura} mm` : "—"} />
+          <Field label="Face de alinhamento" value={lite.face_alinhamento ?? "—"} />
+        </div>
+        {(lite.bordas ?? []).length > 0 && (
+          <table className="mt-2 w-full text-xs">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="text-left">Marcador</th>
+                <th className="text-left">Código da fita</th>
+                <th className="text-right">Quantidade (m)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(lite.bordas ?? []).map((b, i) => (
+                <tr key={i}>
+                  <td>{b.indicador_desenho ?? "—"}</td>
+                  <td className="font-mono">{b.codigo_borda ?? "—"}</td>
+                  <td className="text-right">{b.quantidade_m != null ? b.quantidade_m.toFixed(3) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
       {/* Por face */}
       <section className="rounded border border-border bg-surface p-3 text-sm">
         <div className="mb-2 font-medium">Operações por face</div>
