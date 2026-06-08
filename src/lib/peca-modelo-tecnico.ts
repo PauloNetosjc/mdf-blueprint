@@ -9,11 +9,13 @@
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
+import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
 import type {
   BordaExtraida,
   OperacaoExtraida,
   ResultadoParserPDF,
 } from "@/lib/pecas-cadastradas-parser";
+
 
 // ---------- Schema (Zod) ----------
 
