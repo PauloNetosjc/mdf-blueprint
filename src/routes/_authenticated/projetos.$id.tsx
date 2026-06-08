@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { VisualizadorPecaProjetoDialog } from "@/components/projetos/VisualizadorPecaProjetoDialog";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
@@ -276,6 +277,7 @@ function PecasTab({
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [expandida, setExpandida] = useState<string | null>(null);
+  const [visualizar, setVisualizar] = useState<ProjetoPeca | null>(null);
 
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
@@ -507,6 +509,16 @@ function PecasTab({
                         )}
                       </span>
                     )}
+                    {p.dados_tecnicos_aplicados_json && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Visualizar técnica aplicada"
+                        onClick={() => setVisualizar(p)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
                       <Cpu className="h-3.5 w-3.5" />
                     </Button>
@@ -580,6 +592,50 @@ function PecasTab({
           )}
         </table>
       </div>
+
+      {visualizar && (
+        <VisualizadorPecaProjetoDialog
+          open={!!visualizar}
+          onOpenChange={(v) => { if (!v) setVisualizar(null); }}
+          peca={visualizar}
+          onPersist={async (res) => {
+            const { error } = await supabase
+              .from("projeto_pecas")
+              .update({
+                dados_tecnicos_aplicados_json: {
+                  origem: "biblioteca_parametrica",
+                  peca_cadastrada_id: visualizar.peca_cadastrada_id,
+                  codigo_modelo: res.modelo_aplicado.codigo ?? null,
+                  medidas_base: res.modelo_aplicado.parametrizacao
+                    ? {
+                        largura: res.modelo_aplicado.parametrizacao.largura_base,
+                        altura: res.modelo_aplicado.parametrizacao.altura_base,
+                        espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+                      }
+                    : null,
+                  medidas_projeto: {
+                    largura: visualizar.largura,
+                    altura: visualizar.altura,
+                    espessura: visualizar.espessura,
+                  },
+                  operacoes_recalculadas: res.operacoes_recalculadas,
+                  alertas: res.alertas,
+                  erros: res.erros,
+                  aplicado_em: new Date().toISOString(),
+                },
+                status_tecnico: res.status_tecnico,
+              })
+              .eq("id", visualizar.id);
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
+            toast.success(`Modelo reaplicado (${res.status_tecnico})`);
+            qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+            setVisualizar(null);
+          }}
+        />
+      )}
     </>
   );
 }
