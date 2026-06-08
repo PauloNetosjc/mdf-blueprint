@@ -13,6 +13,7 @@ import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
 import { classificarGeometriaPeca as classificarGeometriaPecaCentral } from "@/lib/classificar-geometria";
 import { detectarLBR, gerarSegmentosLBR, dimensoesPorFaceL } from "@/lib/segmentos-faces-l";
 import { classificarPontoNoPoligono, pontoDentroOuNaBordaDoPoligono } from "@/lib/geometria-poligono";
+import { obterGeometriaRenderizavelDaFace } from "@/lib/geometria-renderizavel";
 import type {
   BordaExtraida,
   OperacaoExtraida,
