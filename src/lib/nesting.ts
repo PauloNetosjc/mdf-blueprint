@@ -53,9 +53,24 @@ export type ResultadoPlano = {
   aproveitamento_medio: number;
   total_pecas: number;
   total_chapas: number;
+  pecas_nao_encaixadas: Array<{
+    projeto_peca_id: string;
+    descricao: string;
+    codigo?: string | null;
+    largura: number;
+    altura: number;
+    motivo: string;
+  }>;
 };
 
-const KERF_DEFAULT = 4; // mm — folga padrão entre peças e refilo
+export type ConfigPlano = {
+  margem?: number;            // mm — refilo da chapa
+  espacamento?: number;       // mm — entre peças
+  permitir_rotacao?: boolean; // override global (apenas se chapa permitir)
+};
+
+const MARGEM_DEFAULT = 10;
+const ESPACAMENTO_DEFAULT = 6;
 
 type Item = {
   projeto_peca_id: string;
@@ -71,8 +86,16 @@ type Item = {
 export function calcularPlanoCorte(
   pecas: PecaInput[],
   chapas: Chapa[],
-  refilo: number = KERF_DEFAULT,
+  refiloOrConfig: number | ConfigPlano = MARGEM_DEFAULT,
 ): ResultadoPlano {
+  const cfg: Required<ConfigPlano> =
+    typeof refiloOrConfig === "number"
+      ? { margem: refiloOrConfig, espacamento: ESPACAMENTO_DEFAULT, permitir_rotacao: true }
+      : {
+          margem: refiloOrConfig.margem ?? MARGEM_DEFAULT,
+          espacamento: refiloOrConfig.espacamento ?? ESPACAMENTO_DEFAULT,
+          permitir_rotacao: refiloOrConfig.permitir_rotacao ?? true,
+        };
   // 1) Expandir por quantidade e filtrar peças com chapa atribuída
   const items: Item[] = [];
   for (const p of pecas) {
