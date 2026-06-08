@@ -40,36 +40,63 @@ export type PerfilSegmentado = {
   faces: SegmentoFace[];
 };
 
+export type NotchL = "BR" | "TR" | "BL" | "TL";
+
 export type InfoL = {
   W: number;
   H: number;
   RX: number;
   RY: number;
-  /** Quadrante do canto recortado. Hoje só suportamos BR (bottom-right). */
-  notch: "BR";
+  /** Quadrante do canto recortado. */
+  notch: NotchL;
 };
 
 /**
- * Detecta uma peça em L com canto recortado no inferior-direito (notch=BR)
- * a partir de um polígono de 6 pontos em coordenadas técnicas (Y para cima).
- * Retorna null se o polígono não casar com o padrão BR.
+ * Detecta uma peça em L a partir de um polígono de 6 pontos. O canto recortado
+ * pode ser qualquer quadrante (BR, TR, BL, TL).
  */
-export function detectarLBR(pontos: Ponto[] | null | undefined): InfoL | null {
+export function detectarOrientacaoL(pontos: Ponto[] | null | undefined): InfoL | null {
   if (!pontos || pontos.length !== 6) return null;
   const W = Math.max(...pontos.map((p) => p.x));
   const H = Math.max(...pontos.map((p) => p.y));
-  if (!(W > 0) || !(H > 0)) return null;
+  const minX = Math.min(...pontos.map((p) => p.x));
+  const minY = Math.min(...pontos.map((p) => p.y));
+  if (!(W > 0) || !(H > 0) || minX !== 0 || minY !== 0) return null;
+  // Ponto interno (recorte): único com x ∈ (0,W) e y ∈ (0,H).
   const inner = pontos.find(
     (p) => p.x > 0.5 && p.x < W - 0.5 && p.y > 0.5 && p.y < H - 0.5,
   );
   if (!inner) return null;
-  // Canto inferior-direito (W,0) deve estar AUSENTE.
-  const temBR = pontos.some(
-    (p) => Math.abs(p.x - W) < 0.5 && Math.abs(p.y) < 0.5,
-  );
-  if (temBR) return null;
-  return { W, H, RX: inner.x, RY: inner.y, notch: "BR" };
+  // Cantos: detecta qual canto da bounding box está AUSENTE.
+  const has = (x: number, y: number) =>
+    pontos.some((p) => Math.abs(p.x - x) < 0.5 && Math.abs(p.y - y) < 0.5);
+  const corners: Array<{ name: NotchL; x: number; y: number }> = [
+    { name: "BL", x: 0, y: 0 },
+    { name: "BR", x: W, y: 0 },
+    { name: "TR", x: W, y: H },
+    { name: "TL", x: 0, y: H },
+  ];
+  const missing = corners.filter((c) => !has(c.x, c.y));
+  if (missing.length !== 1) return null;
+  const notch = missing[0].name;
+  // RX/RY = distância do ponto interno ao canto do recorte.
+  let RX: number, RY: number;
+  switch (notch) {
+    case "BR": RX = inner.x; RY = inner.y; break;
+    case "TR": RX = inner.x; RY = inner.y; break;
+    case "BL": RX = W - inner.x; RY = inner.y; break;
+    case "TL": RX = W - inner.x; RY = H - inner.y; break;
+  }
+  return { W, H, RX, RY, notch };
 }
+
+/** Compatibilidade com a API anterior (apenas BR). */
+export function detectarLBR(pontos: Ponto[] | null | undefined): InfoL | null {
+  const info = detectarOrientacaoL(pontos);
+  if (!info || info.notch !== "BR") return null;
+  return info;
+}
+
 
 /**
  * Gera os perfis segmentados para um L com notch=BR.
