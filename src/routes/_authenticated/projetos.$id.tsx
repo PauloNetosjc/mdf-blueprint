@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye } from "lucide-react";
+import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2, Link2Off } from "lucide-react";
 import { VisualizadorPecaProjetoDialog } from "@/components/projetos/VisualizadorPecaProjetoDialog";
+import { aplicarModeloTecnicoNaPecaProjeto } from "@/lib/aplicar-modelo-projeto";
+import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
 import { ListaComprasTab } from "@/components/lista-compras-tab";
@@ -279,6 +281,65 @@ function PecasTab({
   const [expandida, setExpandida] = useState<string | null>(null);
   const [visualizar, setVisualizar] = useState<ProjetoPeca | null>(null);
 
+  async function aplicarEAbrir(p: ProjetoPeca) {
+    if (!p.peca_cadastrada_id) {
+      toast.error("Peça sem vínculo com a biblioteca.");
+      return;
+    }
+    try {
+      const { data: cad, error: e1 } = await supabase
+        .from("pecas_cadastradas")
+        .select("dados_brutos_json")
+        .eq("id", p.peca_cadastrada_id)
+        .single();
+      if (e1) throw e1;
+      const modelo = (cad?.dados_brutos_json as any)?.modelo_tecnico_json as ModeloTecnicoJson | undefined;
+      if (!modelo) {
+        toast.error("Peça da biblioteca ainda não tem modelo técnico processado.");
+        return;
+      }
+      const res = aplicarModeloTecnicoNaPecaProjeto(modelo, {
+        largura: p.largura,
+        altura: p.altura,
+        espessura: p.espessura,
+      });
+      const aplicadoJson = {
+        origem: "biblioteca_parametrica",
+        peca_cadastrada_id: p.peca_cadastrada_id,
+        codigo_modelo: res.modelo_aplicado.codigo ?? null,
+        medidas_base: res.modelo_aplicado.parametrizacao
+          ? {
+              largura: res.modelo_aplicado.parametrizacao.largura_base,
+              altura: res.modelo_aplicado.parametrizacao.altura_base,
+              espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+            }
+          : null,
+        medidas_projeto: { largura: p.largura, altura: p.altura, espessura: p.espessura },
+        operacoes_recalculadas: res.operacoes_recalculadas,
+        alertas: res.alertas,
+        erros: res.erros,
+        aplicado_em: new Date().toISOString(),
+      };
+      const { error: e2 } = await supabase
+        .from("projeto_pecas")
+        .update({
+          dados_tecnicos_aplicados_json: aplicadoJson,
+          status_tecnico: res.status_tecnico,
+        })
+        .eq("id", p.id);
+      if (e2) throw e2;
+      toast.success(`Modelo aplicado (${res.status_tecnico})`);
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+      setVisualizar({
+        ...p,
+        dados_tecnicos_aplicados_json: aplicadoJson,
+        status_tecnico: res.status_tecnico,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao aplicar técnica");
+    }
+  }
+
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
   const semChapa = pecas.filter((p) => !p.chapa_id).length;
@@ -489,34 +550,33 @@ function PecasTab({
                   <td className="p-1"><Inp value={p.modulo ?? ""} onSave={(v) => onUpdate({ id: p.id, modulo: v || null })} /></td>
                   <td className="p-1"><Inp value={p.observacao ?? ""} onSave={(v) => onUpdate({ id: p.id, observacao: v || null })} /></td>
                   <td className="p-1 text-right">
-                    {p.status_tecnico && p.status_tecnico !== "nao_aplicado" && (
-                      <span
-                        className={`mr-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] ${
-                          p.status_tecnico === "aplicado_ok"
-                            ? "bg-success/10 text-success"
-                            : p.status_tecnico === "aplicado_com_alerta"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                        title={p.status_tecnico}
-                      >
-                        {p.status_tecnico === "aplicado_ok" ? (
-                          <CheckCircle2 className="h-3 w-3" />
-                        ) : p.status_tecnico === "aplicado_com_alerta" ? (
-                          <AlertTriangle className="h-3 w-3" />
-                        ) : (
-                          <XCircle className="h-3 w-3" />
-                        )}
-                      </span>
-                    )}
-                    {p.dados_tecnicos_aplicados_json && (
+                    <StatusTecnicoBadge status={p.status_tecnico ?? "nao_aplicado"} />
+                    {p.dados_tecnicos_aplicados_json ? (
                       <Button
                         size="sm"
                         variant="ghost"
-                        title="Visualizar técnica aplicada"
+                        title={`Visualizar técnica aplicada\nBiblioteca: sim · Aplicado: sim · ${p.status_tecnico ?? "—"}`}
                         onClick={() => setVisualizar(p)}
                       >
                         <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : p.peca_cadastrada_id ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Aplicar técnica e visualizar (Biblioteca: sim · Aplicado: não)"
+                        onClick={() => aplicarEAbrir(p)}
+                      >
+                        <Wand2 className="h-3.5 w-3.5 text-primary" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled
+                        title="Vincule uma peça da biblioteca para aplicar técnica."
+                      >
+                        <Link2Off className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
@@ -738,5 +798,24 @@ function Placeholder({ titulo, desc }: { titulo: string; desc: string }) {
       <h3 className="mb-2 text-lg font-semibold">{titulo}</h3>
       <p className="text-sm text-muted-foreground">{desc}</p>
     </div>
+  );
+}
+
+function StatusTecnicoBadge({ status }: { status: StatusTecnico }) {
+  const map: Record<StatusTecnico, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
+    nao_aplicado: { label: "Não aplicado", cls: "bg-muted text-muted-foreground", Icon: AlertTriangle },
+    aplicado_ok: { label: "OK", cls: "bg-success/10 text-success", Icon: CheckCircle2 },
+    aplicado_com_alerta: { label: "Alerta", cls: "bg-warning/10 text-warning", Icon: AlertTriangle },
+    aplicado_com_erro: { label: "Erro", cls: "bg-destructive/10 text-destructive", Icon: XCircle },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={`mr-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] ${m.cls}`}
+      title={`Técnica: ${m.label}`}
+    >
+      <m.Icon className="h-3 w-3" />
+      {m.label}
+    </span>
   );
 }
