@@ -209,3 +209,92 @@ export function validarParserBAS0485A(m: ModeloTecnicoLite): ResultadoValidacao 
 
   return { ok: erros.length === 0, erros, avisos, detalhes: d };
 }
+
+
+// ---------- Fixture / teste obrigatório: BAS1101A ----------
+//
+// Peça retangular 189 × 580 × 15 com:
+//   - 5 furos na Face 1, 5 furos na Face 3
+//   - 4 furos + 1 rasgo na Face 5
+//   - Fita FTABS.0.45.19.100, quantidade ≈ 0.458 m
+//   - Face de alinhamento "A"
+
+export const EXPECTED_BAS1101A = {
+  codigo: "BAS1101A",
+  medidas: { largura: 189, altura: 580, espessura: 15 },
+  face_alinhamento: "A",
+  fita: { codigo: "FTABS.0.45.19.100", quantidade_m: 0.458 },
+  por_face: {
+    "1": { furos: 5, rasgos: 0 },
+    "3": { furos: 5, rasgos: 0 },
+    "5": { furos: 4, rasgos: 1 },
+  },
+  furos_total: 14,
+  rasgos_total: 1,
+} as const;
+
+export function validarParserBAS1101A(m: ModeloTecnicoLite): ResultadoValidacao {
+  const base = validarModeloTecnico(m);
+  const erros = [...base.erros];
+  const avisos = [...base.avisos];
+  const d = base.detalhes;
+
+  // Medidas (largura/altura não podem estar invertidas).
+  const med = m.medidas ?? {};
+  if (med.largura != null && Math.abs((med.largura ?? 0) - EXPECTED_BAS1101A.medidas.largura) > 0.5) {
+    erros.push(`Largura esperada ${EXPECTED_BAS1101A.medidas.largura}, recebeu ${med.largura}.`);
+  }
+  if (med.altura != null && Math.abs((med.altura ?? 0) - EXPECTED_BAS1101A.medidas.altura) > 0.5) {
+    erros.push(`Altura esperada ${EXPECTED_BAS1101A.medidas.altura}, recebeu ${med.altura}.`);
+  }
+  if (med.espessura != null && Math.abs((med.espessura ?? 0) - EXPECTED_BAS1101A.medidas.espessura) > 0.5) {
+    avisos.push(`Espessura esperada ${EXPECTED_BAS1101A.medidas.espessura}, recebeu ${med.espessura}.`);
+  }
+
+  // Face de alinhamento.
+  if ((m.face_alinhamento ?? "") !== EXPECTED_BAS1101A.face_alinhamento) {
+    erros.push(`Face de alinhamento esperada "${EXPECTED_BAS1101A.face_alinhamento}", recebeu "${m.face_alinhamento ?? "—"}".`);
+  }
+
+  // Operações por face.
+  for (const f of ["1", "3", "5"] as const) {
+    const esp = EXPECTED_BAS1101A.por_face[f];
+    const got = d.por_face[f] ?? { furos: 0, rasgos: 0, total: 0 };
+    if (got.furos !== esp.furos) {
+      erros.push(`Face ${f}: esperava ${esp.furos} furos, recebeu ${got.furos}.`);
+    }
+    if (got.rasgos !== esp.rasgos) {
+      erros.push(`Face ${f}: esperava ${esp.rasgos} rasgos, recebeu ${got.rasgos}.`);
+    }
+  }
+  if (d.furos_total !== EXPECTED_BAS1101A.furos_total) {
+    erros.push(`Total de furos esperado ${EXPECTED_BAS1101A.furos_total}, recebeu ${d.furos_total}.`);
+  }
+  if (d.rasgos_total !== EXPECTED_BAS1101A.rasgos_total) {
+    erros.push(`Total de rasgos esperado ${EXPECTED_BAS1101A.rasgos_total}, recebeu ${d.rasgos_total}.`);
+  }
+  if (d.usinagens_total > 0) {
+    erros.push(`Esperava 0 usinagens, recebeu ${d.usinagens_total}.`);
+  }
+
+  // Fita esperada presente nas bordas extraídas.
+  const bordas = m.bordas ?? [];
+  const fitaEsperada = EXPECTED_BAS1101A.fita.codigo.toUpperCase();
+  const fitaEncontrada = bordas.find(
+    (b) => (b.codigo_borda ?? "").toUpperCase() === fitaEsperada,
+  );
+  if (!fitaEncontrada) {
+    erros.push(`Fita ${fitaEsperada} não detectada nas bordas extraídas.`);
+  } else if (
+    fitaEncontrada.quantidade_m == null ||
+    Math.abs(fitaEncontrada.quantidade_m - EXPECTED_BAS1101A.fita.quantidade_m) > 0.05
+  ) {
+    avisos.push(
+      `Quantidade de fita esperada ≈ ${EXPECTED_BAS1101A.fita.quantidade_m} m, recebeu ${
+        fitaEncontrada.quantidade_m ?? "—"
+      } m.`,
+    );
+  }
+
+  return { ok: erros.length === 0, erros, avisos, detalhes: d };
+}
