@@ -723,9 +723,6 @@ export function validarGeometriaModelo(
 ): ValidacaoGeometrica {
   // Usa a função única `obterGeometriaRenderizavelDaFace` para que validador,
   // visualizador e diagnóstico compartilhem EXATAMENTE o mesmo polígono.
-  // Import dinâmico evita ciclo de tipos.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { obterGeometriaRenderizavelDaFace } = require("@/lib/geometria-renderizavel") as typeof import("@/lib/geometria-renderizavel");
 
   const TOL = 1.5;
   const foras: ValidacaoGeometrica["forasDoContorno"] = [];
