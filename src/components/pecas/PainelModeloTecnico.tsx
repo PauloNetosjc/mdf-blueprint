@@ -160,6 +160,54 @@ export function PainelModeloTecnico({
         )}
       </section>
 
+      {/* Segmentos de perfis (peças em L) */}
+      {modelo?.faces_visuais_segmentadas && modelo.faces_visuais_segmentadas.length > 0 && (
+        <section className="rounded border border-border bg-surface p-3 text-sm">
+          <div className="mb-1 font-medium">Perfis segmentados (peça em L)</div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Uma mesma vista de perfil pode conter mais de uma face operacional,
+            separadas por linha divisória derivada do recorte interno do L.
+          </p>
+          <div className="space-y-2">
+            {modelo.faces_visuais_segmentadas.map((perfil, idx) => (
+              <div key={idx} className="rounded bg-muted/30 p-2 text-xs">
+                <div className="mb-1 font-mono">
+                  Perfil {perfil.perfil} ({perfil.orientacao}) — total{" "}
+                  {perfil.comprimento_total.toFixed(2)} mm
+                  {perfil.divisao_em != null && (
+                    <span className="ml-2 text-muted-foreground">
+                      • divisão em {perfil.divisao_em.toFixed(2)} mm
+                    </span>
+                  )}
+                </div>
+                <table className="w-full">
+                  <thead className="text-[10px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left">Face</th>
+                      <th className="text-right">Início</th>
+                      <th className="text-right">Fim</th>
+                      <th className="text-right">Comprimento</th>
+                      <th className="text-left">Origem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {perfil.faces.map((seg) => (
+                      <tr key={seg.face}>
+                        <td className="font-mono">F{seg.face}</td>
+                        <td className="text-right font-mono">{seg.inicio_mm.toFixed(2)}</td>
+                        <td className="text-right font-mono">{seg.fim_mm.toFixed(2)}</td>
+                        <td className="text-right font-mono">{seg.comprimento_mm.toFixed(2)}</td>
+                        <td className="text-muted-foreground">{seg.origem_medida}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Por face */}
       <section className="rounded border border-border bg-surface p-3 text-sm">
         <div className="mb-2 font-medium">Operações por face</div>

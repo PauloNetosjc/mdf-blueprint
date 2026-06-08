@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { validarModeloTecnico, type ModeloTecnicoLite } from "@/lib/validar-modelo-tecnico";
 import { gerarParametrizacaoModelo } from "@/lib/parametrizacao-pecas";
 import { classificarGeometriaPeca as classificarGeometriaPecaCentral } from "@/lib/classificar-geometria";
+import { detectarLBR, gerarSegmentosLBR, dimensoesPorFaceL } from "@/lib/segmentos-faces-l";
 import type {
   BordaExtraida,
   OperacaoExtraida,
@@ -120,12 +121,30 @@ export const BordaModeloSchema = z.object({
 export type BordaModelo = z.infer<typeof BordaModeloSchema>;
 
 const FaceOperacionalSchema = z.object({ face: z.string() });
+const OrigemMedidaSchema = z.enum(["pdf", "calculada_por_contorno", "aproximada", "manual"]);
 const FaceVisualSchema = z.object({
   face: z.string(),
   tipo_vista: z.string().optional(),
   largura_visual: z.number().nullable().optional(),
   altura_visual: z.number().nullable().optional(),
   geometria: z.string().nullable().optional(),
+  origem_medida: OrigemMedidaSchema.optional(),
+  segmento_de_perfil: z.enum(["inferior", "direita", "superior", "esquerda"]).optional(),
+});
+
+const SegmentoFaceSchema = z.object({
+  face: z.string(),
+  inicio_mm: z.number(),
+  fim_mm: z.number(),
+  comprimento_mm: z.number(),
+  origem_medida: OrigemMedidaSchema.default("calculada_por_contorno"),
+});
+const PerfilSegmentadoSchema = z.object({
+  perfil: z.enum(["inferior", "direita", "superior", "esquerda"]),
+  orientacao: z.enum(["horizontal", "vertical"]),
+  comprimento_total: z.number(),
+  divisao_em: z.number().nullable().default(null),
+  faces: z.array(SegmentoFaceSchema),
 });
 
 export const ParametrizacaoSchema = z.object({
@@ -152,6 +171,7 @@ export const ModeloTecnicoSchema = z.object({
   faces: z.array(z.object({ face: z.string() })).default([]),
   faces_operacionais: z.array(FaceOperacionalSchema).default([]),
   faces_visuais: z.array(FaceVisualSchema).default([]),
+  faces_visuais_segmentadas: z.array(PerfilSegmentadoSchema).optional(),
   operacoes: z.array(OperacaoModeloSchema).default([]),
   bordas: z.array(BordaModeloSchema).default([]),
   avisos: z.array(z.string()).default([]),
@@ -512,17 +532,39 @@ export function construirModeloTecnico(
       temRasgoLinha &&
       facesAcimaDe5.length > 0);
   const facesOperacionais = facesPresentes.map((f) => ({ face: f }));
-  const facesVisuais = baseLVisual
-    ? [
-        { face: "1", tipo_vista: "lateral_esquerda" },
-        { face: "2", tipo_vista: "inferior_esquerda" },
-        { face: "3", tipo_vista: "lateral_direita_inferior" },
-        { face: "4", tipo_vista: "inferior_direita" },
-        { face: "5", tipo_vista: "lateral_direita_superior" },
-        { face: "6", tipo_vista: "superior" },
-        { face: "7", tipo_vista: "principal_L" },
-      ]
-    : facesOperacionais;
+
+  // Para peças em L: tenta extrair info (W,H,RX,RY) do contorno e gerar
+  // segmentos de perfil + dimensões reais por face. Caso não seja possível,
+  // cai no fallback anterior (apenas faces 1..7 sem medidas).
+  const infoL =
+    geometria.tipo === "L" ? detectarLBR(geometria.pontos_contorno) : null;
+  const segmentosL = infoL ? gerarSegmentosLBR(infoL) : null;
+  const dimsL =
+    infoL && segmentosL
+      ? dimensoesPorFaceL(segmentosL, infoL, result.espessura_ref ?? 18)
+      : null;
+
+  const facesVisuaisBaseL = [
+    { face: "1", tipo_vista: "lateral_esquerda", segmento_de_perfil: "esquerda" as const },
+    { face: "2", tipo_vista: "inferior_esquerda", segmento_de_perfil: "inferior" as const },
+    { face: "3", tipo_vista: "lateral_direita_inferior", segmento_de_perfil: "direita" as const },
+    { face: "4", tipo_vista: "inferior_direita", segmento_de_perfil: "inferior" as const },
+    { face: "5", tipo_vista: "lateral_direita_superior", segmento_de_perfil: "direita" as const },
+    { face: "6", tipo_vista: "superior", segmento_de_perfil: "superior" as const },
+    { face: "7", tipo_vista: "principal_L" },
+  ].map((f) => {
+    const d = dimsL?.[f.face];
+    if (d) {
+      return {
+        ...f,
+        largura_visual: d.w,
+        altura_visual: d.h,
+        origem_medida: d.origem_medida,
+      };
+    }
+    return f;
+  });
+  const facesVisuais = baseLVisual ? facesVisuaisBaseL : facesOperacionais;
 
   const avisos: string[] = [];
   if (geometria.pendente) {
@@ -559,6 +601,7 @@ export function construirModeloTecnico(
     faces: facesOperacionais,
     faces_operacionais: facesOperacionais,
     faces_visuais: facesVisuais,
+    faces_visuais_segmentadas: segmentosL ?? undefined,
     operacoes: result.operacoes.map(mapOperacao),
     bordas: result.bordas.map(mapBorda),
     avisos,
@@ -567,6 +610,7 @@ export function construirModeloTecnico(
       classificacao_pdf: result.classificacao.classificacao,
       gerado_em: new Date().toISOString(),
       classificacao_geometria: geometria.relatorio,
+      info_l: infoL ?? null,
     },
   });
 
