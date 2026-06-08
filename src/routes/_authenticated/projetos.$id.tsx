@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Plus, Copy, Trash2, Cpu, Save, AlertTriangle, Clipboard, ClipboardPaste, GitBranch, BookOpen, ChevronDown, ChevronRight, CheckCircle2, XCircle, Eye, Wand2, Link2Off } from "lucide-react";
 import { VisualizadorPecaProjetoDialog } from "@/components/projetos/VisualizadorPecaProjetoDialog";
 import { aplicarModeloTecnicoNaPecaProjeto } from "@/lib/aplicar-modelo-projeto";
+import { gerarDadosTecnicosManuais } from "@/lib/peca-manual-tecnica";
 import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
 import { toast } from "sonner";
 import { LEGENDA_FITA } from "./fitas";
