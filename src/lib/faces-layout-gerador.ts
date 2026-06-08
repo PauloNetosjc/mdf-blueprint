@@ -33,6 +33,10 @@ export type FaceLayoutEntry = {
   y_layout?: number;
   rotacionada?: boolean;
   visivel?: boolean;
+  /** Origem da medida do segmento/face. */
+  origem_medida?: "pdf" | "calculada_por_contorno" | "aproximada" | "manual";
+  /** Quando a face é segmento de um perfil compartilhado (peças em L). */
+  segmento_de_perfil?: "inferior" | "direita" | "superior" | "esquerda";
 };
 
 export type OrigemLayoutFaces = "automatico" | "manual" | "fallback";
