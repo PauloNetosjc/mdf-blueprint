@@ -120,12 +120,30 @@ export const BordaModeloSchema = z.object({
 export type BordaModelo = z.infer<typeof BordaModeloSchema>;
 
 const FaceOperacionalSchema = z.object({ face: z.string() });
+const OrigemMedidaSchema = z.enum(["pdf", "calculada_por_contorno", "aproximada", "manual"]);
 const FaceVisualSchema = z.object({
   face: z.string(),
   tipo_vista: z.string().optional(),
   largura_visual: z.number().nullable().optional(),
   altura_visual: z.number().nullable().optional(),
   geometria: z.string().nullable().optional(),
+  origem_medida: OrigemMedidaSchema.optional(),
+  segmento_de_perfil: z.enum(["inferior", "direita", "superior", "esquerda"]).optional(),
+});
+
+const SegmentoFaceSchema = z.object({
+  face: z.string(),
+  inicio_mm: z.number(),
+  fim_mm: z.number(),
+  comprimento_mm: z.number(),
+  origem_medida: OrigemMedidaSchema.default("calculada_por_contorno"),
+});
+const PerfilSegmentadoSchema = z.object({
+  perfil: z.enum(["inferior", "direita", "superior", "esquerda"]),
+  orientacao: z.enum(["horizontal", "vertical"]),
+  comprimento_total: z.number(),
+  divisao_em: z.number().nullable().default(null),
+  faces: z.array(SegmentoFaceSchema),
 });
 
 export const ParametrizacaoSchema = z.object({
