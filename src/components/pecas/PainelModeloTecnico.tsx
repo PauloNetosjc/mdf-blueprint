@@ -16,6 +16,7 @@ import {
   amostrarPontosDeOperacao,
 } from "@/lib/geometria-renderizavel";
 import { classificarPontoNoPoligono } from "@/lib/geometria-poligono";
+import { obterFacePrincipal } from "@/lib/face-principal";
 
 type OperacaoRow = {
   tipo_operacao?: string | null;
