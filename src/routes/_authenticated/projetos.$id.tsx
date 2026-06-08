@@ -570,7 +570,7 @@ function PecasTab({
           {pecas.length > 0 && (
             <tfoot className="bg-surface-2 text-xs font-semibold">
               <tr className="border-t-2 border-border">
-                <td colSpan={2} className="px-2 py-2 text-right">Totais</td>
+                <td colSpan={3} className="px-2 py-2 text-right">Totais</td>
                 <td className="px-2 py-2 text-right font-mono">{totalPecas}</td>
                 <td colSpan={2} className="px-2 py-2 text-right text-muted-foreground">Área total</td>
                 <td colSpan={2} className="px-2 py-2 text-right font-mono">{areaTotalM2.toFixed(2)} m²</td>
