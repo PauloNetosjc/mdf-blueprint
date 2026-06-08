@@ -707,6 +707,7 @@ function PecaCadastradaDetalhe() {
             facesDetectadas={facesDetectadas}
             contornoExterno={contornoExterno}
             facesLayout={facesLayoutJson}
+            modeloTecnico={modeloTecnico}
             pecaId={p.id}
             pdfStoragePath={p.pdf_url}
             pdfNomeArquivo={p.pdf_nome_arquivo}

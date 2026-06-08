@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, Copy, FileWarning, Pencil, Plus, Trash2 } from "lucide-react";
 import { PdfViewerPeca } from "@/components/pecas/PdfViewerPeca";
+import type { ModeloTecnicoJson } from "@/lib/peca-modelo-tecnico";
+import { obterGeometriaVisualDaFace } from "@/lib/segmentos-faces-l";
 
 const FACES_PADRAO = ["0", "1", "2", "3", "4", "5"];
 
@@ -139,6 +141,7 @@ type Props = {
   facesDetectadas?: string[];
   contornoExterno?: ContornoExterno | null;
   facesLayout?: FacesLayoutJson | null;
+  modeloTecnico?: ModeloTecnicoJson | null;
   // Camada nova: PDF original como referência visual fiel.
   pecaId?: string;
   pdfStoragePath?: string | null;
@@ -596,6 +599,7 @@ export function VisualizadorTecnicoPecaCadastrada({
   facesDetectadas = [],
   contornoExterno,
   facesLayout,
+  modeloTecnico,
   pecaId,
   pdfStoragePath,
   pdfNomeArquivo,
@@ -677,8 +681,19 @@ export function VisualizadorTecnicoPecaCadastrada({
     const L = largura ?? 600;
     const A = altura ?? 400;
     const E = espessura ?? 18;
+    // 1) Preferir geometria visual derivada do modelo técnico (segmentos L / principal L).
+    const gv = obterGeometriaVisualDaFace(modeloTecnico ?? null, f, {
+      largura: L,
+      altura: A,
+      espessura: E,
+    });
+    if (gv && gv.largura_visual > 0 && gv.altura_visual > 0) {
+      return { w: gv.largura_visual, h: gv.altura_visual };
+    }
+    // 2) faces_layout_json salvo
     const o = facesLayoutMap.get(f);
     if (o && o.largura_visual > 0 && o.altura_visual > 0) return { w: o.largura_visual, h: o.altura_visual };
+    // 3) fallback retangular antigo
     if (f === "0" || f === "5") return { w: L, h: A };
     if (f === "1" || f === "3") return { w: E, h: A };
     if (f === "2" || f === "4") return { w: L, h: E };
@@ -689,7 +704,7 @@ export function VisualizadorTecnicoPecaCadastrada({
     const d = dimsForFace(faceSel);
     return { partW: d.w, partH: d.h };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faceSel, largura, altura, espessura, facesLayoutMap]);
+  }, [faceSel, largura, altura, espessura, facesLayoutMap, modeloTecnico]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -1060,6 +1075,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesDetectadas={facesDetectadas}
               contornoExterno={contornoExterno}
               facesLayout={facesLayout}
+              modeloTecnico={modeloTecnico}
               geometriaComplexa={geometriaComplexa}
               geometriaComplexaMotivos={geometriaComplexaMotivos}
               operacoesForaContorno={operacoesForaContorno}
@@ -1316,7 +1332,22 @@ export function VisualizadorTecnicoPecaCadastrada({
                         },
                       }
                     : {};
-                const lShape = detectarLDoContorno(contornoExterno?.pontos ?? []);
+                // Cotas internas do recorte L só fazem sentido na face PRINCIPAL (em L).
+                // Para faces segmentadas (F1..F6) NÃO desenhar lShape para evitar cotas soltas
+                // sobrepostas dentro do retângulo do segmento selecionado.
+                const principalFaceModelo =
+                  modeloTecnico?.geometria?.face_principal != null
+                    ? String(modeloTecnico.geometria.face_principal)
+                    : null;
+                const ehFacePrincipalL =
+                  !!contornoSalvo &&
+                  (faceSel === principalFaceModelo ||
+                    faceSel === "7" ||
+                    faceSel === "0" ||
+                    faceSel === "5");
+                const lShape = ehFacePrincipalL
+                  ? detectarLDoContorno(contornoExterno?.pontos ?? [])
+                  : null;
                 return (
                   <g
                     stroke="var(--color-foreground)"

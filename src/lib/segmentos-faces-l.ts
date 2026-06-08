@@ -208,3 +208,88 @@ export function gerarFacesLayoutL(
     { face: "4", label: "F4 — Inferior direita (segmento)", tipo_vista: "inferior_direita", largura_visual: f4.w, altura_visual: f4.h, x_layout: x4, y_layout: yBot, visivel: true, origem_medida: f4.origem_medida, segmento_de_perfil: "inferior" },
   ];
 }
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Geometria visual por face — usada pelo visualizador.
+ *
+ * Quando o modelo técnico possui `faces_visuais_segmentadas`, ESSA é a fonte
+ * de verdade. Cada face F1..F6 é apenas um SEGMENTO (retângulo simples), e
+ * apenas F7 / face_principal usa o contorno em L completo.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+export type GeometriaVisualFace = {
+  face: string;
+  tipo: "principal_l" | "segmento_horizontal" | "segmento_vertical" | "retangular";
+  largura_visual: number;
+  altura_visual: number;
+  perfil?: PerfilSegmentado["perfil"];
+  inicio_mm?: number;
+  fim_mm?: number;
+  comprimento_mm?: number;
+  origem_medida: OrigemMedida;
+  pontos_contorno?: Ponto[];
+};
+
+type ModeloLite = {
+  medidas?: { largura?: number | null; espessura?: number | null; altura?: number | null } | null;
+  geometria?: {
+    tipo?: string | null;
+    largura?: number | null;
+    altura?: number | null;
+    pontos_contorno?: Ponto[] | null;
+    face_principal?: string | number | null;
+  } | null;
+  faces_visuais_segmentadas?: PerfilSegmentado[] | null;
+};
+
+export function obterGeometriaVisualDaFace(
+  modelo: ModeloLite | null | undefined,
+  face: string,
+  fallback?: { largura?: number | null; altura?: number | null; espessura?: number | null },
+): GeometriaVisualFace | null {
+  if (!modelo) return null;
+  const faceStr = String(face);
+  const geometria = modelo.geometria ?? null;
+  const espessura = Math.max(1, modelo.medidas?.espessura ?? fallback?.espessura ?? 18);
+  const principalFace = geometria?.face_principal != null ? String(geometria.face_principal) : null;
+
+  // Face principal em L → retorna L completo
+  if (
+    geometria?.tipo === "L" &&
+    (faceStr === principalFace || faceStr === "7")
+  ) {
+    const W = geometria.largura ?? modelo.medidas?.largura ?? fallback?.largura ?? 0;
+    const H = geometria.altura ?? modelo.medidas?.altura ?? fallback?.altura ?? 0;
+    return {
+      face: faceStr,
+      tipo: "principal_l",
+      largura_visual: W,
+      altura_visual: H,
+      origem_medida: "calculada_por_contorno",
+      pontos_contorno: geometria.pontos_contorno ?? undefined,
+    };
+  }
+
+  // Segmento de perfil em L
+  const segmentos = modelo.faces_visuais_segmentadas ?? [];
+  for (const perfil of segmentos) {
+    const seg = perfil.faces.find((s) => String(s.face) === faceStr);
+    if (!seg) continue;
+    const horizontal = perfil.orientacao === "horizontal";
+    return {
+      face: faceStr,
+      tipo: horizontal ? "segmento_horizontal" : "segmento_vertical",
+      largura_visual: horizontal ? seg.comprimento_mm : espessura,
+      altura_visual: horizontal ? espessura : seg.comprimento_mm,
+      perfil: perfil.perfil,
+      inicio_mm: seg.inicio_mm,
+      fim_mm: seg.fim_mm,
+      comprimento_mm: seg.comprimento_mm,
+      origem_medida: seg.origem_medida,
+    };
+  }
+
+  return null;
+}
