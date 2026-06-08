@@ -335,20 +335,22 @@ export function obterGeometriaVisualDaFace(
   const espessura = Math.max(1, modelo.medidas?.espessura ?? fallback?.espessura ?? 18);
   const principalFace = geometria?.face_principal != null ? String(geometria.face_principal) : null;
 
-  // Face principal em L → retorna L completo
-  if (
+  // Face principal em L → retorna L completo.
+  // Se há `face_principal` explícito, ele é a ÚNICA face principal.
+  // Só caímos no fallback "7" quando NÃO há face_principal explícito.
+  const ehPrincipal =
     geometria?.tipo === "L" &&
-    (faceStr === principalFace || faceStr === "7")
-  ) {
-    const W = geometria.largura ?? modelo.medidas?.largura ?? fallback?.largura ?? 0;
-    const H = geometria.altura ?? modelo.medidas?.altura ?? fallback?.altura ?? 0;
+    (principalFace != null ? faceStr === principalFace : faceStr === "7");
+  if (ehPrincipal) {
+    const W = geometria?.largura ?? modelo.medidas?.largura ?? fallback?.largura ?? 0;
+    const H = geometria?.altura ?? modelo.medidas?.altura ?? fallback?.altura ?? 0;
     return {
       face: faceStr,
       tipo: "principal_l",
       largura_visual: W,
       altura_visual: H,
       origem_medida: "calculada_por_contorno",
-      pontos_contorno: geometria.pontos_contorno ?? undefined,
+      pontos_contorno: geometria?.pontos_contorno ?? undefined,
     };
   }
 
