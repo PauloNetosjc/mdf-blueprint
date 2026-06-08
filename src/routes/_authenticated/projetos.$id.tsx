@@ -800,3 +800,22 @@ function Placeholder({ titulo, desc }: { titulo: string; desc: string }) {
     </div>
   );
 }
+
+function StatusTecnicoBadge({ status }: { status: StatusTecnico }) {
+  const map: Record<StatusTecnico, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
+    nao_aplicado: { label: "Não aplicado", cls: "bg-muted text-muted-foreground", Icon: AlertTriangle },
+    aplicado_ok: { label: "OK", cls: "bg-success/10 text-success", Icon: CheckCircle2 },
+    aplicado_com_alerta: { label: "Alerta", cls: "bg-warning/10 text-warning", Icon: AlertTriangle },
+    aplicado_com_erro: { label: "Erro", cls: "bg-destructive/10 text-destructive", Icon: XCircle },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={`mr-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] ${m.cls}`}
+      title={`Técnica: ${m.label}`}
+    >
+      <m.Icon className="h-3 w-3" />
+      {m.label}
+    </span>
+  );
+}
