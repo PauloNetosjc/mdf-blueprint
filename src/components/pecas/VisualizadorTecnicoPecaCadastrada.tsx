@@ -704,7 +704,7 @@ export function VisualizadorTecnicoPecaCadastrada({
     const d = dimsForFace(faceSel);
     return { partW: d.w, partH: d.h };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faceSel, largura, altura, espessura, facesLayoutMap]);
+  }, [faceSel, largura, altura, espessura, facesLayoutMap, modeloTecnico]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
