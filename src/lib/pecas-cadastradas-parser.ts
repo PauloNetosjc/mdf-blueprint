@@ -1056,6 +1056,15 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
       if (cor) partesDesc.push(cor);
       descricao = partesDesc.join(" ");
     }
+    // Quantidade total de fita (ex.: "0.458 M" ou "1,2 M"). Procura na mesma
+    // linha que contém o código da fita. Aceita "M", "MT" ou "Metros".
+    let quantidade_m: number | null = null;
+    const qtdMatch = l.texto.match(/(\d+(?:[.,]\d+)?)\s*(?:M(?:T|ETROS?)?)\b/i);
+    if (qtdMatch) {
+      const v = toNum(qtdMatch[1]);
+      // Ignora valores claramente irreais (>100m em uma única peça).
+      if (v != null && v > 0 && v <= 100) quantidade_m = v;
+    }
     bordas.push({
       lado: "desconhecido",
       codigo_borda: codigo,
@@ -1064,6 +1073,7 @@ function extrairBordas(linhas: Linha[]): BordaExtraida[] {
       largura,
       cor: cor ?? corCodigo,
       indicador_desenho: null,
+      quantidade_m,
       confianca_parser: espessura != null && largura != null ? "alta" : "media",
     });
   }
