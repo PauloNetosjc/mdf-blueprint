@@ -90,10 +90,11 @@ export function PainelModeloTecnico({
     <div className="space-y-4">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">Modelo Técnico — Validador</h3>
+          <h3 className="text-lg font-semibold">Modelo Técnico — Validador (Importador V2)</h3>
           <p className="text-xs text-muted-foreground">
             O visualizador só deve desenhar se este painel mostrar ✓ OK.
             {(codigo ?? "").toUpperCase() === "BAS0485A" && " Teste-fixture: BAS0485A."}
+            {(codigo ?? "").toUpperCase() === "BAS1101A" && " Teste-fixture: BAS1101A."}
           </p>
         </div>
         {resultado.ok ? (
