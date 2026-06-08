@@ -512,6 +512,26 @@ export function validarParserBAS4622A(m: ModeloTecnicoLite): ResultadoValidacao 
     erros.push(`Total de rasgos esperado ${EXPECTED_BAS4622A.rasgos_total}, recebeu ${d.rasgos_total}.`);
   }
 
+  const poly = g?.pontos_contorno ?? [];
+  const rasgosFace0 = (m.operacoes ?? []).filter((o) => o.tipo === "rasgo" && String(o.face) === "0");
+  if (poly.length === 6) {
+    for (const [idx, rasgo] of rasgosFace0.entries()) {
+      const pts = pontosDeRasgo(rasgo);
+      if (pts.length !== 3) {
+        erros.push(`Rasgo Face 0 #${idx + 1}: esperava 3 pontos de validação (início, fim, meio), recebeu ${pts.length}.`);
+        continue;
+      }
+      const fora = pts.find((p) => !pontoDentroOuNaBordaDoPoligono(p, poly, 1));
+      if (fora) {
+        erros.push(`Rasgo Face 0 #${idx + 1}: ponto (${fora.x}, ${fora.y}) fora do contorno L principal.`);
+      }
+    }
+  }
+  const rasgoLinhaInvertido = rasgosFace0.some((o) => o.y1 != null && o.y2 != null && o.y1 > o.y2);
+  if (!rasgoLinhaInvertido) {
+    erros.push("Esperava rasgo_linha da Face 0 com Y1 > Y2 aceito/preservado.");
+  }
+
   const bordas = m.bordas ?? [];
   const fitaEsperada = EXPECTED_BAS4622A.fita.codigo.toUpperCase();
   const fitaEncontrada = bordas.find(
