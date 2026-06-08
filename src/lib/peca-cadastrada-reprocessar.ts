@@ -35,7 +35,9 @@ import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado"
 import { classificarGeometriaPeca } from "@/lib/classificar-geometria";
 import {
   detectarLBR,
+  detectarOrientacaoL,
   gerarSegmentosLBR,
+  gerarSegmentosOrientacao,
   gerarFacesLayoutL,
 } from "@/lib/segmentos-faces-l";
 
