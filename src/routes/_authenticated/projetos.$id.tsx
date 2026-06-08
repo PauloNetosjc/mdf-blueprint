@@ -362,6 +362,14 @@ function PecasTab({
           <Button size="sm" variant="outline" onClick={colarLinhas}>
             <ClipboardPaste className="mr-1 h-4 w-4" />Colar
           </Button>
+          <SelecionarPecaBibliotecaDialog
+            onSelect={onAddFromBiblioteca}
+            trigger={
+              <Button size="sm" variant="outline">
+                <BookOpen className="mr-1 h-4 w-4" />Da biblioteca
+              </Button>
+            }
+          />
           <Button size="sm" onClick={onAdd}><Plus className="mr-1 h-4 w-4" />Adicionar peça</Button>
         </div>
       </div>
