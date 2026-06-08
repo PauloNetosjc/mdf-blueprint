@@ -336,6 +336,74 @@ export function PainelModeloTecnico({
           </ul>
         </section>
       )}
+
+      {/* Diagnóstico de renderização */}
+      {modelo && diag && (
+        <section className="rounded border border-border bg-surface p-3 text-sm">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="font-medium">Diagnóstico de renderização da face</div>
+            <div className="flex items-center gap-1">
+              {diagFaceLista.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFaceDiag(f)}
+                  className={`rounded border px-2 py-0.5 font-mono text-xs ${
+                    faceDiag === f
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-surface-2"
+                  }`}
+                >
+                  F{f}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            A função única <span className="font-mono">obterGeometriaRenderizavelDaFace</span> é usada
+            tanto pelo validador quanto pelo visualizador.
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Field label="Face" value={diag.geom.face} />
+            <Field label="É face principal?" value={diag.geom.ehFacePrincipal ? "sim" : "não"} />
+            <Field label="Tipo" value={diag.geom.tipo} />
+            <Field label="Origem" value={diag.geom.origem} />
+            <Field label="Largura visual" value={`${diag.geom.largura_visual} mm`} />
+            <Field label="Altura visual" value={`${diag.geom.altura_visual} mm`} />
+            <Field label="Pontos do contorno" value={String(diag.geom.pontos_contorno.length)} />
+            <Field label="Operações na face" value={String(diag.opsTestadas.length)} />
+          </div>
+          {diag.geom.pontos_contorno.length > 0 && (
+            <pre className="mt-2 max-h-32 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px]">
+              {diag.geom.pontos_contorno.map((p, i) => `${i + 1}. (${p.x}, ${p.y})`).join("\n")}
+            </pre>
+          )}
+          {diag.opsTestadas.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {diag.opsTestadas.map((it, i) => (
+                <div
+                  key={i}
+                  className={`rounded border p-2 text-xs ${
+                    it.ok ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="font-mono">
+                    {it.ok ? "✓" : "⚠"} {it.op.tipo} #{it.op.ordem ?? "?"} {it.op.nome ? `(${it.op.nome})` : ""}
+                  </div>
+                  <ul className="ml-4 mt-1 list-disc">
+                    {it.resultados.map((r, j) => (
+                      <li key={j}>
+                        <span className="font-mono">{r.label}</span> = ({r.x.toFixed(2)}, {r.y.toFixed(2)}) →{" "}
+                        {r.valido ? (r.na_borda ? "na borda" : "dentro") : "FORA"}{" "}
+                        <span className="text-muted-foreground">(d={r.dist.toFixed(2)} mm)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
