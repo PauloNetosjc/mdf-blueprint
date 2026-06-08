@@ -642,10 +642,14 @@ export function VisualizadorTecnicoPecaCadastrada({
   }, [opsPorFace, facesDetectadas, facesLayout, geometriaComplexa]);
 
   const faceInicial = useMemo(() => {
-    if (faces.includes("7")) return "7";
+    // Prioridade: face_principal declarada no modelo técnico.
+    const fp = modeloTecnico?.geometria?.face_principal != null
+      ? String(modeloTecnico.geometria.face_principal)
+      : null;
+    if (fp && faces.includes(fp)) return fp;
     if (!geometriaComplexa) return faces[0] ?? "0";
     return [...faces].sort((a, b) => (opsPorFace.get(b)?.length ?? 0) - (opsPorFace.get(a)?.length ?? 0))[0] ?? "0";
-  }, [faces, geometriaComplexa, opsPorFace]);
+  }, [faces, geometriaComplexa, opsPorFace, modeloTecnico]);
 
   const [faceSel, setFaceSel] = useState<string>(faceInicial);
   const [opSel, setOpSel] = useState<string | null>(null);
