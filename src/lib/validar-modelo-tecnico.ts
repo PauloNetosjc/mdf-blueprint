@@ -4,11 +4,17 @@
 // Enquanto o JSON não passar nas regras determinísticas (especialmente o
 // fixture BAS0485A), o visualizador deve mostrar o erro e NÃO desenhar.
 
+import { pontoDentroOuNaBordaDoPoligono } from "@/lib/geometria-poligono";
+
 export type OperacaoLite = {
   tipo: string | null | undefined;
   face: number | string | null | undefined;
   x?: number | null;
   y?: number | null;
+  x1?: number | null;
+  x2?: number | null;
+  y1?: number | null;
+  y2?: number | null;
   diametro?: number | null;
   profundidade?: number | null;
   parametrico?: unknown;
@@ -90,6 +96,20 @@ function face0EhDeclarada(m: ModeloTecnicoLite): boolean {
   if ((m.faces_operacionais ?? []).map(String).includes("0")) return true;
   if ((m.faces_visuais ?? []).map(String).includes("0")) return true;
   return false;
+}
+
+function pontosDeRasgo(op: OperacaoLite) {
+  if (op.x1 != null && op.x2 != null && op.y != null) {
+    return [{ x: op.x1, y: op.y }, { x: op.x2, y: op.y }, { x: (op.x1 + op.x2) / 2, y: op.y }];
+  }
+  if (op.x1 != null && op.x2 != null && op.y1 != null && op.y2 != null) {
+    return [
+      { x: op.x1, y: op.y1 },
+      { x: op.x2, y: op.y2 },
+      { x: (op.x1 + op.x2) / 2, y: (op.y1 + op.y2) / 2 },
+    ];
+  }
+  return [];
 }
 
 /** Validação genérica que vale para todas as peças. */
