@@ -6,6 +6,7 @@ import {
   validarParserBAS0485A,
   validarParserBAS1101A,
   validarParserBAS3520A,
+  validarParserBAS4622A,
   calcularDetalhesModelo,
   type ModeloTecnicoLite,
 } from "@/lib/validar-modelo-tecnico";
@@ -85,6 +86,7 @@ export function PainelModeloTecnico({
     if (cod === "BAS0485A") return validarParserBAS0485A(lite);
     if (cod === "BAS1101A") return validarParserBAS1101A(lite);
     if (cod === "BAS3520A") return validarParserBAS3520A(lite);
+    if (cod === "BAS4622A") return validarParserBAS4622A(lite);
     return validarModeloTecnico(lite);
   }, [lite, codigo]);
 
