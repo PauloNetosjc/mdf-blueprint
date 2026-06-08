@@ -509,6 +509,16 @@ function PecasTab({
                         )}
                       </span>
                     )}
+                    {p.dados_tecnicos_aplicados_json && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Visualizar técnica aplicada"
+                        onClick={() => setVisualizar(p)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
                       <Cpu className="h-3.5 w-3.5" />
                     </Button>
