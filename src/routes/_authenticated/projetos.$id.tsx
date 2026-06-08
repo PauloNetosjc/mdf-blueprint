@@ -22,6 +22,7 @@ import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
 import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/components/projetos/SelecionarPecaBibliotecaDialog";
 import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
 import { PlanoCorteTab } from "@/components/projetos/PlanoCorteTab";
+import { ConfigurarPlanoCorteDialog } from "@/components/projetos/ConfigurarPlanoCorteDialog";
 import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
 export const Route = createFileRoute("/_authenticated/projetos/$id")({
