@@ -261,11 +261,12 @@ function ProjetoEditor() {
 type ChapaInfo = { id: string; nome: string; cor: string; espessura: number };
 
 function PecasTab({
-  pecas, chapas, onAdd, onUpdate, onDuplicate, onDelete, onAbrirEngenharia, projetoId,
+  pecas, chapas, onAdd, onAddFromBiblioteca, onUpdate, onDuplicate, onDelete, onAbrirEngenharia, projetoId,
 }: {
   pecas: ProjetoPeca[];
   chapas: ChapaInfo[];
   onAdd: () => void;
+  onAddFromBiblioteca: (p: PecaCadastradaResumo) => void;
   onUpdate: (p: Partial<ProjetoPeca> & { id: string }) => void;
   onDuplicate: (p: ProjetoPeca) => void;
   onDelete: (pid: string) => void;
@@ -274,6 +275,7 @@ function PecasTab({
 }) {
   const qc = useQueryClient();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [expandida, setExpandida] = useState<string | null>(null);
 
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
