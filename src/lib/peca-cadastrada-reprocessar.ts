@@ -33,6 +33,11 @@ import {
 import { extrairContornoVisualCalibrado } from "@/lib/contorno-visual-calibrado";
 import { extrairContornoRasterCalibrado } from "@/lib/contorno-raster-calibrado";
 import { classificarGeometriaPeca } from "@/lib/classificar-geometria";
+import {
+  detectarLBR,
+  gerarSegmentosLBR,
+  gerarFacesLayoutL,
+} from "@/lib/segmentos-faces-l";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
