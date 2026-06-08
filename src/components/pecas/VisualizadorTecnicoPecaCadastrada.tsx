@@ -1075,6 +1075,7 @@ export function VisualizadorTecnicoPecaCadastrada({
               facesDetectadas={facesDetectadas}
               contornoExterno={contornoExterno}
               facesLayout={facesLayout}
+              modeloTecnico={modeloTecnico}
               geometriaComplexa={geometriaComplexa}
               geometriaComplexaMotivos={geometriaComplexaMotivos}
               operacoesForaContorno={operacoesForaContorno}
