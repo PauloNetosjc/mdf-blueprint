@@ -491,34 +491,33 @@ function PecasTab({
                   <td className="p-1"><Inp value={p.modulo ?? ""} onSave={(v) => onUpdate({ id: p.id, modulo: v || null })} /></td>
                   <td className="p-1"><Inp value={p.observacao ?? ""} onSave={(v) => onUpdate({ id: p.id, observacao: v || null })} /></td>
                   <td className="p-1 text-right">
-                    {p.status_tecnico && p.status_tecnico !== "nao_aplicado" && (
-                      <span
-                        className={`mr-1 inline-flex items-center rounded px-1 py-0.5 text-[10px] ${
-                          p.status_tecnico === "aplicado_ok"
-                            ? "bg-success/10 text-success"
-                            : p.status_tecnico === "aplicado_com_alerta"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                        title={p.status_tecnico}
-                      >
-                        {p.status_tecnico === "aplicado_ok" ? (
-                          <CheckCircle2 className="h-3 w-3" />
-                        ) : p.status_tecnico === "aplicado_com_alerta" ? (
-                          <AlertTriangle className="h-3 w-3" />
-                        ) : (
-                          <XCircle className="h-3 w-3" />
-                        )}
-                      </span>
-                    )}
-                    {p.dados_tecnicos_aplicados_json && (
+                    <StatusTecnicoBadge status={p.status_tecnico ?? "nao_aplicado"} />
+                    {p.dados_tecnicos_aplicados_json ? (
                       <Button
                         size="sm"
                         variant="ghost"
-                        title="Visualizar técnica aplicada"
+                        title={`Visualizar técnica aplicada\nBiblioteca: sim · Aplicado: sim · ${p.status_tecnico ?? "—"}`}
                         onClick={() => setVisualizar(p)}
                       >
                         <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : p.peca_cadastrada_id ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Aplicar técnica e visualizar (Biblioteca: sim · Aplicado: não)"
+                        onClick={() => aplicarEAbrir(p)}
+                      >
+                        <Wand2 className="h-3.5 w-3.5 text-primary" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled
+                        title="Vincule uma peça da biblioteca para aplicar técnica."
+                      >
+                        <Link2Off className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     )}
                     <Button size="sm" variant="ghost" title="Abrir engenharia CNC" onClick={() => onAbrirEngenharia(p)}>
