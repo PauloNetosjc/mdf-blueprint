@@ -385,6 +385,34 @@ function PecasTab({
     }
   }
 
+  async function gerarManual(p: ProjetoPeca) {
+    try {
+      const { json, status_tecnico } = gerarDadosTecnicosManuais({
+        largura: p.largura,
+        altura: p.altura,
+        espessura: p.espessura,
+        codigo: p.codigo,
+        descricao: p.descricao,
+        fita_codigo: p.fita_codigo,
+        modulo: p.modulo,
+        quantidade: p.quantidade,
+        veio: p.veio,
+        operacoesExistentes:
+          (p.dados_tecnicos_aplicados_json as any)?.operacoes_recalculadas ?? [],
+      });
+      const { error } = await supabase
+        .from("projeto_pecas")
+        .update({ dados_tecnicos_aplicados_json: json as any, status_tecnico })
+        .eq("id", p.id);
+      if (error) throw error;
+      toast.success("Técnica manual gerada");
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+      setVisualizar({ ...p, dados_tecnicos_aplicados_json: json as any, status_tecnico });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao gerar técnica manual");
+    }
+  }
+
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
   const semChapa = pecas.filter((p) => !p.chapa_id).length;
