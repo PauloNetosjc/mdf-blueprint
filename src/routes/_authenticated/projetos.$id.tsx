@@ -281,6 +281,65 @@ function PecasTab({
   const [expandida, setExpandida] = useState<string | null>(null);
   const [visualizar, setVisualizar] = useState<ProjetoPeca | null>(null);
 
+  async function aplicarEAbrir(p: ProjetoPeca) {
+    if (!p.peca_cadastrada_id) {
+      toast.error("Peça sem vínculo com a biblioteca.");
+      return;
+    }
+    try {
+      const { data: cad, error: e1 } = await supabase
+        .from("pecas_cadastradas")
+        .select("dados_brutos_json")
+        .eq("id", p.peca_cadastrada_id)
+        .single();
+      if (e1) throw e1;
+      const modelo = (cad?.dados_brutos_json as any)?.modelo_tecnico_json as ModeloTecnicoJson | undefined;
+      if (!modelo) {
+        toast.error("Peça da biblioteca ainda não tem modelo técnico processado.");
+        return;
+      }
+      const res = aplicarModeloTecnicoNaPecaProjeto(modelo, {
+        largura: p.largura,
+        altura: p.altura,
+        espessura: p.espessura,
+      });
+      const aplicadoJson = {
+        origem: "biblioteca_parametrica",
+        peca_cadastrada_id: p.peca_cadastrada_id,
+        codigo_modelo: res.modelo_aplicado.codigo ?? null,
+        medidas_base: res.modelo_aplicado.parametrizacao
+          ? {
+              largura: res.modelo_aplicado.parametrizacao.largura_base,
+              altura: res.modelo_aplicado.parametrizacao.altura_base,
+              espessura: res.modelo_aplicado.parametrizacao.espessura_base,
+            }
+          : null,
+        medidas_projeto: { largura: p.largura, altura: p.altura, espessura: p.espessura },
+        operacoes_recalculadas: res.operacoes_recalculadas,
+        alertas: res.alertas,
+        erros: res.erros,
+        aplicado_em: new Date().toISOString(),
+      };
+      const { error: e2 } = await supabase
+        .from("projeto_pecas")
+        .update({
+          dados_tecnicos_aplicados_json: aplicadoJson,
+          status_tecnico: res.status_tecnico,
+        })
+        .eq("id", p.id);
+      if (e2) throw e2;
+      toast.success(`Modelo aplicado (${res.status_tecnico})`);
+      qc.invalidateQueries({ queryKey: ["projeto-pecas", projetoId] });
+      setVisualizar({
+        ...p,
+        dados_tecnicos_aplicados_json: aplicadoJson,
+        status_tecnico: res.status_tecnico,
+      });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao aplicar técnica");
+    }
+  }
+
   const totalPecas = pecas.reduce((s, p) => s + (p.quantidade > 0 ? p.quantidade : 0), 0);
   const areaTotalM2 = pecas.reduce((s, p) => s + (p.altura * p.largura * Math.max(p.quantidade, 0)) / 1_000_000, 0);
   const semChapa = pecas.filter((p) => !p.chapa_id).length;
