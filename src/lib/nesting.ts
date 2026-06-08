@@ -125,21 +125,42 @@ export function calcularPlanoCorte(
   const planoChapas: ChapaPlano[] = [];
   let indiceGlobal = 1;
 
+  const naoEncaixadas: ResultadoPlano["pecas_nao_encaixadas"] = [];
+
   for (const [chapaId, lote] of grupos.entries()) {
     const chapa = chapas.find((c) => c.id === chapaId);
-    if (!chapa) continue;
+    if (!chapa) {
+      for (const it of lote) {
+        naoEncaixadas.push({
+          projeto_peca_id: it.projeto_peca_id,
+          descricao: it.descricao,
+          codigo: it.codigo,
+          largura: it.largura,
+          altura: it.altura,
+          motivo: "Chapa não encontrada",
+        });
+      }
+      continue;
+    }
 
     // ordenar maior área desc
     lote.sort((a, b) => b.largura * b.altura - a.largura * a.altura);
 
     let restantes = [...lote];
     while (restantes.length > 0) {
-      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, refilo);
+      const { posicionadas, naoCabe, sobras, areaUsada } = empacotarShelf(restantes, chapa, cfg);
       if (posicionadas.length === 0) {
-        // peça maior que a chapa — pula para evitar loop
+        // peça maior que a chapa — registra como não encaixada
         const skip = restantes.shift();
         if (skip) {
-          console.warn("Peça maior que a chapa, ignorada:", skip);
+          naoEncaixadas.push({
+            projeto_peca_id: skip.projeto_peca_id,
+            descricao: skip.descricao,
+            codigo: skip.codigo,
+            largura: skip.largura,
+            altura: skip.altura,
+            motivo: `Peça (${Math.round(skip.largura)}×${Math.round(skip.altura)}) maior que a chapa (${chapa.largura}×${chapa.altura})`,
+          });
         }
         continue;
       }
@@ -167,10 +188,13 @@ export function calcularPlanoCorte(
     aproveitamento_medio,
     total_pecas,
     total_chapas: planoChapas.length,
+    pecas_nao_encaixadas: naoEncaixadas,
   };
 }
 
-function empacotarShelf(items: Item[], chapa: Chapa, KERF: number = KERF_DEFAULT) {
+function empacotarShelf(items: Item[], chapa: Chapa, cfg: Required<ConfigPlano>) {
+  const MARGEM = cfg.margem;
+  const GAP = cfg.espacamento;
   const W = chapa.largura;
   const H = chapa.altura;
   const posicionadas: PecaPosicionada[] = [];
