@@ -52,6 +52,26 @@ export const GeometriaSchema = z.object({
   face_principal: z.union([z.string(), z.number()]).nullable().optional(),
 });
 
+const AncoraXSchema = z.enum(["esquerda", "direita", "centro", "percentual", "absoluto"]);
+const AncoraYSchema = z.enum(["inferior", "superior", "centro", "percentual", "absoluto"]);
+const RegraSchema = z.enum(["ancora", "absoluto"]);
+
+export const ParametricoSchema = z.object({
+  ancora_x: AncoraXSchema,
+  distancia_x: z.number(),
+  ancora_y: AncoraYSchema,
+  distancia_y: z.number(),
+  regra_x: RegraSchema.default("ancora"),
+  regra_y: RegraSchema.default("ancora"),
+  largura_base: z.number(),
+  altura_base: z.number(),
+  ancora_x2: AncoraXSchema.optional(),
+  distancia_x2: z.number().optional(),
+  ancora_y2: AncoraYSchema.optional(),
+  distancia_y2: z.number().optional(),
+  editado_manualmente: z.boolean().optional(),
+});
+
 export const OperacaoModeloSchema = z.object({
   face: z.union([z.string(), z.number()]).transform((v) => String(v)),
   tipo: z.string(),
@@ -76,8 +96,11 @@ export const OperacaoModeloSchema = z.object({
   })).optional().default([]),
   ordem: z.number().optional().default(0),
   confianca: z.enum(["alta", "media", "baixa"]).optional().default("media"),
+  parametrico: ParametricoSchema.optional(),
 });
 export type OperacaoModelo = z.infer<typeof OperacaoModeloSchema>;
+export type Parametrico = z.infer<typeof ParametricoSchema>;
+
 
 export const BordaModeloSchema = z.object({
   lado: z.string(),
@@ -98,6 +121,13 @@ const FaceVisualSchema = z.object({
   largura_visual: z.number().nullable().optional(),
   altura_visual: z.number().nullable().optional(),
   geometria: z.string().nullable().optional(),
+});
+
+export const ParametrizacaoSchema = z.object({
+  largura_base: z.number(),
+  altura_base: z.number(),
+  espessura_base: z.number().default(0),
+  regra: z.literal("ancoras_topos").default("ancoras_topos"),
 });
 
 export const ModeloTecnicoSchema = z.object({
@@ -122,9 +152,11 @@ export const ModeloTecnicoSchema = z.object({
   avisos: z.array(z.string()).default([]),
   erros: z.array(z.string()).default([]),
   metadados: z.record(z.unknown()).optional().default({}),
+  parametrizacao: ParametrizacaoSchema.optional(),
 });
 
 export type ModeloTecnicoJson = z.infer<typeof ModeloTecnicoSchema>;
+
 
 // ---------- Regras paramétricas de geometria ----------
 
