@@ -38,6 +38,7 @@ export function PainelModeloTecnico({
         geometria: {
           tipo: modelo.geometria.tipo,
           origem: modelo.geometria.origem,
+          face_principal: modelo.geometria.face_principal,
           pontos_contorno: modelo.geometria.pontos_contorno,
         },
         faces_operacionais: (modelo.faces_operacionais ?? []).map((f) => Number(f.face)),
