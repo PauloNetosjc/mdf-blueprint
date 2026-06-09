@@ -22,6 +22,7 @@ import { VinculoBibliotecaTab } from "@/components/vinculo-biblioteca-tab";
 import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/components/projetos/SelecionarPecaBibliotecaDialog";
 import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
 import { PlanoCorteTab } from "@/components/projetos/PlanoCorteTab";
+import { EtiquetasPlanoTab } from "@/components/projetos/EtiquetasPlanoTab";
 import { ConfigurarPlanoCorteDialog } from "@/components/projetos/ConfigurarPlanoCorteDialog";
 import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
@@ -269,6 +270,7 @@ function ProjetoEditor() {
           <TabsTrigger value="engenharia">Engenharia</TabsTrigger>
           <TabsTrigger value="compras">Lista de Compras</TabsTrigger>
           <TabsTrigger value="plano">Plano de Corte</TabsTrigger>
+          <TabsTrigger value="etiquetas">Etiquetas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pecas" className="flex-1 overflow-auto p-6 pt-3">
@@ -303,6 +305,10 @@ function ProjetoEditor() {
 
         <TabsContent value="plano" className="flex-1 overflow-auto p-6 pt-3">
           <PlanoCorteTab projetoId={id} />
+        </TabsContent>
+
+        <TabsContent value="etiquetas" className="flex-1 overflow-auto p-6 pt-3">
+          <EtiquetasPlanoTab projetoId={id} />
         </TabsContent>
       </Tabs>
     </div>
