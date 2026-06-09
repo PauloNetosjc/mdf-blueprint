@@ -46,9 +46,11 @@ export type PlanoRow = {
   versao: number;
   status: string;
   aproveitamento_medio: number;
+  aproveitamento_percentual?: number | null;
   total_chapas: number;
   total_pecas: number;
   observacao: string | null;
+  plano_corte_json?: PlanoJson | null;
 };
 
 function abreviar(txt: string, limite: number): string {
