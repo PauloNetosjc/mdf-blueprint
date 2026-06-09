@@ -195,7 +195,7 @@ function PlanoPage() {
       if (!resultado) throw new Error("Calcule o plano antes de salvar");
       if (colisao) throw new Error("Existem colisões — corrija antes de salvar");
 
-      const observacao = JSON.stringify({
+      const planoJsonObj = {
         nome: `Plano ${new Date().toLocaleDateString("pt-BR")}`,
         configuracao: {
           chapa_id: search.chapa ?? null,
@@ -208,16 +208,27 @@ function PlanoPage() {
           permitir_rotacao: permitirRotacao,
           maquina_destino: search.maq ?? "nesting",
         },
+        plano: resultado.chapas.map((c) => ({
+          indice: c.indice,
+          chapa: { id: c.chapa.id, nome: c.chapa.nome, largura: c.chapa.largura, altura: c.chapa.altura, espessura: c.chapa.espessura },
+          pecas: c.pecas,
+          sobras: c.sobras,
+          aproveitamento: c.aproveitamento,
+          area_usada: c.area_usada,
+        })),
         pecas_nao_encaixadas: resultado.pecas_nao_encaixadas,
-      });
+        aproveitamento_percentual: (resultado.aproveitamento_medio ?? 0) * 100,
+      };
 
+      const aprovPct = (resultado.aproveitamento_medio ?? 0) * 100;
       const { data: plano, error } = await supabase.from("planos_corte").insert({
         projeto_id: id, versao: 1,
         aproveitamento_medio: resultado.aproveitamento_medio,
+        aproveitamento_percentual: aprovPct,
         total_chapas: resultado.total_chapas, total_pecas: resultado.total_pecas,
         status: "gerado",
-        observacao,
-      }).select().single();
+        plano_corte_json: planoJsonObj,
+      } as never).select().single();
       if (error) throw error;
       for (const c of resultado.chapas) {
         // Chapa sintética não tem id real — pular inserção em plano_corte_chapas
