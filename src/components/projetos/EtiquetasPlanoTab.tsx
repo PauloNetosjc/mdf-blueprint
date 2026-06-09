@@ -158,27 +158,28 @@ export function EtiquetasPlanoTab({ projetoId }: { projetoId: string }) {
         throw new Error("Não foi possível gerar etiquetas: plano de corte vazio ou inválido.");
       }
       const etiquetas_json = construirEtiquetas(planoAtual, projetoId);
+      const sb: any = supabase;
       if (etqRow) {
-        const { error } = await supabase
-          .from("etiquetas_planos_corte" as never)
+        const { error } = await sb
+          .from("etiquetas_planos_corte")
           .update({
-            etiquetas_json: etiquetas_json as any,
+            etiquetas_json,
             total_etiquetas: etiquetas_json.total_etiquetas,
             status: "gerado",
             atualizado_em: new Date().toISOString(),
-          } as any)
+          })
           .eq("id", etqRow.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from("etiquetas_planos_corte" as never)
+        const { error } = await sb
+          .from("etiquetas_planos_corte")
           .insert({
             projeto_id: projetoId,
             plano_corte_id: planoAtual.id,
-            etiquetas_json: etiquetas_json as any,
+            etiquetas_json,
             total_etiquetas: etiquetas_json.total_etiquetas,
             status: "gerado",
-          } as any);
+          });
         if (error) throw error;
       }
     },
