@@ -493,6 +493,57 @@ export type Database = {
         }
         Relationships: []
       }
+      etiquetas_planos_corte: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          etiquetas_json: Json
+          id: string
+          plano_corte_id: string
+          projeto_id: string
+          status: string
+          total_etiquetas: number
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          etiquetas_json?: Json
+          id?: string
+          plano_corte_id: string
+          projeto_id: string
+          status?: string
+          total_etiquetas?: number
+          user_id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          etiquetas_json?: Json
+          id?: string
+          plano_corte_id?: string
+          projeto_id?: string
+          status?: string
+          total_etiquetas?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etiquetas_planos_corte_plano_corte_id_fkey"
+            columns: ["plano_corte_id"]
+            isOneToOne: false
+            referencedRelation: "planos_corte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "etiquetas_planos_corte_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faces: {
         Row: {
           eixo_x_mapeado: string | null
