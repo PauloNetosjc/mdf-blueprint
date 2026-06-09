@@ -20,10 +20,12 @@ type PlanoRow = {
   versao: number;
   status: string;
   aproveitamento_medio: number;
+  aproveitamento_percentual: number;
   total_chapas: number;
   total_pecas: number;
   created_at: string;
   observacao: string | null;
+  plano_corte_json: any | null;
 };
 
 export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
@@ -37,10 +39,10 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("planos_corte")
-        .select("id, versao, status, aproveitamento_medio, total_chapas, total_pecas, created_at, observacao")
+        .select("id, versao, status, aproveitamento_medio, aproveitamento_percentual, total_chapas, total_pecas, created_at, observacao, plano_corte_json" as never)
         .eq("projeto_id", projetoId)
         .order("created_at", { ascending: false });
-      return (data ?? []) as PlanoRow[];
+      return (data ?? []) as unknown as PlanoRow[];
     },
   });
 
@@ -59,13 +61,16 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
   });
 
   function nomeDoPlano(p: PlanoRow): string {
-    try {
-      if (p.observacao && p.observacao.trim().startsWith("{")) {
-        const j = JSON.parse(p.observacao);
-        if (j && typeof j.nome === "string") return j.nome;
-      }
-    } catch { /* fallback */ }
+    const j = p.plano_corte_json;
+    if (j && typeof j === "object" && typeof j.nome === "string") return j.nome;
     return `Plano v${p.versao}`;
+  }
+
+  function aprovPct(p: PlanoRow): number {
+    if (p.aproveitamento_percentual != null && p.aproveitamento_percentual > 0) {
+      return Math.round(p.aproveitamento_percentual);
+    }
+    return Math.round((p.aproveitamento_medio ?? 0) * 100);
   }
 
   return (
