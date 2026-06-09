@@ -137,14 +137,14 @@ export function EtiquetasPlanoTab({ projetoId }: { projetoId: string }) {
     queryKey: ["etiquetas-pc", planoSel],
     enabled: !!planoSel,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("etiquetas_planos_corte" as never)
+      const { data } = await (supabase as any)
+        .from("etiquetas_planos_corte")
         .select("*")
         .eq("plano_corte_id", planoSel)
         .order("criado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
-      return data as unknown as EtiquetasRow | null;
+      return data as EtiquetasRow | null;
     },
   });
 
