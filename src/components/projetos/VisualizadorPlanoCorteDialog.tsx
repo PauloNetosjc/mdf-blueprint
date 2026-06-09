@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, X, Move, Lock, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, X, Move, Lock, Save, Undo2, Shield, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 
 type PecaJson = {
@@ -72,6 +72,16 @@ function colide(a: PecaJson, b: PecaJson): boolean {
   );
 }
 
+// Considera a peça "a" expandida por `gap` em cada lado e verifica overlap com b
+function colideComMargem(a: PecaJson, b: PecaJson, gap: number): boolean {
+  return (
+    a.x - gap < b.x + b.largura &&
+    a.x + a.largura + gap > b.x &&
+    a.y - gap < b.y + b.altura &&
+    a.y + a.altura + gap > b.y
+  );
+}
+
 function pecasComColisaoNaChapa(chapa: ChapaJson): Set<string> {
   const ids = new Set<string>();
   const arr = chapa.pecas;
@@ -85,8 +95,58 @@ function pecasComColisaoNaChapa(chapa: ChapaJson): Set<string> {
   return ids;
 }
 
+function pecasMuitoProximas(chapa: ChapaJson, gap: number): Set<string> {
+  const ids = new Set<string>();
+  const arr = chapa.pecas;
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
+      if (!colide(arr[i], arr[j]) && colideComMargem(arr[i], arr[j], gap)) {
+        ids.add(arr[i].id); ids.add(arr[j].id);
+      }
+    }
+  }
+  return ids;
+}
+
 function pecaForaDaChapa(p: PecaJson, c: ChapaJson): boolean {
   return p.x < 0 || p.y < 0 || p.x + p.largura > c.chapa.largura || p.y + p.altura > c.chapa.altura;
+}
+
+function pecaForaAreaUtil(p: PecaJson, c: ChapaJson, margem: number): boolean {
+  return (
+    p.x < margem ||
+    p.y < margem ||
+    p.x + p.largura > c.chapa.largura - margem ||
+    p.y + p.altura > c.chapa.altura - margem
+  );
+}
+
+type MotivoBloqueio = "fora_da_chapa" | "colisao" | "margem_borda" | "distancia_minima";
+
+function validarMovimentoComMargem(
+  pecaMovida: PecaJson,
+  outrasPecas: PecaJson[],
+  chapa: ChapaJson,
+  cfg: { distanciaMinima: number; margemBorda: number },
+): { valido: boolean; motivo?: MotivoBloqueio } {
+  if (pecaForaDaChapa(pecaMovida, chapa)) return { valido: false, motivo: "fora_da_chapa" };
+  if (pecaForaAreaUtil(pecaMovida, chapa, cfg.margemBorda)) return { valido: false, motivo: "margem_borda" };
+  for (const o of outrasPecas) {
+    if (o.id === pecaMovida.id) continue;
+    if (colide(pecaMovida, o)) return { valido: false, motivo: "colisao" };
+    if (colideComMargem(pecaMovida, o, cfg.distanciaMinima)) return { valido: false, motivo: "distancia_minima" };
+  }
+  return { valido: true };
+}
+
+function lerConfigJson(j: PlanoJson | null | undefined): { distanciaMinima: number; margemBorda: number } {
+  const cfg = (j?.configuracao ?? {}) as Record<string, unknown>;
+  const esp = Number(cfg.espacamento);
+  const mar = Number(cfg.margem);
+  return {
+    distanciaMinima: Number.isFinite(esp) && esp >= 0 ? esp : 6,
+    margemBorda: Number.isFinite(mar) && mar >= 0 ? mar : 10,
+  };
 }
 
 export function VisualizadorPlanoCorteDialog({
@@ -99,6 +159,8 @@ export function VisualizadorPlanoCorteDialog({
   const qc = useQueryClient();
   const [pecaSel, setPecaSel] = useState<{ p: PecaJson; chapaNum: number; chapaNome: string } | null>(null);
   const [modoEdicaoManual, setModoEdicaoManual] = useState(false);
+  const [colisaoAtiva, setColisaoAtiva] = useState(true);
+  const [bloqueio, setBloqueio] = useState<{ pecaId: string; motivo: MotivoBloqueio } | null>(null);
   const [planoEditavel, setPlanoEditavel] = useState<PlanoJson | null>(null);
   const [planoOriginal, setPlanoOriginal] = useState<PlanoJson | null>(null);
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false);
@@ -129,6 +191,8 @@ export function VisualizadorPlanoCorteDialog({
       setPlanoEditavel(deepCopy(parsed.json));
       setAlteracoesPendentes(false);
       setModoEdicaoManual(false);
+      setColisaoAtiva(true);
+      setBloqueio(null);
       setPecaSel(null);
     }
     if (!open) {
@@ -136,9 +200,13 @@ export function VisualizadorPlanoCorteDialog({
       setPlanoEditavel(null);
       setAlteracoesPendentes(false);
       setModoEdicaoManual(false);
+      setColisaoAtiva(true);
+      setBloqueio(null);
       setPecaSel(null);
     }
   }, [open, parsed.json]);
+
+  const cfgMargem = useMemo(() => lerConfigJson(planoEditavel ?? parsed.json), [planoEditavel, parsed.json]);
 
   const colisoesPorChapa = useMemo(() => {
     const m = new Map<number, Set<string>>();
@@ -152,10 +220,29 @@ export function VisualizadorPlanoCorteDialog({
     [colisoesPorChapa],
   );
 
+  const proximidadePorChapa = useMemo(() => {
+    const m = new Map<number, Set<string>>();
+    if (!planoEditavel?.plano) return m;
+    planoEditavel.plano.forEach((c, idx) => m.set(idx, pecasMuitoProximas(c, cfgMargem.distanciaMinima)));
+    return m;
+  }, [planoEditavel, cfgMargem.distanciaMinima]);
+
+  const temProximidade = useMemo(
+    () => Array.from(proximidadePorChapa.values()).some((s) => s.size > 0),
+    [proximidadePorChapa],
+  );
+
   const temForaChapa = useMemo(() => {
     if (!planoEditavel?.plano) return false;
     return planoEditavel.plano.some((c) => c.pecas.some((p) => pecaForaDaChapa(p, c)));
   }, [planoEditavel]);
+
+  const temForaAreaUtil = useMemo(() => {
+    if (!planoEditavel?.plano) return false;
+    return planoEditavel.plano.some((c) => c.pecas.some((p) => pecaForaAreaUtil(p, c, cfgMargem.margemBorda)));
+  }, [planoEditavel, cfgMargem.margemBorda]);
+
+  const podeSalvar = !temColisao && !temForaChapa && !temForaAreaUtil && !temProximidade;
 
   const salvarMut = useMutation({
     mutationFn: async () => {
@@ -164,8 +251,10 @@ export function VisualizadorPlanoCorteDialog({
         throw new Error("Não é possível salvar: plano vazio ou inválido.");
       const totalPecasEd = planoEditavel.plano.reduce((s, c) => s + c.pecas.length, 0);
       if (totalPecasEd === 0) throw new Error("Não é possível salvar: plano vazio ou inválido.");
-      if (temForaChapa) throw new Error("Não é possível salvar: existem peças fora da chapa.");
+      if (temForaChapa) throw new Error("Não é possível salvar: peça fora da área útil da chapa.");
+      if (temForaAreaUtil) throw new Error("Não é possível salvar: margem mínima da borda não respeitada.");
       if (temColisao) throw new Error("Não é possível salvar: existem peças sobrepostas.");
+      if (temProximidade) throw new Error("Não é possível salvar: distância mínima entre peças não respeitada.");
 
       let areaPecas = 0;
       let areaChapas = 0;
@@ -259,8 +348,29 @@ export function VisualizadorPlanoCorteDialog({
       if (!p) return;
       let nx = d.startPecaX + dx;
       let ny = d.startPecaY + dy;
-      nx = Math.max(0, Math.min(nx, c.chapa.largura - p.largura));
-      ny = Math.max(0, Math.min(ny, c.chapa.altura - p.altura));
+
+      if (colisaoAtiva) {
+        // Restringe à área útil (margem da borda)
+        const m = cfgMargem.margemBorda;
+        nx = Math.max(m, Math.min(nx, c.chapa.largura - p.largura - m));
+        ny = Math.max(m, Math.min(ny, c.chapa.altura - p.altura - m));
+        const candidato = { ...p, x: nx, y: ny };
+        const r = validarMovimentoComMargem(candidato, c.pecas, c, cfgMargem);
+        if (!r.valido) {
+          setBloqueio({ pecaId: p.id, motivo: r.motivo! });
+          // mantém última posição válida — não atualiza p.x/p.y
+          setPecaSel((cur) => (cur && cur.p.id === p.id ? { ...cur, p: { ...p } } : cur));
+          forceTick((t) => t + 1);
+          return;
+        }
+        setBloqueio(null);
+      } else {
+        // livre dentro dos limites físicos da chapa
+        nx = Math.max(0, Math.min(nx, c.chapa.largura - p.largura));
+        ny = Math.max(0, Math.min(ny, c.chapa.altura - p.altura));
+        setBloqueio(null);
+      }
+
       p.x = nx;
       p.y = ny;
       setPecaSel((cur) => (cur && cur.p.id === p.id ? { ...cur, p: { ...p } } : cur));
@@ -319,12 +429,24 @@ export function VisualizadorPlanoCorteDialog({
                   ? (<><Lock className="mr-1 h-4 w-4" />Bloquear movimentação</>)
                   : (<><Move className="mr-1 h-4 w-4" />Permitir movimentar peças</>)}
               </Button>
+              {modoEdicaoManual && (
+                <Button
+                  size="sm"
+                  variant={colisaoAtiva ? "default" : "outline"}
+                  onClick={() => { setColisaoAtiva((v) => !v); setBloqueio(null); }}
+                  title="Bloquear ou permitir sobreposição entre peças durante a movimentação"
+                >
+                  {colisaoAtiva
+                    ? (<><Shield className="mr-1 h-4 w-4" />Colisão: ligada</>)
+                    : (<><ShieldOff className="mr-1 h-4 w-4" />Colisão: desligada</>)}
+                </Button>
+              )}
               {alteracoesPendentes && (
                 <>
                   <Button
                     size="sm"
                     onClick={() => salvarMut.mutate()}
-                    disabled={salvarMut.isPending || temColisao || temForaChapa}
+                    disabled={salvarMut.isPending || !podeSalvar}
                   >
                     <Save className="mr-1 h-4 w-4" />Salvar alterações
                   </Button>
@@ -337,19 +459,43 @@ export function VisualizadorPlanoCorteDialog({
 
             {modoEdicaoManual && (
               <div className="rounded border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-                Modo manual ativo: arraste as peças para ajustar o plano.
+                Modo manual ativo: arraste as peças para ajustar o plano. Margem da borda: {cfgMargem.margemBorda} mm · Distância mínima entre peças: {cfgMargem.distanciaMinima} mm.
+              </div>
+            )}
+            {modoEdicaoManual && !colisaoAtiva && (
+              <div className="rounded border border-warning/40 bg-warning/10 p-2 text-xs text-warning-foreground">
+                <AlertTriangle className="mr-1 inline h-3 w-3" />
+                Colisão desligada: sobreposições são permitidas apenas temporariamente. Corrija antes de salvar.
+              </div>
+            )}
+            {modoEdicaoManual && colisaoAtiva && bloqueio && (
+              <div className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                <AlertTriangle className="mr-1 inline h-3 w-3" />
+                Movimento bloqueado: {bloqueio.motivo === "distancia_minima"
+                  ? "distância mínima não respeitada."
+                  : bloqueio.motivo === "margem_borda"
+                    ? "margem mínima da borda não respeitada."
+                    : bloqueio.motivo === "colisao"
+                      ? "colisão com outra peça."
+                      : "peça fora da chapa."}
               </div>
             )}
             {temColisao && (
               <div className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                 <AlertTriangle className="mr-1 inline h-3 w-3" />
-                Atenção: existem peças sobrepostas. Ajuste antes de salvar.
+                Existem peças sobrepostas. Ajuste antes de salvar.
               </div>
             )}
-            {temForaChapa && (
+            {temProximidade && !temColisao && (
               <div className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                 <AlertTriangle className="mr-1 inline h-3 w-3" />
-                Existem peças fora da chapa.
+                Existem peças a menos de {cfgMargem.distanciaMinima} mm umas das outras.
+              </div>
+            )}
+            {(temForaChapa || temForaAreaUtil) && (
+              <div className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                <AlertTriangle className="mr-1 inline h-3 w-3" />
+                {temForaChapa ? "Existem peças fora da chapa." : `Peça fora da área útil (margem ${cfgMargem.margemBorda} mm).`}
               </div>
             )}
 
@@ -377,9 +523,12 @@ export function VisualizadorPlanoCorteDialog({
                       numero={numero}
                       aprovChapa={aprov}
                       colisaoIds={colisoesPorChapa.get(idx) ?? new Set()}
+                      proximidadeIds={proximidadePorChapa.get(idx) ?? new Set()}
                       onPecaMouseDown={(e, p) => onPecaMouseDown(e, idx, p, c)}
                       selecionadaId={pecaSel?.p.id ?? null}
                       modoEdicao={modoEdicaoManual}
+                      mostrarAreaUtil={modoEdicaoManual}
+                      margemBorda={cfgMargem.margemBorda}
                     />
                   );
                 })}
@@ -389,7 +538,18 @@ export function VisualizadorPlanoCorteDialog({
                 const c = planoEditavel.plano?.[pecaSel.chapaNum - 1];
                 const fora = c ? pecaForaDaChapa(pecaSel.p, c) : false;
                 const sobreposta = (colisoesPorChapa.get(pecaSel.chapaNum - 1) ?? new Set()).has(pecaSel.p.id);
-                const status = fora ? "Fora da chapa" : sobreposta ? "Sobreposta" : "OK";
+                const proxima = (proximidadePorChapa.get(pecaSel.chapaNum - 1) ?? new Set()).has(pecaSel.p.id);
+                const foraAreaUtil = c ? pecaForaAreaUtil(pecaSel.p, c, cfgMargem.margemBorda) : false;
+                const statusColisao = fora
+                  ? "Fora da chapa"
+                  : foraAreaUtil
+                    ? "Fora da área útil"
+                    : sobreposta
+                      ? "Sobreposta"
+                      : proxima
+                        ? "Próxima demais"
+                        : "Livre";
+                const bloquedoEssa = bloqueio && bloqueio.pecaId === pecaSel.p.id ? bloqueio : null;
                 return (
                   <aside className="h-fit space-y-2 rounded border border-border bg-surface p-3 text-xs lg:sticky lg:top-0">
                     <div className="flex items-center justify-between">
@@ -411,7 +571,20 @@ export function VisualizadorPlanoCorteDialog({
                     {pecaSel.p.espessura != null && <Linha k="Espessura" v={`${pecaSel.p.espessura} mm`} />}
                     <Linha k="Chapa" v={`${pecaSel.chapaNum} · ${pecaSel.chapaNome}`} />
                     <Linha k="Rotacionada" v={pecaSel.p.rotacionada ? "Sim" : "Não"} />
-                    <Linha k="Status" v={status} />
+                    <Linha k="Status colisão" v={statusColisao} />
+                    <Linha k="Distância mínima" v={`${cfgMargem.distanciaMinima} mm`} />
+                    <Linha k="Margem da borda" v={`${cfgMargem.margemBorda} mm`} />
+                    {bloquedoEssa && (
+                      <div className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-destructive">
+                        Movimento bloqueado: {bloquedoEssa.motivo === "distancia_minima"
+                          ? "distância mínima não respeitada."
+                          : bloquedoEssa.motivo === "margem_borda"
+                            ? "margem mínima da borda não respeitada."
+                            : bloquedoEssa.motivo === "colisao"
+                              ? "colisão com outra peça."
+                              : "peça fora da chapa."}
+                      </div>
+                    )}
                   </aside>
                 );
               })()}
@@ -442,7 +615,8 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function ChapaSvg({
-  chapa, numero, aprovChapa, onPecaMouseDown, selecionadaId, colisaoIds, modoEdicao,
+  chapa, numero, aprovChapa, onPecaMouseDown, selecionadaId, colisaoIds, proximidadeIds,
+  modoEdicao, mostrarAreaUtil, margemBorda,
 }: {
   chapa: ChapaJson;
   numero: number;
@@ -450,7 +624,10 @@ function ChapaSvg({
   onPecaMouseDown: (e: React.MouseEvent<SVGGElement>, p: PecaJson) => void;
   selecionadaId: string | null;
   colisaoIds: Set<string>;
+  proximidadeIds: Set<string>;
   modoEdicao: boolean;
+  mostrarAreaUtil: boolean;
+  margemBorda: number;
 }) {
   const { largura, altura, espessura, nome } = chapa.chapa;
   return (
@@ -470,6 +647,16 @@ function ChapaSvg({
           className="block h-auto w-full select-none"
         >
           <rect x={0} y={0} width={largura} height={altura} fill="#f6efe0" />
+          {mostrarAreaUtil && margemBorda > 0 && (
+            <rect
+              x={margemBorda} y={margemBorda}
+              width={Math.max(0, largura - margemBorda * 2)}
+              height={Math.max(0, altura - margemBorda * 2)}
+              fill="none" stroke="#8a7a55" strokeWidth={1.5}
+              strokeDasharray="14 10"
+              pointerEvents="none"
+            />
+          )}
           {chapa.pecas.map((p) => {
             const menorDim = Math.min(p.largura, p.altura);
             const fontCentro = Math.max(18, Math.min(menorDim * 0.12, 80));
@@ -484,9 +671,16 @@ function ChapaSvg({
             const indexLabel = p.quantidade_index != null ? `#${p.quantidade_index}` : "";
             const selecionada = selecionadaId === p.id;
             const colide = colisaoIds.has(p.id);
-            const stroke = colide ? "#dc2626" : selecionada ? "#2563eb" : "#3b6e8f";
-            const strokeW = colide || selecionada ? 4 : 2;
-            const fill = colide ? "#fee2e2" : "#ffffff";
+            const proxima = proximidadeIds.has(p.id);
+            const stroke = colide
+              ? "#dc2626"
+              : proxima
+                ? "#f59e0b"
+                : selecionada
+                  ? "#2563eb"
+                  : "#3b6e8f";
+            const strokeW = colide || selecionada || proxima ? 4 : 2;
+            const fill = colide ? "#fee2e2" : proxima ? "#fef3c7" : "#ffffff";
 
             return (
               <g
