@@ -23,6 +23,7 @@ import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/com
 import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
 import { PlanoCorteTab } from "@/components/projetos/PlanoCorteTab";
 import { EtiquetasPlanoTab } from "@/components/projetos/EtiquetasPlanoTab";
+import { AlmoxarifadoSeparacaoTab } from "@/components/projetos/AlmoxarifadoSeparacaoTab";
 import { ConfigurarPlanoCorteDialog } from "@/components/projetos/ConfigurarPlanoCorteDialog";
 import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
