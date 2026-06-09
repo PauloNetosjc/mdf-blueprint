@@ -126,7 +126,7 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
                   <td className="px-3 py-2 font-mono text-xs">{p.total_chapas}</td>
                   <td className="px-3 py-2 font-mono text-xs">{p.total_pecas}</td>
                   <td className="px-3 py-2 font-mono text-xs">
-                    {Math.round((p.aproveitamento_medio ?? 0) * 100)}%
+                    {aprovPct(p)}%
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {new Date(p.created_at).toLocaleString("pt-BR")}
