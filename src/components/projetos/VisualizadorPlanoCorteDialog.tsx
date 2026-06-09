@@ -281,7 +281,9 @@ export function VisualizadorPlanoCorteDialog({
   const nome = (planoEditavel?.nome ?? parsed.json?.nome) ?? (plano ? `Plano v${plano.versao}` : "Plano");
   const aprovPctView = planoEditavel?.aproveitamento_percentual != null
     ? Math.round(planoEditavel.aproveitamento_percentual)
-    : (plano ? Math.round((plano.aproveitamento_medio ?? 0) * 100) : 0);
+    : plano?.aproveitamento_percentual != null && plano.aproveitamento_percentual > 0
+      ? Math.round(plano.aproveitamento_percentual)
+      : (plano ? Math.round((plano.aproveitamento_medio ?? 0) * 100) : 0);
 
   const totalChapasView = planoEditavel?.plano?.length ?? plano?.total_chapas ?? 0;
   const totalPecasView = planoEditavel?.plano?.reduce((s, c) => s + c.pecas.length, 0) ?? plano?.total_pecas ?? 0;
