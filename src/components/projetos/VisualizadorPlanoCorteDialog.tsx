@@ -106,23 +106,20 @@ export function VisualizadorPlanoCorteDialog({
 
   const parsed: { json: PlanoJson | null; error: string | null } = useMemo(() => {
     if (!plano) return { json: null, error: null };
-    if (!plano.observacao || !plano.observacao.trim().startsWith("{")) {
-      return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
+    const empty = "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar.";
+    let j: PlanoJson | null = null;
+    // Fonte da verdade: plano_corte_json (jsonb). Fallback legado: observacao (texto JSON).
+    if (plano.plano_corte_json && typeof plano.plano_corte_json === "object") {
+      j = plano.plano_corte_json as PlanoJson;
+    } else if (plano.observacao && plano.observacao.trim().startsWith("{")) {
+      try { j = JSON.parse(plano.observacao) as PlanoJson; } catch { j = null; }
     }
-    try {
-      const j = JSON.parse(plano.observacao) as PlanoJson;
-      const chapas = j.plano ?? [];
-      if (chapas.length === 0) {
-        return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-      }
-      const totalPecas = chapas.reduce((s, c) => s + (c.pecas?.length ?? 0), 0);
-      if (totalPecas === 0) {
-        return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-      }
-      return { json: j, error: null };
-    } catch {
-      return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-    }
+    if (!j) return { json: null, error: empty };
+    const chapas = j.plano ?? [];
+    if (chapas.length === 0) return { json: null, error: empty };
+    const totalPecas = chapas.reduce((s, c) => s + (c.pecas?.length ?? 0), 0);
+    if (totalPecas === 0) return { json: null, error: empty };
+    return { json: j, error: null };
   }, [plano]);
 
   // Reset state ao abrir/trocar plano
