@@ -158,8 +158,8 @@ export function ConfigurarPlanoCorteDialog({
         .order("versao", { ascending: false }).limit(1).maybeSingle();
       const proximaVersao = (ultimo?.versao ?? 0) + 1;
 
-      // 6) salvar planos_corte (configuração + plano completo em observacao JSON)
-      const observacao = JSON.stringify({
+      // 6) salvar planos_corte — fonte da verdade do plano fica em plano_corte_json
+      const planoJsonObj = {
         nome: `Plano de corte ${proximaVersao}`,
         configuracao: {
           chapa_id: chapaId === CHAPA_DEFAULT_ID ? null : chapaId,
@@ -177,17 +177,20 @@ export function ConfigurarPlanoCorteDialog({
           area_usada: c.area_usada,
         })),
         pecas_nao_encaixadas: resultado.pecas_nao_encaixadas,
-      });
+        aproveitamento_percentual: (resultado.aproveitamento_medio ?? 0) * 100,
+      };
 
+      const aprovPct = (resultado.aproveitamento_medio ?? 0) * 100;
       const { data: plano, error: e1 } = await supabase.from("planos_corte").insert({
         projeto_id: projetoId,
         versao: proximaVersao,
         aproveitamento_medio: resultado.aproveitamento_medio,
+        aproveitamento_percentual: aprovPct,
         total_chapas: resultado.total_chapas,
         total_pecas: resultado.total_pecas,
         status: "gerado",
-        observacao,
-      }).select().single();
+        plano_corte_json: planoJsonObj,
+      } as never).select().single();
       if (e1) throw e1;
 
       // 7) persistir chapas/peças apenas para chapas REAIS (com FK)
