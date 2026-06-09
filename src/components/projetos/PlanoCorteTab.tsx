@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Scissors, Eye, Pencil, Copy, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ConfigurarPlanoCorteDialog } from "./ConfigurarPlanoCorteDialog";
+import { VisualizadorPlanoCorteDialog, type PlanoRow as PlanoRowVis } from "./VisualizadorPlanoCorteDialog";
 
 type PlanoRow = {
   id: string;
