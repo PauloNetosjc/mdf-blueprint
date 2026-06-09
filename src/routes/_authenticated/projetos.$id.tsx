@@ -271,6 +271,7 @@ function ProjetoEditor() {
           <TabsTrigger value="compras">Lista de Compras</TabsTrigger>
           <TabsTrigger value="plano">Plano de Corte</TabsTrigger>
           <TabsTrigger value="etiquetas">Etiquetas</TabsTrigger>
+          <TabsTrigger value="almoxarifado">Almoxarifado</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pecas" className="flex-1 overflow-auto p-6 pt-3">
