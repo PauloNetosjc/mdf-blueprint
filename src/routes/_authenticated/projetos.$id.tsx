@@ -311,6 +311,10 @@ function ProjetoEditor() {
         <TabsContent value="etiquetas" className="flex-1 overflow-auto p-6 pt-3">
           <EtiquetasPlanoTab projetoId={id} />
         </TabsContent>
+
+        <TabsContent value="almoxarifado" className="flex-1 overflow-auto p-6 pt-3">
+          <AlmoxarifadoSeparacaoTab projetoId={id} />
+        </TabsContent>
       </Tabs>
     </div>
   );
