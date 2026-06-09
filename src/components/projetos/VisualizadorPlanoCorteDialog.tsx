@@ -220,10 +220,29 @@ export function VisualizadorPlanoCorteDialog({
     [colisoesPorChapa],
   );
 
+  const proximidadePorChapa = useMemo(() => {
+    const m = new Map<number, Set<string>>();
+    if (!planoEditavel?.plano) return m;
+    planoEditavel.plano.forEach((c, idx) => m.set(idx, pecasMuitoProximas(c, cfgMargem.distanciaMinima)));
+    return m;
+  }, [planoEditavel, cfgMargem.distanciaMinima]);
+
+  const temProximidade = useMemo(
+    () => Array.from(proximidadePorChapa.values()).some((s) => s.size > 0),
+    [proximidadePorChapa],
+  );
+
   const temForaChapa = useMemo(() => {
     if (!planoEditavel?.plano) return false;
     return planoEditavel.plano.some((c) => c.pecas.some((p) => pecaForaDaChapa(p, c)));
   }, [planoEditavel]);
+
+  const temForaAreaUtil = useMemo(() => {
+    if (!planoEditavel?.plano) return false;
+    return planoEditavel.plano.some((c) => c.pecas.some((p) => pecaForaAreaUtil(p, c, cfgMargem.margemBorda)));
+  }, [planoEditavel, cfgMargem.margemBorda]);
+
+  const podeSalvar = !temColisao && !temForaChapa && !temForaAreaUtil && !temProximidade;
 
   const salvarMut = useMutation({
     mutationFn: async () => {
@@ -232,8 +251,10 @@ export function VisualizadorPlanoCorteDialog({
         throw new Error("Não é possível salvar: plano vazio ou inválido.");
       const totalPecasEd = planoEditavel.plano.reduce((s, c) => s + c.pecas.length, 0);
       if (totalPecasEd === 0) throw new Error("Não é possível salvar: plano vazio ou inválido.");
-      if (temForaChapa) throw new Error("Não é possível salvar: existem peças fora da chapa.");
+      if (temForaChapa) throw new Error("Não é possível salvar: peça fora da área útil da chapa.");
+      if (temForaAreaUtil) throw new Error("Não é possível salvar: margem mínima da borda não respeitada.");
       if (temColisao) throw new Error("Não é possível salvar: existem peças sobrepostas.");
+      if (temProximidade) throw new Error("Não é possível salvar: distância mínima entre peças não respeitada.");
 
       let areaPecas = 0;
       let areaChapas = 0;
