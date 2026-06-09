@@ -23,6 +23,7 @@ import { SelecionarPecaBibliotecaDialog, type PecaCadastradaResumo } from "@/com
 import { PainelAplicacaoTecnica } from "@/components/projetos/PainelAplicacaoTecnica";
 import { PlanoCorteTab } from "@/components/projetos/PlanoCorteTab";
 import { EtiquetasPlanoTab } from "@/components/projetos/EtiquetasPlanoTab";
+import { AlmoxarifadoSeparacaoTab } from "@/components/projetos/AlmoxarifadoSeparacaoTab";
 import { ConfigurarPlanoCorteDialog } from "@/components/projetos/ConfigurarPlanoCorteDialog";
 import type { StatusTecnico, ResultadoAplicacao } from "@/lib/aplicar-modelo-projeto";
 
@@ -271,6 +272,7 @@ function ProjetoEditor() {
           <TabsTrigger value="compras">Lista de Compras</TabsTrigger>
           <TabsTrigger value="plano">Plano de Corte</TabsTrigger>
           <TabsTrigger value="etiquetas">Etiquetas</TabsTrigger>
+          <TabsTrigger value="almoxarifado">Almoxarifado</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pecas" className="flex-1 overflow-auto p-6 pt-3">
@@ -309,6 +311,10 @@ function ProjetoEditor() {
 
         <TabsContent value="etiquetas" className="flex-1 overflow-auto p-6 pt-3">
           <EtiquetasPlanoTab projetoId={id} />
+        </TabsContent>
+
+        <TabsContent value="almoxarifado" className="flex-1 overflow-auto p-6 pt-3">
+          <AlmoxarifadoSeparacaoTab projetoId={id} />
         </TabsContent>
       </Tabs>
     </div>
