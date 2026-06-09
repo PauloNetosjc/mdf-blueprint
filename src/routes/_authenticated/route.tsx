@@ -55,7 +55,9 @@ function AuthenticatedLayout() {
         {/* min-h-0 + bg-background estável: ao trocar de rota o fundo nunca
             fica branco, mesmo que a página filha demore para montar. */}
         <main className="flex-1 min-h-0 overflow-auto bg-background">
-          <Outlet />
+          <div className="min-h-full bg-background">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
