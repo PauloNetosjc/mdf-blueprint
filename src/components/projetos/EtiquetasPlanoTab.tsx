@@ -172,7 +172,7 @@ export function EtiquetasPlanoTab({ projetoId }: { projetoId: string }) {
       } else {
         const { error } = await supabase
           .from("etiquetas_planos_corte" as never)
-          .insert(({
+          .insert({
             projeto_id: projetoId,
             plano_corte_id: planoAtual.id,
             etiquetas_json: etiquetas_json as any,
