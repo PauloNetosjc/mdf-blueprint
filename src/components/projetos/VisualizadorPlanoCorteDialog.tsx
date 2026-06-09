@@ -348,8 +348,29 @@ export function VisualizadorPlanoCorteDialog({
       if (!p) return;
       let nx = d.startPecaX + dx;
       let ny = d.startPecaY + dy;
-      nx = Math.max(0, Math.min(nx, c.chapa.largura - p.largura));
-      ny = Math.max(0, Math.min(ny, c.chapa.altura - p.altura));
+
+      if (colisaoAtiva) {
+        // Restringe à área útil (margem da borda)
+        const m = cfgMargem.margemBorda;
+        nx = Math.max(m, Math.min(nx, c.chapa.largura - p.largura - m));
+        ny = Math.max(m, Math.min(ny, c.chapa.altura - p.altura - m));
+        const candidato = { ...p, x: nx, y: ny };
+        const r = validarMovimentoComMargem(candidato, c.pecas, c, cfgMargem);
+        if (!r.valido) {
+          setBloqueio({ pecaId: p.id, motivo: r.motivo! });
+          // mantém última posição válida — não atualiza p.x/p.y
+          setPecaSel((cur) => (cur && cur.p.id === p.id ? { ...cur, p: { ...p } } : cur));
+          forceTick((t) => t + 1);
+          return;
+        }
+        setBloqueio(null);
+      } else {
+        // livre dentro dos limites físicos da chapa
+        nx = Math.max(0, Math.min(nx, c.chapa.largura - p.largura));
+        ny = Math.max(0, Math.min(ny, c.chapa.altura - p.altura));
+        setBloqueio(null);
+      }
+
       p.x = nx;
       p.y = ny;
       setPecaSel((cur) => (cur && cur.p.id === p.id ? { ...cur, p: { ...p } } : cur));
