@@ -30,6 +30,7 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
   const qc = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [visualizar, setVisualizar] = useState<PlanoRowVis | null>(null);
 
   const { data: planos, isLoading } = useQuery({
     queryKey: ["planos-corte-list", projetoId],
@@ -166,23 +167,30 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
-                      <Link to="/projetos/$id/plano" params={{ id: projetoId }}>
-                        <Button size="sm" variant="ghost" title="Abrir">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Link to="/projetos/$id/plano" params={{ id: projetoId }}>
-                        <Button size="sm" variant="ghost" title="Editar">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </Link>
                       <Button
-                        size="sm" variant="ghost" title="Duplicar"
-                        onClick={() => duplicar.mutate(p.id)}
-                        disabled={duplicar.isPending}
+                        size="sm" variant="ghost" title="Visualizar plano"
+                        onClick={() => setVisualizar(p)}
                       >
-                        <Copy className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                        size="sm" variant="ghost" title="Visualizar (somente leitura)"
+                        onClick={() => setVisualizar(p)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button size="sm" variant="ghost" title="Duplicar" disabled>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Duplicação em desenvolvimento</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button
                         size="sm" variant="ghost" title="Excluir"
                         onClick={() => setConfirmDel(p.id)}
