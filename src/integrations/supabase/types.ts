@@ -1653,10 +1653,12 @@ export type Database = {
       planos_corte: {
         Row: {
           aproveitamento_medio: number
+          aproveitamento_percentual: number
           created_at: string
           id: string
           observacao: string | null
           origem_importacao: string | null
+          plano_corte_json: Json | null
           projeto_id: string
           status: string
           total_chapas: number
@@ -1666,10 +1668,12 @@ export type Database = {
         }
         Insert: {
           aproveitamento_medio?: number
+          aproveitamento_percentual?: number
           created_at?: string
           id?: string
           observacao?: string | null
           origem_importacao?: string | null
+          plano_corte_json?: Json | null
           projeto_id: string
           status?: string
           total_chapas?: number
@@ -1679,10 +1683,12 @@ export type Database = {
         }
         Update: {
           aproveitamento_medio?: number
+          aproveitamento_percentual?: number
           created_at?: string
           id?: string
           observacao?: string | null
           origem_importacao?: string | null
+          plano_corte_json?: Json | null
           projeto_id?: string
           status?: string
           total_chapas?: number

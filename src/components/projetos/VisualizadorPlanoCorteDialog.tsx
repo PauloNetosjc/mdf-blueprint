@@ -46,9 +46,11 @@ export type PlanoRow = {
   versao: number;
   status: string;
   aproveitamento_medio: number;
+  aproveitamento_percentual?: number | null;
   total_chapas: number;
   total_pecas: number;
   observacao: string | null;
+  plano_corte_json?: PlanoJson | null;
 };
 
 function abreviar(txt: string, limite: number): string {
@@ -104,23 +106,20 @@ export function VisualizadorPlanoCorteDialog({
 
   const parsed: { json: PlanoJson | null; error: string | null } = useMemo(() => {
     if (!plano) return { json: null, error: null };
-    if (!plano.observacao || !plano.observacao.trim().startsWith("{")) {
-      return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
+    const empty = "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar.";
+    let j: PlanoJson | null = null;
+    // Fonte da verdade: plano_corte_json (jsonb). Fallback legado: observacao (texto JSON).
+    if (plano.plano_corte_json && typeof plano.plano_corte_json === "object") {
+      j = plano.plano_corte_json as PlanoJson;
+    } else if (plano.observacao && plano.observacao.trim().startsWith("{")) {
+      try { j = JSON.parse(plano.observacao) as PlanoJson; } catch { j = null; }
     }
-    try {
-      const j = JSON.parse(plano.observacao) as PlanoJson;
-      const chapas = j.plano ?? [];
-      if (chapas.length === 0) {
-        return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-      }
-      const totalPecas = chapas.reduce((s, c) => s + (c.pecas?.length ?? 0), 0);
-      if (totalPecas === 0) {
-        return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-      }
-      return { json: j, error: null };
-    } catch {
-      return { json: null, error: "Plano de corte vazio ou inválido. Gere novamente o plano antes de editar." };
-    }
+    if (!j) return { json: null, error: empty };
+    const chapas = j.plano ?? [];
+    if (chapas.length === 0) return { json: null, error: empty };
+    const totalPecas = chapas.reduce((s, c) => s + (c.pecas?.length ?? 0), 0);
+    if (totalPecas === 0) return { json: null, error: empty };
+    return { json: j, error: null };
   }, [plano]);
 
   // Reset state ao abrir/trocar plano
@@ -188,9 +187,11 @@ export function VisualizadorPlanoCorteDialog({
       const { error } = await supabase
         .from("planos_corte")
         .update({
-          observacao: JSON.stringify(planoEditavel),
+          plano_corte_json: planoEditavel as never,
+          aproveitamento_percentual: aprovPct,
           aproveitamento_medio: aprovPct / 100,
-        })
+          status: "gerado",
+        } as never)
         .eq("id", plano.id);
       if (error) throw error;
     },
@@ -280,7 +281,9 @@ export function VisualizadorPlanoCorteDialog({
   const nome = (planoEditavel?.nome ?? parsed.json?.nome) ?? (plano ? `Plano v${plano.versao}` : "Plano");
   const aprovPctView = planoEditavel?.aproveitamento_percentual != null
     ? Math.round(planoEditavel.aproveitamento_percentual)
-    : (plano ? Math.round((plano.aproveitamento_medio ?? 0) * 100) : 0);
+    : plano?.aproveitamento_percentual != null && plano.aproveitamento_percentual > 0
+      ? Math.round(plano.aproveitamento_percentual)
+      : (plano ? Math.round((plano.aproveitamento_medio ?? 0) * 100) : 0);
 
   const totalChapasView = planoEditavel?.plano?.length ?? plano?.total_chapas ?? 0;
   const totalPecasView = planoEditavel?.plano?.reduce((s, c) => s + c.pecas.length, 0) ?? plano?.total_pecas ?? 0;
