@@ -210,6 +210,12 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
         open={configOpen} onOpenChange={setConfigOpen} projetoId={projetoId}
       />
 
+      <VisualizadorPlanoCorteDialog
+        open={!!visualizar}
+        onOpenChange={(v) => !v && setVisualizar(null)}
+        plano={visualizar}
+      />
+
       <AlertDialog open={!!confirmDel} onOpenChange={(v) => !v && setConfirmDel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
