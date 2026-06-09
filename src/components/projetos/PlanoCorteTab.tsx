@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Scissors, Eye, Pencil, Copy, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ConfigurarPlanoCorteDialog } from "./ConfigurarPlanoCorteDialog";
+import { VisualizadorPlanoCorteDialog, type PlanoRow as PlanoRowVis } from "./VisualizadorPlanoCorteDialog";
 
 type PlanoRow = {
   id: string;
@@ -27,6 +30,7 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
   const qc = useQueryClient();
   const [configOpen, setConfigOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [visualizar, setVisualizar] = useState<PlanoRowVis | null>(null);
 
   const { data: planos, isLoading } = useQuery({
     queryKey: ["planos-corte-list", projetoId],
@@ -40,45 +44,6 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
     },
   });
 
-  const duplicar = useMutation({
-    mutationFn: async (planoId: string) => {
-      const { data: orig, error: e1 } = await supabase
-        .from("planos_corte").select("*").eq("id", planoId).single();
-      if (e1 || !orig) throw e1 ?? new Error("Plano não encontrado");
-      const { data: novo, error: e2 } = await supabase.from("planos_corte").insert({
-        projeto_id: orig.projeto_id,
-        versao: (orig.versao ?? 1) + 1,
-        aproveitamento_medio: orig.aproveitamento_medio,
-        total_chapas: orig.total_chapas,
-        total_pecas: orig.total_pecas,
-        status: "gerado",
-        observacao: orig.observacao,
-      }).select().single();
-      if (e2 || !novo) throw e2;
-      const { data: chapas } = await supabase
-        .from("plano_corte_chapas").select("*").eq("plano_id", planoId);
-      for (const c of chapas ?? []) {
-        const { data: novaChapa, error: e3 } = await supabase.from("plano_corte_chapas").insert({
-          plano_id: novo.id, chapa_id: c.chapa_id, indice: c.indice,
-          aproveitamento: c.aproveitamento, area_usada: c.area_usada,
-        }).select().single();
-        if (e3 || !novaChapa) throw e3;
-        const { data: pecas } = await supabase
-          .from("plano_corte_pecas").select("*").eq("plano_chapa_id", c.id);
-        if (pecas && pecas.length > 0) {
-          await supabase.from("plano_corte_pecas").insert(pecas.map((p) => ({
-            plano_chapa_id: novaChapa.id, projeto_peca_id: p.projeto_peca_id,
-            x: p.x, y: p.y, largura: p.largura, altura: p.altura, rotacionada: p.rotacionada,
-          })));
-        }
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["planos-corte-list", projetoId] });
-      toast.success("Plano duplicado");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const excluir = useMutation({
     mutationFn: async (planoId: string) => {
@@ -163,23 +128,30 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
-                      <Link to="/projetos/$id/plano" params={{ id: projetoId }}>
-                        <Button size="sm" variant="ghost" title="Abrir">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Link to="/projetos/$id/plano" params={{ id: projetoId }}>
-                        <Button size="sm" variant="ghost" title="Editar">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </Link>
                       <Button
-                        size="sm" variant="ghost" title="Duplicar"
-                        onClick={() => duplicar.mutate(p.id)}
-                        disabled={duplicar.isPending}
+                        size="sm" variant="ghost" title="Visualizar plano"
+                        onClick={() => setVisualizar(p)}
                       >
-                        <Copy className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                        size="sm" variant="ghost" title="Visualizar (somente leitura)"
+                        onClick={() => setVisualizar(p)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button size="sm" variant="ghost" title="Duplicar" disabled>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>Duplicação em desenvolvimento</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button
                         size="sm" variant="ghost" title="Excluir"
                         onClick={() => setConfirmDel(p.id)}
@@ -197,6 +169,12 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
 
       <ConfigurarPlanoCorteDialog
         open={configOpen} onOpenChange={setConfigOpen} projetoId={projetoId}
+      />
+
+      <VisualizadorPlanoCorteDialog
+        open={!!visualizar}
+        onOpenChange={(v) => !v && setVisualizar(null)}
+        plano={visualizar}
       />
 
       <AlertDialog open={!!confirmDel} onOpenChange={(v) => !v && setConfirmDel(null)}>
