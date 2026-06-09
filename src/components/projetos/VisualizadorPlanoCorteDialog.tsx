@@ -123,6 +123,8 @@ function pecaForaAreaUtil(p: PecaJson, c: ChapaJson, margem: number): boolean {
 
 type MotivoBloqueio = "fora_da_chapa" | "colisao" | "margem_borda" | "distancia_minima";
 
+const EPS = 0.01;
+
 function validarMovimentoComMargem(
   pecaMovida: PecaJson,
   outrasPecas: PecaJson[],
@@ -134,9 +136,81 @@ function validarMovimentoComMargem(
   for (const o of outrasPecas) {
     if (o.id === pecaMovida.id) continue;
     if (colide(pecaMovida, o)) return { valido: false, motivo: "colisao" };
-    if (colideComMargem(pecaMovida, o, cfg.distanciaMinima)) return { valido: false, motivo: "distancia_minima" };
+    // distância exatamente igual a S é válida; usamos S - EPS para tolerar floats.
+    if (colideComMargem(pecaMovida, o, Math.max(0, cfg.distanciaMinima - EPS))) {
+      return { valido: false, motivo: "distancia_minima" };
+    }
   }
   return { valido: true };
+}
+
+/**
+ * Snap/alinhador: dada uma posição alvo, retorna a posição válida mais próxima
+ * respeitando margem da borda, sobreposição e distância mínima.
+ * O sentido do movimento decide para qual lado encostar quando houver obstáculo.
+ */
+function calcularPosicaoValidaComSnap(
+  peca: PecaJson,
+  alvoX: number,
+  alvoY: number,
+  outras: PecaJson[],
+  chapa: ChapaJson,
+  cfg: { distanciaMinima: number; margemBorda: number },
+  dxSinal: number,
+  dySinal: number,
+): { x: number; y: number } {
+  const m = cfg.margemBorda;
+  const S = cfg.distanciaMinima;
+  const W = chapa.chapa.largura;
+  const H = chapa.chapa.altura;
+
+  let x = Math.max(m, Math.min(alvoX, W - peca.largura - m));
+  let y = Math.max(m, Math.min(alvoY, H - peca.altura - m));
+
+  const resolverX = (curY: number, curX: number): number => {
+    let nx = curX;
+    for (const o of outras) {
+      if (o.id === peca.id) continue;
+      const yLivre = curY + peca.altura + S <= o.y + EPS || curY >= o.y + o.altura + S - EPS;
+      if (yLivre) continue;
+      const left = o.x - peca.largura - S;
+      const right = o.x + o.largura + S;
+      if (nx > left + EPS && nx < right - EPS) {
+        const escolha = dxSinal > 0 ? "left" : dxSinal < 0 ? "right"
+          : Math.abs(nx - left) <= Math.abs(nx - right) ? "left" : "right";
+        nx = escolha === "left" ? left : right;
+      }
+    }
+    return Math.max(m, Math.min(nx, W - peca.largura - m));
+  };
+
+  const resolverY = (curX: number, curY: number): number => {
+    let ny = curY;
+    for (const o of outras) {
+      if (o.id === peca.id) continue;
+      const xLivre = curX + peca.largura + S <= o.x + EPS || curX >= o.x + o.largura + S - EPS;
+      if (xLivre) continue;
+      const top = o.y - peca.altura - S;
+      const bot = o.y + o.altura + S;
+      if (ny > top + EPS && ny < bot - EPS) {
+        const escolha = dySinal > 0 ? "top" : dySinal < 0 ? "bot"
+          : Math.abs(ny - top) <= Math.abs(ny - bot) ? "top" : "bot";
+        ny = escolha === "top" ? top : bot;
+      }
+    }
+    return Math.max(m, Math.min(ny, H - peca.altura - m));
+  };
+
+  if (Math.abs(dxSinal) >= Math.abs(dySinal)) {
+    x = resolverX(y, x);
+    y = resolverY(x, y);
+    x = resolverX(y, x);
+  } else {
+    y = resolverY(x, y);
+    x = resolverX(y, x);
+    y = resolverY(x, y);
+  }
+  return { x, y };
 }
 
 function lerConfigJson(j: PlanoJson | null | undefined): { distanciaMinima: number; margemBorda: number } {
