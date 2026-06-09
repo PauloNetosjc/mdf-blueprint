@@ -332,7 +332,7 @@ export function AlmoxarifadoSeparacaoTab({ projetoId }: { projetoId: string }) {
               {projeto?.cliente ? ` · Cliente: ${projeto.cliente}` : ""}
             </div>
             <div style={{ fontSize: "10pt" }}>
-              <strong>Plano:</strong> {nomePlano(planoAtual)} · Gerado em{" "}
+              <strong>Plano:</strong> {planoAtual ? nomePlano(planoAtual) : "—"} · Gerado em{" "}
               {new Date(almox.gerado_em).toLocaleString()}
             </div>
             <hr style={{ margin: "8pt 0" }} />
