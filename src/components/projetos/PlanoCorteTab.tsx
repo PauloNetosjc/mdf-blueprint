@@ -44,45 +44,6 @@ export function PlanoCorteTab({ projetoId }: { projetoId: string }) {
     },
   });
 
-  const duplicar = useMutation({
-    mutationFn: async (planoId: string) => {
-      const { data: orig, error: e1 } = await supabase
-        .from("planos_corte").select("*").eq("id", planoId).single();
-      if (e1 || !orig) throw e1 ?? new Error("Plano não encontrado");
-      const { data: novo, error: e2 } = await supabase.from("planos_corte").insert({
-        projeto_id: orig.projeto_id,
-        versao: (orig.versao ?? 1) + 1,
-        aproveitamento_medio: orig.aproveitamento_medio,
-        total_chapas: orig.total_chapas,
-        total_pecas: orig.total_pecas,
-        status: "gerado",
-        observacao: orig.observacao,
-      }).select().single();
-      if (e2 || !novo) throw e2;
-      const { data: chapas } = await supabase
-        .from("plano_corte_chapas").select("*").eq("plano_id", planoId);
-      for (const c of chapas ?? []) {
-        const { data: novaChapa, error: e3 } = await supabase.from("plano_corte_chapas").insert({
-          plano_id: novo.id, chapa_id: c.chapa_id, indice: c.indice,
-          aproveitamento: c.aproveitamento, area_usada: c.area_usada,
-        }).select().single();
-        if (e3 || !novaChapa) throw e3;
-        const { data: pecas } = await supabase
-          .from("plano_corte_pecas").select("*").eq("plano_chapa_id", c.id);
-        if (pecas && pecas.length > 0) {
-          await supabase.from("plano_corte_pecas").insert(pecas.map((p) => ({
-            plano_chapa_id: novaChapa.id, projeto_peca_id: p.projeto_peca_id,
-            x: p.x, y: p.y, largura: p.largura, altura: p.altura, rotacionada: p.rotacionada,
-          })));
-        }
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["planos-corte-list", projetoId] });
-      toast.success("Plano duplicado");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const excluir = useMutation({
     mutationFn: async (planoId: string) => {
