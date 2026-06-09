@@ -72,6 +72,16 @@ function colide(a: PecaJson, b: PecaJson): boolean {
   );
 }
 
+// Considera a peça "a" expandida por `gap` em cada lado e verifica overlap com b
+function colideComMargem(a: PecaJson, b: PecaJson, gap: number): boolean {
+  return (
+    a.x - gap < b.x + b.largura &&
+    a.x + a.largura + gap > b.x &&
+    a.y - gap < b.y + b.altura &&
+    a.y + a.altura + gap > b.y
+  );
+}
+
 function pecasComColisaoNaChapa(chapa: ChapaJson): Set<string> {
   const ids = new Set<string>();
   const arr = chapa.pecas;
@@ -85,8 +95,58 @@ function pecasComColisaoNaChapa(chapa: ChapaJson): Set<string> {
   return ids;
 }
 
+function pecasMuitoProximas(chapa: ChapaJson, gap: number): Set<string> {
+  const ids = new Set<string>();
+  const arr = chapa.pecas;
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
+      if (!colide(arr[i], arr[j]) && colideComMargem(arr[i], arr[j], gap)) {
+        ids.add(arr[i].id); ids.add(arr[j].id);
+      }
+    }
+  }
+  return ids;
+}
+
 function pecaForaDaChapa(p: PecaJson, c: ChapaJson): boolean {
   return p.x < 0 || p.y < 0 || p.x + p.largura > c.chapa.largura || p.y + p.altura > c.chapa.altura;
+}
+
+function pecaForaAreaUtil(p: PecaJson, c: ChapaJson, margem: number): boolean {
+  return (
+    p.x < margem ||
+    p.y < margem ||
+    p.x + p.largura > c.chapa.largura - margem ||
+    p.y + p.altura > c.chapa.altura - margem
+  );
+}
+
+type MotivoBloqueio = "fora_da_chapa" | "colisao" | "margem_borda" | "distancia_minima";
+
+function validarMovimentoComMargem(
+  pecaMovida: PecaJson,
+  outrasPecas: PecaJson[],
+  chapa: ChapaJson,
+  cfg: { distanciaMinima: number; margemBorda: number },
+): { valido: boolean; motivo?: MotivoBloqueio } {
+  if (pecaForaDaChapa(pecaMovida, chapa)) return { valido: false, motivo: "fora_da_chapa" };
+  if (pecaForaAreaUtil(pecaMovida, chapa, cfg.margemBorda)) return { valido: false, motivo: "margem_borda" };
+  for (const o of outrasPecas) {
+    if (o.id === pecaMovida.id) continue;
+    if (colide(pecaMovida, o)) return { valido: false, motivo: "colisao" };
+    if (colideComMargem(pecaMovida, o, cfg.distanciaMinima)) return { valido: false, motivo: "distancia_minima" };
+  }
+  return { valido: true };
+}
+
+function lerConfigJson(j: PlanoJson | null | undefined): { distanciaMinima: number; margemBorda: number } {
+  const cfg = (j?.configuracao ?? {}) as Record<string, unknown>;
+  const esp = Number(cfg.espacamento);
+  const mar = Number(cfg.margem);
+  return {
+    distanciaMinima: Number.isFinite(esp) && esp >= 0 ? esp : 6,
+    margemBorda: Number.isFinite(mar) && mar >= 0 ? mar : 10,
+  };
 }
 
 export function VisualizadorPlanoCorteDialog({
