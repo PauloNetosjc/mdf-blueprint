@@ -615,7 +615,8 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function ChapaSvg({
-  chapa, numero, aprovChapa, onPecaMouseDown, selecionadaId, colisaoIds, modoEdicao,
+  chapa, numero, aprovChapa, onPecaMouseDown, selecionadaId, colisaoIds, proximidadeIds,
+  modoEdicao, mostrarAreaUtil, margemBorda,
 }: {
   chapa: ChapaJson;
   numero: number;
@@ -623,7 +624,10 @@ function ChapaSvg({
   onPecaMouseDown: (e: React.MouseEvent<SVGGElement>, p: PecaJson) => void;
   selecionadaId: string | null;
   colisaoIds: Set<string>;
+  proximidadeIds: Set<string>;
   modoEdicao: boolean;
+  mostrarAreaUtil: boolean;
+  margemBorda: number;
 }) {
   const { largura, altura, espessura, nome } = chapa.chapa;
   return (
@@ -643,6 +647,16 @@ function ChapaSvg({
           className="block h-auto w-full select-none"
         >
           <rect x={0} y={0} width={largura} height={altura} fill="#f6efe0" />
+          {mostrarAreaUtil && margemBorda > 0 && (
+            <rect
+              x={margemBorda} y={margemBorda}
+              width={Math.max(0, largura - margemBorda * 2)}
+              height={Math.max(0, altura - margemBorda * 2)}
+              fill="none" stroke="#8a7a55" strokeWidth={1.5}
+              strokeDasharray="14 10"
+              pointerEvents="none"
+            />
+          )}
           {chapa.pecas.map((p) => {
             const menorDim = Math.min(p.largura, p.altura);
             const fontCentro = Math.max(18, Math.min(menorDim * 0.12, 80));
@@ -657,9 +671,16 @@ function ChapaSvg({
             const indexLabel = p.quantidade_index != null ? `#${p.quantidade_index}` : "";
             const selecionada = selecionadaId === p.id;
             const colide = colisaoIds.has(p.id);
-            const stroke = colide ? "#dc2626" : selecionada ? "#2563eb" : "#3b6e8f";
-            const strokeW = colide || selecionada ? 4 : 2;
-            const fill = colide ? "#fee2e2" : "#ffffff";
+            const proxima = proximidadeIds.has(p.id);
+            const stroke = colide
+              ? "#dc2626"
+              : proxima
+                ? "#f59e0b"
+                : selecionada
+                  ? "#2563eb"
+                  : "#3b6e8f";
+            const strokeW = colide || selecionada || proxima ? 4 : 2;
+            const fill = colide ? "#fee2e2" : proxima ? "#fef3c7" : "#ffffff";
 
             return (
               <g
