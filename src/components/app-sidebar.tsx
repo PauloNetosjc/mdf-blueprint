@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
@@ -30,7 +31,7 @@ const items = [
   { to: "/comparador", label: "Comparador CNC", icon: GitCompare },
 ];
 
-export function AppSidebar() {
+function AppSidebarInner() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
 
@@ -80,3 +81,7 @@ export function AppSidebar() {
     </aside>
   );
 }
+
+// Memoizado — sidebar não depende de nada além de pathname (lido por hook
+// interno). Evita re-renderização causada por re-renders de pais.
+export const AppSidebar = memo(AppSidebarInner);

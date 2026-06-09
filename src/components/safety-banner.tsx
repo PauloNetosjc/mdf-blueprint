@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { AlertTriangle } from "lucide-react";
 
-export function SafetyBanner() {
+function SafetyBannerInner() {
   return (
     <div className="flex items-start gap-2 border-b border-warning/40 bg-warning/15 px-4 py-2 text-[12px] leading-relaxed text-warning-foreground">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
@@ -13,3 +14,7 @@ export function SafetyBanner() {
     </div>
   );
 }
+
+// Memoizado — não depende de rota nem de props, não precisa re-renderizar
+// a cada navegação. Mantém o topo estável entre trocas de tela.
+export const SafetyBanner = memo(SafetyBannerInner);
