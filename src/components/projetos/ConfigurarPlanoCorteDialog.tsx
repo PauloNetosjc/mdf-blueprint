@@ -125,6 +125,7 @@ export function ConfigurarPlanoCorteDialog({
 
       const fallbackId = chapasParaCalc[0].id;
 
+      // Forçar todas as peças à chapa escolhida na configuração (1 chapa por plano nesta fase)
       const input: PecaInput[] = validas.map((p) => ({
         id: p.id,
         descricao: p.descricao,
@@ -132,7 +133,7 @@ export function ConfigurarPlanoCorteDialog({
         largura: Number(p.largura),
         altura: Number(p.altura),
         espessura: Number(p.espessura),
-        chapa_id: p.chapa_id ?? fallbackId,
+        chapa_id: fallbackId,
         quantidade: Number(p.quantidade) || 1,
         permite_rotacao_peca: !p.veio,
       }));
@@ -141,6 +142,14 @@ export function ConfigurarPlanoCorteDialog({
       const resultado = calcularPlanoCorte(input, chapasParaCalc, {
         margem, espacamento, permitir_rotacao: permitirRotacao && !possuiVeio,
       });
+
+      // 4.1) validar resultado — não salvar plano vazio
+      if (resultado.chapas.length === 0 || resultado.total_pecas === 0) {
+        const motivos = resultado.pecas_nao_encaixadas.slice(0, 3).map((p) => `• ${p.descricao}: ${p.motivo}`).join("\n");
+        throw new Error(
+          `Não foi possível gerar plano de corte: nenhuma peça foi posicionada.${motivos ? `\n${motivos}` : ""}`,
+        );
+      }
 
       // 5) descobrir próxima versão
       const { data: ultimo } = await supabase
