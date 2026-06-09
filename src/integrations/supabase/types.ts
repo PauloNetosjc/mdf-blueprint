@@ -98,6 +98,54 @@ export type Database = {
         }
         Relationships: []
       }
+      almoxarifado_separacoes: {
+        Row: {
+          almoxarifado_json: Json
+          atualizado_em: string
+          criado_em: string
+          id: string
+          plano_corte_id: string
+          projeto_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          almoxarifado_json?: Json
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          plano_corte_id: string
+          projeto_id: string
+          status?: string
+          user_id?: string
+        }
+        Update: {
+          almoxarifado_json?: Json
+          atualizado_em?: string
+          criado_em?: string
+          id?: string
+          plano_corte_id?: string
+          projeto_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "almoxarifado_separacoes_plano_corte_id_fkey"
+            columns: ["plano_corte_id"]
+            isOneToOne: false
+            referencedRelation: "planos_corte"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almoxarifado_separacoes_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arquivos_importados: {
         Row: {
           created_at: string
