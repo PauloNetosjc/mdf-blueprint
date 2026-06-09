@@ -187,9 +187,11 @@ export function VisualizadorPlanoCorteDialog({
       const { error } = await supabase
         .from("planos_corte")
         .update({
-          observacao: JSON.stringify(planoEditavel),
+          plano_corte_json: planoEditavel as never,
+          aproveitamento_percentual: aprovPct,
           aproveitamento_medio: aprovPct / 100,
-        })
+          status: "gerado",
+        } as never)
         .eq("id", plano.id);
       if (error) throw error;
     },
