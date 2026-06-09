@@ -159,6 +159,8 @@ export function VisualizadorPlanoCorteDialog({
   const qc = useQueryClient();
   const [pecaSel, setPecaSel] = useState<{ p: PecaJson; chapaNum: number; chapaNome: string } | null>(null);
   const [modoEdicaoManual, setModoEdicaoManual] = useState(false);
+  const [colisaoAtiva, setColisaoAtiva] = useState(true);
+  const [bloqueio, setBloqueio] = useState<{ pecaId: string; motivo: MotivoBloqueio } | null>(null);
   const [planoEditavel, setPlanoEditavel] = useState<PlanoJson | null>(null);
   const [planoOriginal, setPlanoOriginal] = useState<PlanoJson | null>(null);
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false);
