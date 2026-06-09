@@ -191,6 +191,8 @@ export function VisualizadorPlanoCorteDialog({
       setPlanoEditavel(deepCopy(parsed.json));
       setAlteracoesPendentes(false);
       setModoEdicaoManual(false);
+      setColisaoAtiva(true);
+      setBloqueio(null);
       setPecaSel(null);
     }
     if (!open) {
@@ -198,9 +200,13 @@ export function VisualizadorPlanoCorteDialog({
       setPlanoEditavel(null);
       setAlteracoesPendentes(false);
       setModoEdicaoManual(false);
+      setColisaoAtiva(true);
+      setBloqueio(null);
       setPecaSel(null);
     }
   }, [open, parsed.json]);
+
+  const cfgMargem = useMemo(() => lerConfigJson(planoEditavel ?? parsed.json), [planoEditavel, parsed.json]);
 
   const colisoesPorChapa = useMemo(() => {
     const m = new Map<number, Set<string>>();
